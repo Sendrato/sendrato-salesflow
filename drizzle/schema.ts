@@ -1,26 +1,115 @@
 import {
-  int,
-  mysqlEnum,
-  mysqlTable,
+  integer,
+  pgEnum,
+  pgTable,
   text,
   timestamp,
   varchar,
   json,
-  float,
+  real,
   boolean,
   bigint,
-} from "drizzle-orm/mysql-core";
+  serial,
+  vector,
+} from "drizzle-orm/pg-core";
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+export const roleEnum = pgEnum("role", ["user", "admin"]);
+
+export const leadStatusEnum = pgEnum("lead_status", [
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "won",
+  "lost",
+  "on_hold",
+]);
+
+export const leadPriorityEnum = pgEnum("lead_priority", [
+  "low",
+  "medium",
+  "high",
+]);
+
+export const leadTypeEnum = pgEnum("lead_type", [
+  "default",
+  "event",
+  "festival",
+  "conference",
+  "hospitality",
+  "saas",
+  "retail",
+]);
+
+export const contactMomentTypeEnum = pgEnum("contact_moment_type", [
+  "email",
+  "phone",
+  "meeting",
+  "linkedin",
+  "slack",
+  "demo",
+  "proposal",
+  "other",
+]);
+
+export const contactDirectionEnum = pgEnum("contact_direction", [
+  "inbound",
+  "outbound",
+]);
+
+export const contactOutcomeEnum = pgEnum("contact_outcome", [
+  "positive",
+  "neutral",
+  "negative",
+  "no_response",
+]);
+
+export const documentCategoryEnum = pgEnum("document_category", [
+  "proposal",
+  "contract",
+  "presentation",
+  "report",
+  "other",
+]);
+
+export const personTypeEnum = pgEnum("person_type", [
+  "prospect",
+  "contact",
+  "partner",
+  "reseller",
+  "influencer",
+  "investor",
+  "other",
+]);
+
+export const relationshipEnum = pgEnum("relationship", [
+  "contact_at",
+  "introduced_by",
+  "decision_maker",
+  "champion",
+  "partner",
+  "other",
+]);
+
+export const emailIngestStatusEnum = pgEnum("email_ingest_status", [
+  "matched",
+  "unmatched",
+  "error",
+]);
 
 // ─── Users ───────────────────────────────────────────────────────────────────
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+  role: roleEnum("role").default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
 });
 
@@ -28,8 +117,8 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
 // ─── Leads ───────────────────────────────────────────────────────────────────
-export const leads = mysqlTable("leads", {
-  id: int("id").autoincrement().primaryKey(),
+export const leads = pgTable("leads", {
+  id: serial("id").primaryKey(),
   // Company info
   companyName: varchar("companyName", { length: 255 }).notNull(),
   website: varchar("website", { length: 512 }),
@@ -42,22 +131,11 @@ export const leads = mysqlTable("leads", {
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 64 }),
   // CRM fields
-  status: mysqlEnum("status", [
-    "new",
-    "contacted",
-    "qualified",
-    "proposal",
-    "negotiation",
-    "won",
-    "lost",
-    "on_hold",
-  ])
-    .default("new")
-    .notNull(),
-  priority: mysqlEnum("priority", ["low", "medium", "high"]).default("medium").notNull(),
-  source: varchar("source", { length: 128 }), // excel_import, manual, slack, email, etc.
-  assignedTo: int("assignedTo"), // user id
-  estimatedValue: float("estimatedValue"),
+  status: leadStatusEnum("status").default("new").notNull(),
+  priority: leadPriorityEnum("priority").default("medium").notNull(),
+  source: varchar("source", { length: 128 }),
+  assignedTo: integer("assignedTo"),
+  estimatedValue: real("estimatedValue"),
   currency: varchar("currency", { length: 8 }).default("USD"),
   // Rich text fields from spreadsheet
   socialMedia: text("socialMedia"),
@@ -73,30 +151,19 @@ export const leads = mysqlTable("leads", {
   surveyStatus: varchar("surveyStatus", { length: 255 }),
   notes: text("notes"),
   // Lead type for flexible attribute schemas
-  leadType: mysqlEnum("leadType", [
-    "default",
-    "event",
-    "festival",
-    "conference",
-    "hospitality",
-    "saas",
-    "retail",
-  ]).default("default").notNull(),
-  // Flexible JSON attributes — schema depends on leadType
-  // For event/festival: { visitorCount, eventDurationDays, typicalDates, region, hotelNeedScore, revenueEngineFit, venueCapacity, eventCategory, ticketPriceRange }
-  // For conference: { attendeeCount, eventDurationDays, typicalDates, region, sponsorshipTiers, speakerCount }
+  leadType: leadTypeEnum("leadType").default("default").notNull(),
   leadAttributes: json("leadAttributes").$type<Record<string, unknown>>(),
   // AI enrichment
-  enrichmentData: json("enrichmentData"), // LLM-generated insights
+  enrichmentData: json("enrichmentData"),
   enrichedAt: timestamp("enrichedAt"),
   // Tags stored as JSON array of strings
   tags: json("tags").$type<string[]>(),
   // Priority score (0-100, computed from activity + recency + opportunity)
-  priorityScore: int("priorityScore").default(0),
+  priorityScore: integer("priorityScore").default(0),
   // Timestamps
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-  createdBy: int("createdBy"),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  createdBy: integer("createdBy"),
   lastContactedAt: timestamp("lastContactedAt"),
   nextFollowUpAt: timestamp("nextFollowUpAt"),
 });
@@ -105,40 +172,26 @@ export type Lead = typeof leads.$inferSelect;
 export type InsertLead = typeof leads.$inferInsert;
 
 // ─── Contact Moments ─────────────────────────────────────────────────────────
-export const contactMoments = mysqlTable("contact_moments", {
-  id: int("id").autoincrement().primaryKey(),
-  leadId: int("leadId").notNull(),
-  type: mysqlEnum("type", [
-    "email",
-    "phone",
-    "meeting",
-    "linkedin",
-    "slack",
-    "demo",
-    "proposal",
-    "other",
-  ]).notNull(),
-  direction: mysqlEnum("direction", ["inbound", "outbound"]).default("outbound"),
+export const contactMoments = pgTable("contact_moments", {
+  id: serial("id").primaryKey(),
+  leadId: integer("leadId").notNull(),
+  type: contactMomentTypeEnum("type").notNull(),
+  direction: contactDirectionEnum("direction").default("outbound"),
   subject: varchar("subject", { length: 512 }),
   notes: text("notes"),
-  outcome: mysqlEnum("outcome", [
-    "positive",
-    "neutral",
-    "negative",
-    "no_response",
-  ]).default("neutral"),
+  outcome: contactOutcomeEnum("outcome").default("neutral"),
   // For email ingestion
   emailFrom: varchar("emailFrom", { length: 320 }),
   emailTo: varchar("emailTo", { length: 1024 }),
   emailRaw: text("emailRaw"),
   // Person link (optional — moment can be against a person, a lead, or both)
-  personId: int("personId"),
+  personId: integer("personId"),
   // Source tracking
-  source: varchar("source", { length: 64 }).default("manual"), // manual, email_ingest, slack
-  userId: int("userId"),
+  source: varchar("source", { length: 64 }).default("manual"),
+  userId: integer("userId"),
   occurredAt: timestamp("occurredAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   // Follow-up scheduling
   followUpAt: timestamp("followUpAt"),
   followUpDone: boolean("followUpDone").default(false),
@@ -148,22 +201,16 @@ export type ContactMoment = typeof contactMoments.$inferSelect;
 export type InsertContactMoment = typeof contactMoments.$inferInsert;
 
 // ─── Lead Documents ───────────────────────────────────────────────────────────
-export const leadDocuments = mysqlTable("lead_documents", {
-  id: int("id").autoincrement().primaryKey(),
-  leadId: int("leadId").notNull(),
+export const leadDocuments = pgTable("lead_documents", {
+  id: serial("id").primaryKey(),
+  leadId: integer("leadId").notNull(),
   fileName: varchar("fileName", { length: 512 }).notNull(),
   fileKey: varchar("fileKey", { length: 1024 }).notNull(),
   fileUrl: text("fileUrl").notNull(),
   mimeType: varchar("mimeType", { length: 128 }),
   fileSize: bigint("fileSize", { mode: "number" }),
-  category: mysqlEnum("category", [
-    "proposal",
-    "contract",
-    "presentation",
-    "report",
-    "other",
-  ]).default("other"),
-  uploadedBy: int("uploadedBy"),
+  category: documentCategoryEnum("category").default("other"),
+  uploadedBy: integer("uploadedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -171,14 +218,14 @@ export type LeadDocument = typeof leadDocuments.$inferSelect;
 export type InsertLeadDocument = typeof leadDocuments.$inferInsert;
 
 // ─── Document Chunks (RAG) ────────────────────────────────────────────────────
-export const documentChunks = mysqlTable("document_chunks", {
-  id: int("id").autoincrement().primaryKey(),
-  documentId: int("documentId").notNull(),
-  leadId: int("leadId").notNull(),
-  chunkIndex: int("chunkIndex").notNull(),
+export const documentChunks = pgTable("document_chunks", {
+  id: serial("id").primaryKey(),
+  documentId: integer("documentId").notNull(),
+  leadId: integer("leadId").notNull(),
+  chunkIndex: integer("chunkIndex").notNull(),
   textContent: text("textContent").notNull(),
-  // metadata for display
-  pageNumber: int("pageNumber"),
+  embedding: vector("embedding", { dimensions: 1536 }),
+  pageNumber: integer("pageNumber"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -186,21 +233,17 @@ export type DocumentChunk = typeof documentChunks.$inferSelect;
 export type InsertDocumentChunk = typeof documentChunks.$inferInsert;
 
 // ─── Shareable Presentations ──────────────────────────────────────────────────
-export const shareablePresentations = mysqlTable("shareable_presentations", {
-  id: int("id").autoincrement().primaryKey(),
-  documentId: int("documentId").notNull(),
-  leadId: int("leadId").notNull(),
+export const shareablePresentations = pgTable("shareable_presentations", {
+  id: serial("id").primaryKey(),
+  documentId: integer("documentId").notNull(),
+  leadId: integer("leadId").notNull(),
   token: varchar("token", { length: 64 }).notNull().unique(),
   title: varchar("title", { length: 512 }),
-  // optional password protection
   passwordHash: varchar("passwordHash", { length: 255 }),
-  // expiry
   expiresAt: timestamp("expiresAt"),
-  // tracking
-  viewCount: int("viewCount").default(0),
+  viewCount: integer("viewCount").default(0),
   lastViewedAt: timestamp("lastViewedAt"),
-  // who created it
-  createdBy: int("createdBy"),
+  createdBy: integer("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   isActive: boolean("isActive").default(true),
 });
@@ -209,73 +252,49 @@ export type ShareablePresentation = typeof shareablePresentations.$inferSelect;
 export type InsertShareablePresentation = typeof shareablePresentations.$inferInsert;
 
 // ─── Lead Embeddings (Vector DB) ─────────────────────────────────────────────
-export const leadEmbeddings = mysqlTable("lead_embeddings", {
-  id: int("id").autoincrement().primaryKey(),
-  leadId: int("leadId").notNull().unique(),
-  // Store embedding as JSON array of floats (1536 dims for text-embedding-3-small)
-  embedding: json("embedding").$type<number[]>(),
-  textContent: text("textContent"), // the text that was embedded
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+export const leadEmbeddings = pgTable("lead_embeddings", {
+  id: serial("id").primaryKey(),
+  leadId: integer("leadId").notNull().unique(),
+  embedding: vector("embedding", { dimensions: 1536 }),
+  textContent: text("textContent"),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type LeadEmbedding = typeof leadEmbeddings.$inferSelect;
 export type InsertLeadEmbedding = typeof leadEmbeddings.$inferInsert;
 
 // ─── Persons ─────────────────────────────────────────────────────────────────
-export const persons = mysqlTable("persons", {
-  id: int("id").autoincrement().primaryKey(),
-  // Core identity
+export const persons = pgTable("persons", {
+  id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 64 }),
   linkedInUrl: varchar("linkedInUrl", { length: 512 }),
-  // Role / type in our network
-  personType: mysqlEnum("personType", [
-    "prospect",    // potential customer we haven't qualified yet
-    "contact",     // known contact at a company/event
-    "partner",     // formal or informal business partner
-    "reseller",    // resells our product/service
-    "influencer",  // can introduce us to others
-    "investor",
-    "other",
-  ]).default("prospect").notNull(),
-  // Current affiliation (free text — may not match a lead yet)
+  personType: personTypeEnum("personType").default("prospect").notNull(),
   company: varchar("company", { length: 255 }),
   title: varchar("title", { length: 255 }),
-  // Rich info
   notes: text("notes"),
   tags: json("tags").$type<string[]>(),
-  source: varchar("source", { length: 128 }).default("manual"), // linkedin, manual, import, etc.
-  // Social
+  source: varchar("source", { length: 128 }).default("manual"),
   twitterUrl: varchar("twitterUrl", { length: 512 }),
-  // AI enrichment
   enrichmentData: json("enrichmentData"),
   enrichedAt: timestamp("enrichedAt"),
-  // Tracking
   lastContactedAt: timestamp("lastContactedAt"),
   nextFollowUpAt: timestamp("nextFollowUpAt"),
-  createdBy: int("createdBy"),
+  createdBy: integer("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Person = typeof persons.$inferSelect;
 export type InsertPerson = typeof persons.$inferInsert;
 
 // ─── Person ↔ Lead Links ──────────────────────────────────────────────────────
-export const personLeadLinks = mysqlTable("person_lead_links", {
-  id: int("id").autoincrement().primaryKey(),
-  personId: int("personId").notNull(),
-  leadId: int("leadId").notNull(),
-  // How this person relates to the lead/company
-  relationship: mysqlEnum("relationship", [
-    "contact_at",    // works at this company/event
-    "introduced_by", // introduced us to this lead
-    "decision_maker",
-    "champion",      // internal advocate
-    "partner",
-    "other",
-  ]).default("contact_at").notNull(),
+export const personLeadLinks = pgTable("person_lead_links", {
+  id: serial("id").primaryKey(),
+  personId: integer("personId").notNull(),
+  leadId: integer("leadId").notNull(),
+  relationship: relationshipEnum("relationship").default("contact_at").notNull(),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -284,24 +303,24 @@ export type PersonLeadLink = typeof personLeadLinks.$inferSelect;
 export type InsertPersonLeadLink = typeof personLeadLinks.$inferInsert;
 
 // ─── Email Ingest Log ─────────────────────────────────────────────────────────
-export const emailIngestLog = mysqlTable("email_ingest_log", {
-  id: int("id").autoincrement().primaryKey(),
+export const emailIngestLog = pgTable("email_ingest_log", {
+  id: serial("id").primaryKey(),
   rawPayload: text("rawPayload"),
   parsedFrom: varchar("parsedFrom", { length: 320 }),
   parsedTo: text("parsedTo"),
   parsedSubject: varchar("parsedSubject", { length: 512 }),
-  matchedLeadId: int("matchedLeadId"),
-  status: mysqlEnum("status", ["matched", "unmatched", "error"]).default("unmatched"),
+  matchedLeadId: integer("matchedLeadId"),
+  status: emailIngestStatusEnum("status").default("unmatched"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type EmailIngestLog = typeof emailIngestLog.$inferSelect;
 
 // ─── App Settings (LLM config, etc.) ─────────────────────────────────────────
-export const appSettings = mysqlTable("app_settings", {
-  id: int("id").autoincrement().primaryKey(),
+export const appSettings = pgTable("app_settings", {
+  id: serial("id").primaryKey(),
   key: varchar("key", { length: 128 }).notNull().unique(),
   value: text("value"),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type AppSetting = typeof appSettings.$inferSelect;

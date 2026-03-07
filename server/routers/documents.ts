@@ -1,36 +1,28 @@
 import { z } from "zod/v4";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { getLeadDocuments, createLeadDocument, deleteLeadDocument } from "../db";
-import mysql from "mysql2/promise";
-
-let _rawDb: mysql.Connection | null = null;
-async function getRawDb(): Promise<mysql.Connection | null> {
-  if (_rawDb) { try { await _rawDb.ping(); return _rawDb; } catch { _rawDb = null; } }
-  if (!process.env.DATABASE_URL) return null;
-  try { _rawDb = await mysql.createConnection(process.env.DATABASE_URL); return _rawDb; } catch { return null; }
-}
+import { getLeadDocuments, createLeadDocument, deleteLeadDocument, getRawPool } from "../db";
 
 export const documentsRouter = router({
   list: publicProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input }) => {
       const docs = await getLeadDocuments(input.leadId);
-      const db = await getRawDb();
-      if (!db) return docs;
+      const pool = await getRawPool();
+      if (!pool) return docs;
       // Attach chunk count and share count for each doc
       const enriched = await Promise.all(docs.map(async (doc) => {
-        const [chunkRows] = await db.execute(
-          "SELECT COUNT(*) as cnt FROM document_chunks WHERE documentId = ?",
+        const chunkResult = await pool.query(
+          'SELECT COUNT(*) as cnt FROM document_chunks WHERE "documentId" = $1',
           [doc.id]
-        ) as any[];
-        const [shareRows] = await db.execute(
-          "SELECT COUNT(*) as cnt FROM shareable_presentations WHERE documentId = ? AND isActive = TRUE",
+        );
+        const shareResult = await pool.query(
+          'SELECT COUNT(*) as cnt FROM shareable_presentations WHERE "documentId" = $1 AND "isActive" = TRUE',
           [doc.id]
-        ) as any[];
+        );
         return {
           ...doc,
-          chunkCount: Number((chunkRows as any[])[0]?.cnt ?? 0),
-          shareCount: Number((shareRows as any[])[0]?.cnt ?? 0),
+          chunkCount: Number(chunkResult.rows[0]?.cnt ?? 0),
+          shareCount: Number(shareResult.rows[0]?.cnt ?? 0),
         };
       }));
       return enriched;
@@ -58,10 +50,10 @@ export const documentsRouter = router({
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
-      const db = await getRawDb();
-      if (db) {
-        await db.execute("DELETE FROM document_chunks WHERE documentId = ?", [input.id]);
-        await db.execute("UPDATE shareable_presentations SET isActive = FALSE WHERE documentId = ?", [input.id]);
+      const pool = await getRawPool();
+      if (pool) {
+        await pool.query('DELETE FROM document_chunks WHERE "documentId" = $1', [input.id]);
+        await pool.query('UPDATE shareable_presentations SET "isActive" = FALSE WHERE "documentId" = $1', [input.id]);
       }
       await deleteLeadDocument(input.id);
       return { success: true };
@@ -70,23 +62,23 @@ export const documentsRouter = router({
   listShares: publicProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input }) => {
-      const db = await getRawDb();
-      if (!db) return [];
-      const [rows] = await db.execute(
-        `SELECT sp.*, ld.fileName, ld.mimeType
+      const pool = await getRawPool();
+      if (!pool) return [];
+      const { rows } = await pool.query(
+        `SELECT sp.*, ld."fileName", ld."mimeType"
          FROM shareable_presentations sp
-         JOIN lead_documents ld ON ld.id = sp.documentId
-         WHERE sp.leadId = ? ORDER BY sp.createdAt DESC`,
+         JOIN lead_documents ld ON ld.id = sp."documentId"
+         WHERE sp."leadId" = $1 ORDER BY sp."createdAt" DESC`,
         [input.leadId]
-      ) as any[];
+      );
       return rows as any[];
     }),
 
   deactivateShare: protectedProcedure
     .input(z.object({ token: z.string() }))
     .mutation(async ({ input }) => {
-      const db = await getRawDb();
-      if (db) await db.execute("UPDATE shareable_presentations SET isActive = FALSE WHERE token = ?", [input.token]);
+      const pool = await getRawPool();
+      if (pool) await pool.query('UPDATE shareable_presentations SET "isActive" = FALSE WHERE token = $1', [input.token]);
       return { success: true };
     }),
 });

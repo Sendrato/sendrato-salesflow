@@ -16,22 +16,15 @@ import {
   bulkInsertLeads,
   getLeadById,
   updateLead,
+  getRawPool,
 } from "./db";
 import { enrichLeadFromWeb } from "./enrichmentEngine";
 import { storagePut } from "./storage";
 import { indexLead } from "./crmChat";
 import { indexDocument, computePriorityScore, updateAllPriorityScores } from "./documentRag";
 import { nanoid } from "nanoid";
-import mysql from "mysql2/promise";
 import { generateText } from "ai";
 import { getLLMProvider } from "./llmProvider";
-
-let _rawDb: mysql.Connection | null = null;
-async function getRawDb(): Promise<mysql.Connection | null> {
-  if (_rawDb) { try { await _rawDb.ping(); return _rawDb; } catch { _rawDb = null; } }
-  if (!process.env.DATABASE_URL) return null;
-  try { _rawDb = await mysql.createConnection(process.env.DATABASE_URL); return _rawDb; } catch { return null; }
-}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -41,16 +34,6 @@ export function registerIntegrationRoutes(app: Express) {
    * POST /api/email-ingest
    * Accepts a JSON payload from an email forwarding service (e.g. SendGrid Inbound Parse,
    * Postmark, Mailgun). Parses the email and creates a contact moment for the matching lead.
-   *
-   * Expected body:
-   * {
-   *   from: "sender@example.com",
-   *   to: "crm-cc@yourdomain.com",
-   *   subject: "Re: Proposal for Arizona State Fair",
-   *   text: "...",
-   *   html: "...",
-   *   headers: {}
-   * }
    */
   app.post("/api/email-ingest", async (req: Request, res: Response) => {
     try {
@@ -118,12 +101,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/slack-webhook
-   * Handles Slack slash commands or event webhooks.
-   *
-   * Supported commands:
-   * /crm-lead <company> | <contact> | <email>  — Create a new lead
-   * /crm-note <company_name> | <note text>      — Log a contact moment
-   * /crm-search <query>                          — Search leads
    */
   app.post("/api/slack-webhook", async (req: Request, res: Response) => {
     try {
@@ -142,7 +119,6 @@ export function registerIntegrationRoutes(app: Express) {
       let responseText = "";
 
       if (command === "/crm-lead" || text.startsWith("lead ")) {
-        // Parse: company | contact | email
         const parts = text.replace(/^lead\s+/, "").split("|").map((s: string) => s.trim());
         const [companyName, contactPerson, email] = parts;
 
@@ -158,12 +134,10 @@ export function registerIntegrationRoutes(app: Express) {
             priority: "medium",
             notes: `Created via Slack by ${userName}`,
           });
-          // Index the new lead
           if (lead) await indexLead(lead as unknown as Record<string, unknown>);
           responseText = `✅ Lead created: *${companyName}*${contactPerson ? ` (${contactPerson})` : ""} — ID: ${lead?.id}`;
         }
       } else if (command === "/crm-note" || text.startsWith("note ")) {
-        // Parse: company name | note text
         const parts = text.replace(/^note\s+/, "").split("|").map((s: string) => s.trim());
         const [companyQuery, noteText] = parts;
 
@@ -199,7 +173,6 @@ export function registerIntegrationRoutes(app: Express) {
         responseText = `Available commands:\n• \`/crm-lead Company | Contact | Email\` — Create lead\n• \`/crm-note Company | Note\` — Log interaction\n• \`/crm-search Query\` — Search leads`;
       }
 
-      // Respond to Slack
       res.json({
         response_type: "in_channel",
         text: responseText,
@@ -212,8 +185,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/import
-   * Accepts Excel (.xlsx) or CSV file upload and bulk-imports leads.
-   * Supports column mapping via a `mapping` JSON field in the form data.
    */
   app.post("/api/import", upload.single("file"), async (req: Request, res: Response) => {
     try {
@@ -235,7 +206,6 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
-      // Apply column mapping or use auto-detection
       const defaultMapping: Record<string, string> = {
         "company name": "companyName",
         company: "companyName",
@@ -274,7 +244,6 @@ export function registerIntegrationRoutes(app: Express) {
 
       const leadsToInsert = rows
         .filter((row) => {
-          // Must have at least a company name
           const hasCompany = Object.entries(row).some(([k, v]) => {
             const normalized = k.toLowerCase().trim();
             return (effectiveMapping[normalized] === "companyName" || normalized.includes("company")) && v;
@@ -290,9 +259,7 @@ export function registerIntegrationRoutes(app: Express) {
               lead[mappedField] = String(value);
             }
           }
-          // Ensure required field
           if (!lead.companyName) {
-            // Try first non-empty string value as company name
             const firstVal = Object.values(row).find((v) => v && typeof v === "string");
             if (firstVal) lead.companyName = String(firstVal);
           }
@@ -325,8 +292,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/upload-document
-   * Accepts a file upload (PDF/HTML/Excel/Word), stores in S3, saves metadata,
-   * and triggers RAG indexing of the document content.
    */
   app.post("/api/upload-document", upload.single("file"), async (req: Request, res: Response) => {
     try {
@@ -343,15 +308,15 @@ export function registerIntegrationRoutes(app: Express) {
       const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
 
       // Save document record to DB
-      const db = await getRawDb();
-      if (!db) throw new Error("No DB connection");
+      const pool = await getRawPool();
+      if (!pool) throw new Error("No DB connection");
 
-      const [result] = await db.execute(
-        `INSERT INTO lead_documents (leadId, fileName, fileKey, fileUrl, mimeType, fileSize, category, uploadedBy, createdAt)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      const { rows } = await pool.query(
+        `INSERT INTO lead_documents ("leadId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "uploadedBy", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING id`,
         [leadId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, userId ?? null]
-      ) as any[];
-      const documentId = (result as any).insertId;
+      );
+      const documentId = rows[0].id;
 
       // Trigger RAG indexing asynchronously
       const buffer = req.file.buffer;
@@ -360,10 +325,9 @@ export function registerIntegrationRoutes(app: Express) {
       setTimeout(async () => {
         try {
           await indexDocument(documentId, leadId, buffer, mimeType, fileName);
-          // Update priority score for this lead
           const score = await computePriorityScore(leadId);
-          const scoreDb = await getRawDb();
-          if (scoreDb) await scoreDb.execute("UPDATE leads SET priorityScore = ? WHERE id = ?", [score, leadId]);
+          const scorePool = await getRawPool();
+          if (scorePool) await scorePool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
         } catch (e) {
           console.error("[DocumentRAG] Background indexing error:", e);
         }
@@ -388,8 +352,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/share-presentation
-   * Creates a shareable public URL for an HTML document.
-   * Optionally records a contact moment for the lead.
    */
   app.post("/api/share-presentation", async (req: Request, res: Response) => {
     try {
@@ -399,15 +361,15 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
-      const db = await getRawDb();
-      if (!db) throw new Error("No DB connection");
+      const pool = await getRawPool();
+      if (!pool) throw new Error("No DB connection");
 
       // Check document exists and is HTML
-      const [docRows] = await db.execute(
-        "SELECT * FROM lead_documents WHERE id = ? AND leadId = ?",
+      const { rows: docRows } = await pool.query(
+        'SELECT * FROM lead_documents WHERE id = $1 AND "leadId" = $2',
         [documentId, leadId]
-      ) as any[];
-      const doc = (docRows as any[])[0];
+      );
+      const doc = docRows[0];
       if (!doc) {
         res.status(404).json({ error: "Document not found" });
         return;
@@ -415,9 +377,9 @@ export function registerIntegrationRoutes(app: Express) {
 
       // Generate unique token
       const token = nanoid(32);
-      await db.execute(
-        `INSERT INTO shareable_presentations (documentId, leadId, token, title, createdBy, createdAt, isActive)
-         VALUES (?, ?, ?, ?, ?, NOW(), TRUE)`,
+      await pool.query(
+        `INSERT INTO shareable_presentations ("documentId", "leadId", token, title, "createdBy", "createdAt", "isActive")
+         VALUES ($1, $2, $3, $4, $5, NOW(), TRUE)`,
         [documentId, leadId, token, title ?? doc.fileName, userId ?? null]
       );
 
@@ -446,23 +408,22 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * GET /share/:token
-   * Public endpoint: serves the shared HTML presentation (or a viewer for other types).
    */
   app.get("/share/:token", async (req: Request, res: Response) => {
     try {
       const { token } = req.params;
-      const db = await getRawDb();
-      if (!db) { res.status(503).send("Service unavailable"); return; }
+      const pool = await getRawPool();
+      if (!pool) { res.status(503).send("Service unavailable"); return; }
 
-      const [rows] = await db.execute(
-        `SELECT sp.*, ld.fileUrl, ld.fileName, ld.mimeType, l.companyName
+      const { rows } = await pool.query(
+        `SELECT sp.*, ld."fileUrl", ld."fileName", ld."mimeType", l."companyName"
          FROM shareable_presentations sp
-         JOIN lead_documents ld ON ld.id = sp.documentId
-         JOIN leads l ON l.id = sp.leadId
-         WHERE sp.token = ? AND sp.isActive = TRUE`,
+         JOIN lead_documents ld ON ld.id = sp."documentId"
+         JOIN leads l ON l.id = sp."leadId"
+         WHERE sp.token = $1 AND sp."isActive" = TRUE`,
         [token]
-      ) as any[];
-      const share = (rows as any[])[0];
+      );
+      const share = rows[0];
 
       if (!share) {
         res.status(404).send("<h1>Presentation not found or link has expired.</h1>");
@@ -476,8 +437,8 @@ export function registerIntegrationRoutes(app: Express) {
       }
 
       // Update view count
-      await db.execute(
-        "UPDATE shareable_presentations SET viewCount = viewCount + 1, lastViewedAt = NOW() WHERE token = ?",
+      await pool.query(
+        `UPDATE shareable_presentations SET "viewCount" = "viewCount" + 1, "lastViewedAt" = NOW() WHERE token = $1`,
         [token]
       );
 
@@ -485,7 +446,6 @@ export function registerIntegrationRoutes(app: Express) {
       const isHtml = mime === "text/html" || share.fileName.endsWith(".html") || share.fileName.endsWith(".htm");
 
       if (isHtml) {
-        // Fetch and serve the HTML directly
         try {
           const htmlRes = await fetch(share.fileUrl);
           const html = await htmlRes.text();
@@ -495,7 +455,6 @@ export function registerIntegrationRoutes(app: Express) {
           res.redirect(share.fileUrl);
         }
       } else {
-        // Serve a viewer page for non-HTML documents
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -548,18 +507,17 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * GET /api/share-info/:token
-   * Returns metadata about a shared presentation (for the CRM UI).
    */
   app.get("/api/share-info/:token", async (req: Request, res: Response) => {
     try {
-      const db = await getRawDb();
-      if (!db) { res.status(503).json({ error: "DB unavailable" }); return; }
-      const [rows] = await db.execute(
-        `SELECT sp.*, ld.fileName, ld.mimeType FROM shareable_presentations sp
-         JOIN lead_documents ld ON ld.id = sp.documentId WHERE sp.token = ?`,
+      const pool = await getRawPool();
+      if (!pool) { res.status(503).json({ error: "DB unavailable" }); return; }
+      const { rows } = await pool.query(
+        `SELECT sp.*, ld."fileName", ld."mimeType" FROM shareable_presentations sp
+         JOIN lead_documents ld ON ld.id = sp."documentId" WHERE sp.token = $1`,
         [req.params.token]
-      ) as any[];
-      const share = (rows as any[])[0];
+      );
+      const share = rows[0];
       if (!share) { res.status(404).json({ error: "Not found" }); return; }
       res.json(share);
     } catch (e) {
@@ -569,18 +527,17 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * GET /api/shares/:leadId
-   * List all shareable presentations for a lead.
    */
   app.get("/api/shares/:leadId", async (req: Request, res: Response) => {
     try {
-      const db = await getRawDb();
-      if (!db) { res.status(503).json({ error: "DB unavailable" }); return; }
-      const [rows] = await db.execute(
-        `SELECT sp.*, ld.fileName, ld.mimeType FROM shareable_presentations sp
-         JOIN lead_documents ld ON ld.id = sp.documentId
-         WHERE sp.leadId = ? ORDER BY sp.createdAt DESC`,
+      const pool = await getRawPool();
+      if (!pool) { res.status(503).json({ error: "DB unavailable" }); return; }
+      const { rows } = await pool.query(
+        `SELECT sp.*, ld."fileName", ld."mimeType" FROM shareable_presentations sp
+         JOIN lead_documents ld ON ld.id = sp."documentId"
+         WHERE sp."leadId" = $1 ORDER BY sp."createdAt" DESC`,
         [req.params.leadId]
-      ) as any[];
+      );
       res.json(rows);
     } catch (e) {
       res.status(500).json({ error: "Failed" });
@@ -589,7 +546,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/priority-scores/refresh
-   * Recomputes priority scores for all leads.
    */
   app.post("/api/priority-scores/refresh", async (_req: Request, res: Response) => {
     try {
@@ -602,14 +558,13 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/priority-scores/:leadId
-   * Recomputes priority score for a single lead.
    */
   app.post("/api/priority-scores/:leadId", async (req: Request, res: Response) => {
     try {
       const leadId = parseInt(req.params.leadId);
       const score = await computePriorityScore(leadId);
-      const db = await getRawDb();
-      if (db) await db.execute("UPDATE leads SET priorityScore = ? WHERE id = ?", [score, leadId]);
+      const pool = await getRawPool();
+      if (pool) await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
       res.json({ success: true, score });
     } catch (e) {
       res.status(500).json({ error: "Failed" });
@@ -618,8 +573,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/enrich-lead/:id
-   * Enriches a lead by scraping the web (company website, Wikipedia, Google News)
-   * then uses LLM to synthesise a structured intelligence report with sources.
    */
   app.post("/api/enrich-lead/:id", async (req: Request, res: Response) => {
     try {
@@ -630,7 +583,6 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
-      // Run the real web enrichment engine (scrapes website + Wikipedia + Google News)
       const enrichmentData = await enrichLeadFromWeb(lead);
 
       await updateLead(leadId, {
@@ -651,8 +603,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/import/preview
-   * Returns the first few rows and detected columns from an uploaded file
-   * for the column mapping UI.
    */
   app.post("/api/import/preview", upload.single("file"), async (req: Request, res: Response) => {
     try {
@@ -678,7 +628,6 @@ export function registerIntegrationRoutes(app: Express) {
 
   /**
    * POST /api/import-json
-   * Accepts a JSON array of lead objects for programmatic import.
    */
   app.post("/api/import-json", async (req: Request, res: Response) => {
     try {
@@ -732,14 +681,6 @@ export function registerIntegrationRoutes(app: Express) {
   });
 
   // ─── LinkedIn Profile Import ───────────────────────────────────────────────
-  /**
-   * POST /api/linkedin-import
-   * Accepts a LinkedIn profile URL, fetches the public page, and uses the LLM
-   * to extract structured person data for pre-filling the add-person form.
-   *
-   * Body: { url: string }
-   * Returns: { name, title, company, linkedInUrl, email, phone, summary, personType }
-   */
   app.post("/api/linkedin-import", async (req: Request, res: Response) => {
     try {
       const { url } = req.body as { url?: string };
@@ -747,12 +688,8 @@ export function registerIntegrationRoutes(app: Express) {
         return res.status(400).json({ error: "A valid LinkedIn profile URL is required" });
       }
 
-      // Normalise URL — ensure it's a profile URL
       const profileUrl = url.trim().split("?")[0].replace(/\/$/, "");
 
-      // Fetch the public LinkedIn page with a realistic browser UA
-      // Note: LinkedIn returns HTTP 999 (non-standard "blocked" code) for bot requests.
-      // We use a plain fetch (not patchedFetch) to avoid the Response constructor crash on status 999.
       let pageText = "";
       try {
         const response = await fetch(profileUrl, {
@@ -765,7 +702,6 @@ export function registerIntegrationRoutes(app: Express) {
           },
         });
         const html = await response.text();
-        // Strip HTML tags and collapse whitespace for LLM consumption
         pageText = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
@@ -774,13 +710,11 @@ export function registerIntegrationRoutes(app: Express) {
           .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
           .replace(/\s{2,}/g, " ")
           .trim()
-          .slice(0, 8000); // Keep first 8k chars — enough for profile data
+          .slice(0, 8000);
       } catch (fetchErr) {
         console.warn("[linkedin-import] Could not fetch page:", fetchErr);
-        // Fall through — LLM will still try to infer from the URL
       }
 
-      // Use LLM to extract structured data — use configured provider with fallback to Forge
       const { provider, chatModel } = await getLLMProvider();
 
       const systemPrompt = `You are a data extraction assistant. Extract person details from LinkedIn profile information.
@@ -798,9 +732,7 @@ Always return ONLY a valid JSON object with these exact fields (use null for unk
 }
 Return ONLY the JSON object, no markdown, no explanation.`;
 
-      // Extract the URL slug for better name inference
       const urlSlug = profileUrl.split("/in/").pop()?.replace(/\/$/, "") ?? "";
-      // Slug like "john-doe-123" -> try to infer "John Doe"
       const slugParts = urlSlug.replace(/-\d+$/, "").split("-").filter(Boolean);
       const slugNameHint = slugParts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
 
@@ -808,22 +740,21 @@ Return ONLY the JSON object, no markdown, no explanation.`;
         ? `Extract person details from this LinkedIn profile page.\n\nLinkedIn URL: ${profileUrl}\n\nPage content:\n${pageText}`
         : `The LinkedIn profile at ${profileUrl} could not be fetched (LinkedIn blocks automated access).\n\nURL slug: "${urlSlug}"\nName hint from slug: "${slugNameHint}"\n\nUse the slug to infer the person's full name (e.g. "john-doe" -> "John Doe", "zijlma" -> "Zijlma"). Set summary to "LinkedIn profile — please complete details manually" and personType to "prospect". Leave all other fields as null.`;
 
-      const { text } = await generateText({
+      const { text: llmText } = await generateText({
         model: provider.chat(chatModel),
         system: systemPrompt,
         prompt: userPrompt,
         maxOutputTokens: 600,
       });
 
-      // Parse the LLM JSON response
       let extracted: Record<string, string | null> = {};
       try {
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const jsonMatch = llmText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           extracted = JSON.parse(jsonMatch[0]);
         }
       } catch {
-        console.warn("[linkedin-import] Could not parse LLM JSON response:", text);
+        console.warn("[linkedin-import] Could not parse LLM JSON response:", llmText);
       }
 
       res.json({

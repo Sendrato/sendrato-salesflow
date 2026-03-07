@@ -7,7 +7,7 @@ Deploys the app to a single Ubuntu droplet at **https://crm.sendrato.com**.
 | Component   | Technology                        |
 |-------------|-----------------------------------|
 | OS          | Ubuntu 22.04 / 24.04             |
-| Database    | MySQL 8 (local)                   |
+| Database    | PostgreSQL 16 + pgvector (local)  |
 | Runtime     | Node.js 20 LTS + pnpm            |
 | Process     | systemd                           |
 | Reverse proxy | Nginx                           |
@@ -74,7 +74,7 @@ systemctl restart salesflow
 
 1. **System update** — Installs base packages (curl, git, build-essential, ufw)
 2. **Firewall** — Enables UFW, allows SSH and Nginx (80/443)
-3. **MySQL 8** — Installs, creates database `salesflow` with a dedicated user and random password
+3. **PostgreSQL 16 + pgvector** — Installs, creates database `salesflow` with a dedicated user, random password, and enables the `vector` extension for semantic search
 4. **Node.js 20 + pnpm** — Installs via NodeSource, enables corepack
 5. **Application** — Clones the repo to `/opt/salesflow`, writes `.env`
 6. **Build** — `pnpm install`, `pnpm run build`, `pnpm run db:push` (migrations)
@@ -121,7 +121,7 @@ systemctl restart salesflow
 
 ```bash
 # Credentials are in /opt/salesflow/.env
-mysql -u salesflow -p salesflow
+sudo -u salesflow psql salesflow
 ```
 
 ### SSL certificate
@@ -136,7 +136,7 @@ certbot renew --dry-run
 ### Backup database
 
 ```bash
-mysqldump -u salesflow -p salesflow > /root/salesflow-backup-$(date +%Y%m%d).sql
+sudo -u postgres pg_dump salesflow > /root/salesflow-backup-$(date +%Y%m%d).sql
 ```
 
 ## Troubleshooting
@@ -146,6 +146,6 @@ mysqldump -u salesflow -p salesflow > /root/salesflow-backup-$(date +%Y%m%d).sql
 | App won't start | `journalctl -u salesflow -n 50` — look for missing env vars or DB connection errors |
 | 502 Bad Gateway | Is the app running? `systemctl status salesflow`. Is it on the right port? Check `PORT` in `.env` |
 | SSL cert failed | Is DNS pointing to this server? `dig crm.sendrato.com`. Is port 80 open? `ufw status` |
-| DB migration fails | Check `DATABASE_URL` in `.env`. Test with `mysql -u salesflow -p` |
+| DB migration fails | Check `DATABASE_URL` in `.env`. Test with `sudo -u salesflow psql salesflow` |
 | Build fails | Check Node/pnpm versions: `node -v`, `pnpm -v`. Ensure enough RAM (2 GB minimum) |
 | VITE_* changes not visible | These are compile-time. Rebuild: `pnpm run build && systemctl restart salesflow` |

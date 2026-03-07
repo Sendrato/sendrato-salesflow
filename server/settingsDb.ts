@@ -40,7 +40,7 @@ export async function setSetting(key: string, value: string): Promise<void> {
   await db
     .insert(appSettings)
     .values({ key, value: stored })
-    .onDuplicateKeyUpdate({ set: { value: stored } });
+    .onConflictDoUpdate({ target: appSettings.key, set: { value: stored, updatedAt: new Date() } });
 }
 
 export async function getAllLLMSettings(): Promise<{

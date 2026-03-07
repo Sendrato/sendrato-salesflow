@@ -53,8 +53,8 @@ export async function getPersonById(id: number) {
 export async function createPerson(data: InsertPerson) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  const [result] = await db.insert(persons).values(data);
-  return (result as any).insertId as number;
+  const [result] = await db.insert(persons).values(data).returning({ id: persons.id });
+  return result.id;
 }
 
 export async function updatePerson(id: number, data: Partial<InsertPerson>) {
@@ -142,8 +142,8 @@ export async function linkPersonToLead(data: InsertPersonLeadLink) {
       .where(eq(personLeadLinks.id, existing[0].id));
     return existing[0].id;
   }
-  const [result] = await db.insert(personLeadLinks).values(data);
-  return (result as any).insertId as number;
+  const [result] = await db.insert(personLeadLinks).values(data).returning({ id: personLeadLinks.id });
+  return result.id;
 }
 
 export async function unlinkPersonFromLead(personId: number, leadId: number) {

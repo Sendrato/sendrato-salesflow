@@ -39,7 +39,7 @@ export const analyticsRouter = router({
           count: sql<number>`count(*)`,
         })
         .from(contactMoments)
-        .where(sql`${contactMoments.occurredAt} >= DATE_SUB(NOW(), INTERVAL ${input.days} DAY)`)
+        .where(sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '1 day' * ${input.days}`)
         .groupBy(sql`DATE(${contactMoments.occurredAt})`)
         .orderBy(sql`DATE(${contactMoments.occurredAt})`);
     }),

@@ -30,11 +30,10 @@ APP_USER="salesflow"
 APP_PORT=3000
 NODE_VERSION=20
 
-# MySQL
-MYSQL_ROOT_PASS="$(openssl rand -base64 24)"
-MYSQL_DB="salesflow"
-MYSQL_USER="salesflow"
-MYSQL_PASS="$(openssl rand -base64 24)"
+# PostgreSQL
+PG_DB="salesflow"
+PG_USER="salesflow"
+PG_PASS="$(openssl rand -base64 24)"
 
 # Let's Encrypt
 CERTBOT_EMAIL="admin@sendrato.com"   # change to your email
@@ -68,25 +67,27 @@ ufw allow 'Nginx Full'
 ufw --force enable
 
 # ──────────────────────────────────────────────
-# 3. MySQL 8
+# 3. PostgreSQL 16 + pgvector
 # ──────────────────────────────────────────────
-echo ">>> [3/9] Installing MySQL 8..."
-apt-get install -y mysql-server
+echo ">>> [3/9] Installing PostgreSQL 16 + pgvector..."
+apt-get install -y postgresql postgresql-contrib
 
-systemctl start mysql
-systemctl enable mysql
+# Detect installed PostgreSQL major version for pgvector package
+PG_MAJOR=$(pg_config --version | grep -oP '\d+' | head -1)
+apt-get install -y "postgresql-${PG_MAJOR}-pgvector"
 
-# Secure the installation and create app database/user
-mysql -u root <<EOSQL
-ALTER USER 'root'@'localhost' IDENTIFIED WITH caching_sha2_password BY '${MYSQL_ROOT_PASS}';
-CREATE DATABASE IF NOT EXISTS \`${MYSQL_DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER IF NOT EXISTS '${MYSQL_USER}'@'localhost' IDENTIFIED BY '${MYSQL_PASS}';
-GRANT ALL PRIVILEGES ON \`${MYSQL_DB}\`.* TO '${MYSQL_USER}'@'localhost';
-FLUSH PRIVILEGES;
+systemctl start postgresql
+systemctl enable postgresql
+
+# Create database, user, and enable pgvector extension
+sudo -u postgres psql <<EOSQL
+CREATE USER ${PG_USER} WITH PASSWORD '${PG_PASS}';
+CREATE DATABASE ${PG_DB} OWNER ${PG_USER};
+\c ${PG_DB}
+CREATE EXTENSION IF NOT EXISTS vector;
 EOSQL
 
-echo "  MySQL root password: ${MYSQL_ROOT_PASS}"
-echo "  MySQL app user:      ${MYSQL_USER} / ${MYSQL_PASS}"
+echo "  PostgreSQL user: ${PG_USER} / ${PG_PASS}"
 
 # ──────────────────────────────────────────────
 # 4. Node.js 20 LTS + pnpm
@@ -124,8 +125,8 @@ cat > "${APP_DIR}/.env" <<ENVEOF
 NODE_ENV=production
 PORT=${APP_PORT}
 
-# Database
-DATABASE_URL=mysql://${MYSQL_USER}:${MYSQL_PASS}@localhost:3306/${MYSQL_DB}
+# Database (PostgreSQL + pgvector)
+DATABASE_URL=postgresql://${PG_USER}:${PG_PASS}@localhost:5432/${PG_DB}
 
 # Auth / OAuth
 VITE_APP_ID=${VITE_APP_ID}
@@ -161,8 +162,8 @@ echo ">>> [8/9] Creating systemd service..."
 cat > /etc/systemd/system/salesflow.service <<SVCEOF
 [Unit]
 Description=SalesFlow CRM
-After=network.target mysql.service
-Requires=mysql.service
+After=network.target postgresql.service
+Requires=postgresql.service
 
 [Service]
 Type=simple
@@ -254,10 +255,9 @@ echo "  App directory:  ${APP_DIR}"
 echo "  App service:    systemctl {start|stop|restart|status} salesflow"
 echo "  App logs:       journalctl -u salesflow -f"
 echo ""
-echo "  MySQL database: ${MYSQL_DB}"
-echo "  MySQL user:     ${MYSQL_USER}"
-echo "  MySQL password: ${MYSQL_PASS}"
-echo "  MySQL root pw:  ${MYSQL_ROOT_PASS}"
+echo "  PostgreSQL database: ${PG_DB}"
+echo "  PostgreSQL user:     ${PG_USER}"
+echo "  PostgreSQL password: ${PG_PASS}"
 echo ""
 echo "  IMPORTANT: Save the credentials above securely!"
 echo "  IMPORTANT: Edit ${APP_DIR}/.env with your actual"

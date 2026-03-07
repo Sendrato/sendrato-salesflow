@@ -56,6 +56,7 @@ vi.mock("./db", () => ({
   getAllEmbeddings: vi.fn().mockResolvedValue([]),
   getLeadsByIds: vi.fn().mockResolvedValue([]),
   upsertLeadEmbedding: vi.fn().mockResolvedValue(undefined),
+  getRawPool: vi.fn().mockResolvedValue(null),
 }));
 
 // Mock crmChat module

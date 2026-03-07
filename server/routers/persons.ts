@@ -160,9 +160,9 @@ export const personsRouter = router({
         userId: ctx.user.id,
         source: "manual",
         occurredAt: occurredAt ? new Date(occurredAt) : new Date(),
-      });
+      }).returning({ id: contactMoments.id });
       // Update person lastContactedAt
       await updatePerson(input.personId, { lastContactedAt: new Date() });
-      return { id: (result as any).insertId };
+      return { id: result.id };
     }),
 });

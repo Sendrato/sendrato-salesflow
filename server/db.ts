@@ -1,5 +1,6 @@
 import { and, desc, eq, like, or, sql, inArray } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
+import { drizzle } from "drizzle-orm/node-postgres";
+import pg from "pg";
 import {
   InsertUser,
   users,
@@ -17,17 +18,26 @@ import {
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _pool: pg.Pool | null = null;
 
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+      _db = drizzle(_pool);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
     }
   }
   return _db;
+}
+
+export async function getRawPool(): Promise<pg.Pool | null> {
+  if (!_pool && process.env.DATABASE_URL) {
+    _pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  }
+  return _pool;
 }
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -62,8 +72,12 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
   if (Object.keys(updateSet).length === 0) updateSet.lastSignedIn = new Date();
+  updateSet.updatedAt = new Date();
 
-  await db.insert(users).values(values).onDuplicateKeyUpdate({ set: updateSet });
+  await db.insert(users).values(values).onConflictDoUpdate({
+    target: users.openId,
+    set: updateSet,
+  });
 }
 
 export async function getUserByOpenId(openId: string) {
@@ -126,15 +140,14 @@ export async function getLeadById(id: number) {
 export async function createLead(data: InsertLead) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(leads).values(data);
-  const insertId = (result[0] as { insertId: number }).insertId;
-  return getLeadById(insertId);
+  const [inserted] = await db.insert(leads).values(data).returning({ id: leads.id });
+  return getLeadById(inserted.id);
 }
 
 export async function updateLead(id: number, data: Partial<InsertLead>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(leads).set(data).where(eq(leads.id, id));
+  await db.update(leads).set({ ...data, updatedAt: new Date() }).where(eq(leads.id, id));
   return getLeadById(id);
 }
 
@@ -150,8 +163,8 @@ export async function bulkInsertLeads(data: InsertLead[]) {
   if (data.length === 0) return [];
   const results = [];
   for (const lead of data) {
-    const r = await db.insert(leads).values(lead);
-    results.push((r[0] as { insertId: number }).insertId);
+    const [inserted] = await db.insert(leads).values(lead).returning({ id: leads.id });
+    results.push(inserted.id);
   }
   return results;
 }
@@ -195,18 +208,17 @@ export async function getRecentContactMoments(limit = 20) {
 export async function createContactMoment(data: InsertContactMoment) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(contactMoments).values(data);
-  const insertId = (result[0] as { insertId: number }).insertId;
+  const [inserted] = await db.insert(contactMoments).values(data).returning({ id: contactMoments.id });
   // Update lastContactedAt on lead
-  await db.update(leads).set({ lastContactedAt: data.occurredAt ?? new Date() }).where(eq(leads.id, data.leadId));
-  const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, insertId)).limit(1);
+  await db.update(leads).set({ lastContactedAt: data.occurredAt ?? new Date(), updatedAt: new Date() }).where(eq(leads.id, data.leadId));
+  const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, inserted.id)).limit(1);
   return rows[0];
 }
 
 export async function updateContactMoment(id: number, data: Partial<InsertContactMoment>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(contactMoments).set(data).where(eq(contactMoments.id, id));
+  await db.update(contactMoments).set({ ...data, updatedAt: new Date() }).where(eq(contactMoments.id, id));
   const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, id)).limit(1);
   return rows[0];
 }
@@ -262,7 +274,7 @@ export async function getContactMomentStats() {
         count: sql<number>`count(*)`,
       })
       .from(contactMoments)
-      .where(sql`${contactMoments.occurredAt} >= DATE_SUB(NOW(), INTERVAL 30 DAY)`)
+      .where(sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '30 days'`)
       .groupBy(sql`DATE(${contactMoments.occurredAt})`)
       .orderBy(sql`DATE(${contactMoments.occurredAt})`),
   ]);
@@ -279,9 +291,8 @@ export async function getLeadDocuments(leadId: number) {
 export async function createLeadDocument(data: InsertLeadDocument) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(leadDocuments).values(data);
-  const insertId = (result[0] as { insertId: number }).insertId;
-  const rows = await db.select().from(leadDocuments).where(eq(leadDocuments.id, insertId)).limit(1);
+  const [inserted] = await db.insert(leadDocuments).values(data).returning({ id: leadDocuments.id });
+  const rows = await db.select().from(leadDocuments).where(eq(leadDocuments.id, inserted.id)).limit(1);
   return rows[0];
 }
 
@@ -298,7 +309,10 @@ export async function upsertLeadEmbedding(data: InsertLeadEmbedding) {
   await db
     .insert(leadEmbeddings)
     .values(data)
-    .onDuplicateKeyUpdate({ set: { embedding: data.embedding, textContent: data.textContent, updatedAt: new Date() } });
+    .onConflictDoUpdate({
+      target: leadEmbeddings.leadId,
+      set: { embedding: data.embedding, textContent: data.textContent, updatedAt: new Date() },
+    });
 }
 
 export async function getAllEmbeddings() {

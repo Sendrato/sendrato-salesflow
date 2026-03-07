@@ -1,6 +1,6 @@
 # SalesFlow CRM
 
-A full-stack CRM built with React, Express, tRPC, and MySQL. Designed for managing leads, contacts, and the sales pipeline — with AI-powered features like lead enrichment, document RAG, and a conversational chat interface.
+A full-stack CRM built with React, Express, tRPC, and PostgreSQL. Designed for managing leads, contacts, and the sales pipeline — with AI-powered features like lead enrichment, document RAG with vector embeddings, and a conversational chat interface.
 
 ## Features
 
@@ -12,7 +12,7 @@ A full-stack CRM built with React, Express, tRPC, and MySQL. Designed for managi
 
 **AI Enrichment** — Automatically enrich leads by scraping the company website, Wikipedia, and Google News. An LLM synthesizes the data into talking points, pain points, competitive landscape, fit scores, and suggested next actions.
 
-**Document Management** — Upload PDF, Word, Excel, and HTML files to leads. Documents are parsed, chunked, and embedded for semantic search via the AI chat. HTML documents can be shared via unique public URLs.
+**Document Management** — Upload PDF, Word, Excel, and HTML files to leads. Documents are parsed, chunked, and embedded with OpenAI `text-embedding-3-small` vectors for semantic search via pgvector. HTML documents can be shared via unique public URLs.
 
 **Multi-Channel Ingestion** — Import leads from Excel/CSV with a column-mapping wizard. Ingest emails via webhook (SendGrid/Postmark/Mailgun compatible). Slack slash commands for quick lead search and note creation.
 
@@ -28,7 +28,7 @@ A full-stack CRM built with React, Express, tRPC, and MySQL. Designed for managi
 |------------|-----------------------------------------------------|
 | Frontend   | React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui |
 | Backend    | Express, tRPC 11, Node.js                           |
-| Database   | MySQL 8, Drizzle ORM                                |
+| Database   | PostgreSQL 16 + pgvector, Drizzle ORM               |
 | AI         | Vercel AI SDK, OpenAI-compatible providers           |
 | Storage    | AWS S3 (presigned URLs)                              |
 | Language   | TypeScript (strict mode)                             |
@@ -39,7 +39,7 @@ A full-stack CRM built with React, Express, tRPC, and MySQL. Designed for managi
 
 - Node.js 20+
 - pnpm (`corepack enable`)
-- MySQL 8
+- PostgreSQL 16+ with pgvector extension
 
 ### Setup
 
@@ -63,7 +63,7 @@ The dev server starts at `http://localhost:3000` with Vite HMR for the frontend 
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | MySQL connection string (`mysql://user:pass@host:3306/db`) |
+| `DATABASE_URL` | PostgreSQL connection string (`postgresql://user:pass@host:5432/db`) |
 | `JWT_SECRET` | Secret for signing session JWTs |
 | `VITE_APP_ID` | OAuth application ID |
 | `OAUTH_SERVER_URL` | OAuth server URL |
@@ -107,7 +107,7 @@ drizzle/            Database schema, relations, and migration files
 
 ## Deployment
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for a complete guide and automated shell script to deploy to a Digital Ocean droplet with MySQL, Nginx, and Let's Encrypt SSL.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for a complete guide and automated shell script to deploy to a Digital Ocean droplet with PostgreSQL + pgvector, Nginx, and Let's Encrypt SSL.
 
 ## License
 

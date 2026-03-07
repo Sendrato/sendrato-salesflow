@@ -1,30 +1,11 @@
 /**
  * Document RAG Indexing Pipeline
- * Parses PDF, HTML, Excel, Word documents into text chunks
- * and stores them in document_chunks for keyword-based RAG search.
+ * Parses PDF, HTML, Excel, Word documents into text chunks,
+ * generates embeddings via OpenAI, and stores them with pgvector for semantic search.
  */
-import mysql from "mysql2/promise";
-
-let _conn: mysql.Connection | null = null;
-
-async function getRawDb(): Promise<mysql.Connection | null> {
-  if (_conn) {
-    try {
-      await _conn.ping();
-      return _conn;
-    } catch {
-      _conn = null;
-    }
-  }
-  if (!process.env.DATABASE_URL) return null;
-  try {
-    _conn = await mysql.createConnection(process.env.DATABASE_URL);
-    return _conn;
-  } catch (e) {
-    console.warn("[DocumentRAG] DB connect error:", e);
-    return null;
-  }
-}
+import { embed, embedMany } from "ai";
+import { getRawPool } from "./db";
+import { getEmbeddingProvider } from "./llmProvider";
 
 // ─── Text Extraction ──────────────────────────────────────────────────────────
 
@@ -137,14 +118,14 @@ export async function indexDocument(
   mimeType: string,
   fileName: string
 ): Promise<{ chunksIndexed: number; textLength: number }> {
-  const db = await getRawDb();
-  if (!db) {
+  const pool = await getRawPool();
+  if (!pool) {
     console.warn("[DocumentRAG] No DB, skipping indexing");
     return { chunksIndexed: 0, textLength: 0 };
   }
 
   // Delete existing chunks for this document
-  await db.execute("DELETE FROM document_chunks WHERE documentId = ?", [documentId]);
+  await pool.query('DELETE FROM document_chunks WHERE "documentId" = $1', [documentId]);
 
   const { text } = await extractTextFromBuffer(buffer, mimeType, fileName);
   if (!text || text.trim().length === 0) {
@@ -153,11 +134,26 @@ export async function indexDocument(
   }
 
   const chunks = chunkText(text);
+
+  // Generate embeddings for all chunks in batch
+  let embeddings: number[][] = [];
+  try {
+    const embeddingProvider = await getEmbeddingProvider();
+    const result = await embedMany({
+      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      values: chunks,
+    });
+    embeddings = result.embeddings;
+  } catch (err) {
+    console.error("[DocumentRAG] Embedding generation failed, storing chunks without embeddings:", err);
+  }
+
   for (let i = 0; i < chunks.length; i++) {
-    await db.execute(
-      `INSERT INTO document_chunks (documentId, leadId, chunkIndex, textContent, createdAt)
-       VALUES (?, ?, ?, ?, NOW())`,
-      [documentId, leadId, i, chunks[i]]
+    const embeddingValue = embeddings[i] ? JSON.stringify(embeddings[i]) : null;
+    await pool.query(
+      `INSERT INTO document_chunks ("documentId", "leadId", "chunkIndex", "textContent", embedding, "createdAt")
+       VALUES ($1, $2, $3, $4, $5::vector, NOW())`,
+      [documentId, leadId, i, chunks[i], embeddingValue]
     );
   }
 
@@ -181,52 +177,47 @@ export async function searchDocumentChunks(
   query: string,
   limit = 5
 ): Promise<DocumentChunkResult[]> {
-  const db = await getRawDb();
-  if (!db) return [];
+  const pool = await getRawPool();
+  if (!pool) return [];
 
-  const terms = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t.length > 2);
-  if (terms.length === 0) return [];
+  try {
+    const embeddingProvider = await getEmbeddingProvider();
+    const { embedding: queryEmbedding } = await embed({
+      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      value: query,
+    });
 
-  const [rows] = await db.execute(
-    `SELECT dc.documentId, dc.leadId, dc.chunkIndex, dc.textContent,
-            ld.fileName, l.companyName as leadName
-     FROM document_chunks dc
-     JOIN lead_documents ld ON ld.id = dc.documentId
-     JOIN leads l ON l.id = dc.leadId
-     ORDER BY dc.createdAt DESC
-     LIMIT 500`
-  );
+    const { rows } = await pool.query(
+      `SELECT dc."documentId", dc."leadId", dc."chunkIndex", dc."textContent",
+              ld."fileName", l."companyName" as "leadName",
+              1 - (dc.embedding <=> $1::vector) as score
+       FROM document_chunks dc
+       JOIN lead_documents ld ON ld.id = dc."documentId"
+       JOIN leads l ON l.id = dc."leadId"
+       WHERE dc.embedding IS NOT NULL
+       ORDER BY dc.embedding <=> $1::vector
+       LIMIT $2`,
+      [JSON.stringify(queryEmbedding), limit]
+    );
 
-  const scored = (rows as any[]).map((row: any) => {
-    const content = (row.textContent || "").toLowerCase();
-    let score = 0;
-    for (const term of terms) {
-      const count = (content.match(new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")) || []).length;
-      score += count;
-    }
-    return { ...row, score };
-  });
-
-  return scored
-    .filter((r: any) => r.score > 0)
-    .sort((a: any, b: any) => b.score - a.score)
-    .slice(0, limit);
+    return rows as DocumentChunkResult[];
+  } catch (err) {
+    console.error("[searchDocumentChunks] Error:", err);
+    return [];
+  }
 }
 
 // ─── Priority Score Computation ───────────────────────────────────────────────
 
 export async function computePriorityScore(leadId: number): Promise<number> {
-  const db = await getRawDb();
-  if (!db) return 0;
+  const pool = await getRawPool();
+  if (!pool) return 0;
 
-  const [leadRows] = await db.execute(
-    "SELECT status, priority, estimatedValue, lastContactedAt, nextFollowUpAt FROM leads WHERE id = ?",
+  const { rows: leadRows } = await pool.query(
+    'SELECT status, priority, "estimatedValue", "lastContactedAt", "nextFollowUpAt" FROM leads WHERE id = $1',
     [leadId]
   );
-  const lead = (leadRows as any[])[0];
+  const lead = leadRows[0];
   if (!lead) return 0;
 
   let score = 0;
@@ -249,18 +240,18 @@ export async function computePriorityScore(leadId: number): Promise<number> {
     score += 5;
   }
 
-  const [cmRows] = await db.execute(
-    "SELECT COUNT(*) as cnt FROM contact_moments WHERE leadId = ?",
+  const { rows: cmRows } = await pool.query(
+    'SELECT COUNT(*) as cnt FROM contact_moments WHERE "leadId" = $1',
     [leadId]
   );
-  const cmCount = (cmRows as any[])[0]?.cnt ?? 0;
+  const cmCount = cmRows[0]?.cnt ?? 0;
   score += Math.min(Number(cmCount) * 3, 15);
 
-  const [docRows] = await db.execute(
-    "SELECT COUNT(*) as cnt FROM lead_documents WHERE leadId = ?",
+  const { rows: docRows } = await pool.query(
+    'SELECT COUNT(*) as cnt FROM lead_documents WHERE "leadId" = $1',
     [leadId]
   );
-  const docCount = (docRows as any[])[0]?.cnt ?? 0;
+  const docCount = docRows[0]?.cnt ?? 0;
   score += Math.min(Number(docCount) * 5, 10);
 
   if (lead.estimatedValue && lead.estimatedValue > 0) score += 5;
@@ -273,12 +264,12 @@ export async function computePriorityScore(leadId: number): Promise<number> {
 }
 
 export async function updateAllPriorityScores(): Promise<void> {
-  const db = await getRawDb();
-  if (!db) return;
-  const [rows] = await db.execute("SELECT id FROM leads");
-  for (const row of rows as any[]) {
+  const pool = await getRawPool();
+  if (!pool) return;
+  const { rows } = await pool.query("SELECT id FROM leads");
+  for (const row of rows) {
     const score = await computePriorityScore(row.id);
-    await db.execute("UPDATE leads SET priorityScore = ? WHERE id = ?", [score, row.id]);
+    await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, row.id]);
   }
-  console.log(`[PriorityScore] Updated ${(rows as any[]).length} leads`);
+  console.log(`[PriorityScore] Updated ${rows.length} leads`);
 }

@@ -21,6 +21,8 @@ export interface LLMProvider {
   chatModel: string;
   /** Model to use for lead enrichment */
   enrichModel: string;
+  /** Model to use for text embeddings */
+  embeddingModel: string;
   /** Which provider is active (for logging/display) */
   providerName: string;
 }
@@ -42,6 +44,7 @@ export async function getLLMProvider(): Promise<LLMProvider> {
       provider: forgeProvider,
       chatModel: settings.chatModel || "gemini-2.5-flash",
       enrichModel: settings.enrichModel || "claude-sonnet-4-5",
+      embeddingModel: "text-embedding-3-small",
       providerName: "forge",
     };
   }
@@ -77,8 +80,31 @@ export async function getLLMProvider(): Promise<LLMProvider> {
     provider: customProvider,
     chatModel: settings.chatModel || defaultChatModel(settings.provider),
     enrichModel: settings.enrichModel || defaultEnrichModel(settings.provider),
+    embeddingModel: "text-embedding-3-small",
     providerName: settings.provider,
   };
+}
+
+/**
+ * Returns an OpenAI-compatible provider specifically for embeddings.
+ * Always uses the Forge API or OpenAI, since not all providers support embeddings.
+ */
+export async function getEmbeddingProvider(): Promise<ReturnType<typeof createOpenAI>> {
+  const settings = await getAllLLMSettings();
+
+  // If user has OpenAI as their provider with a custom key, use that
+  if (settings.apiKey && settings.provider === "openai") {
+    return createOpenAI({
+      apiKey: settings.apiKey,
+      baseURL: settings.baseUrl || "https://api.openai.com/v1",
+    });
+  }
+
+  // Otherwise fall back to Forge API (OpenAI-compatible)
+  return createOpenAI({
+    apiKey: ENV.forgeApiKey,
+    baseURL: `${ENV.forgeApiUrl}/v1`,
+  });
 }
 
 function defaultChatModel(provider: string): string {

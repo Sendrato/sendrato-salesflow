@@ -18,7 +18,7 @@ Run a single test file: `npx vitest run server/path/to/file.test.ts`
 
 ## Architecture
 
-Full-stack TypeScript monorepo: React frontend + Express/tRPC backend + MySQL (Drizzle ORM).
+Full-stack TypeScript monorepo: React frontend + Express/tRPC backend + PostgreSQL with pgvector (Drizzle ORM).
 
 ### Directory Layout
 
@@ -35,8 +35,8 @@ Full-stack TypeScript monorepo: React frontend + Express/tRPC backend + MySQL (D
 
 - **tRPC** for type-safe client-server API (base path `/api/trpc`). App router composes: system, settings, auth, leads, contactMoments, documents, analytics, persons, upload.
 - **Non-tRPC endpoints** for streaming/file operations: `/api/crm-chat`, `/api/email-ingest`, `/api/slack-webhook`, `/api/import`, `/api/upload-file`, `/api/enrich-lead/:id`, `/api/linkedin-import`.
-- **Drizzle ORM** with MySQL dialect. Schema defined in `drizzle/schema.ts` with relations in `drizzle/relations.ts`.
-- **AI/LLM**: Vercel AI SDK with OpenAI-compatible providers. Settings-driven provider config (custom API key/URL or built-in). RAG via document chunking + embeddings for semantic search.
+- **Drizzle ORM** with PostgreSQL dialect. Schema defined in `drizzle/schema.ts` with relations in `drizzle/relations.ts`. Uses pgvector extension for vector columns.
+- **AI/LLM**: Vercel AI SDK with OpenAI-compatible providers. Settings-driven provider config (custom API key/URL or built-in). RAG via document chunking + OpenAI `text-embedding-3-small` embeddings (1536 dimensions) stored in pgvector for cosine similarity search.
 - **Path aliases**: `@/*` → `client/src/*`, `@shared/*` → `shared/*`
 
 ### Testing

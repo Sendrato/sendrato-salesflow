@@ -1,43 +1,23 @@
 /**
  * CRM AI Chat endpoint with RAG (Retrieval-Augmented Generation)
- * Uses semantic search over lead embeddings to provide context-aware answers.
+ * Uses pgvector for semantic search over lead embeddings.
  */
 
-import { streamText, stepCountIs, tool, generateText, createUIMessageStream, pipeUIMessageStreamToResponse, convertToModelMessages, generateId } from "ai";
+import { streamText, stepCountIs, tool, generateText, embed, createUIMessageStream, pipeUIMessageStreamToResponse, convertToModelMessages, generateId } from "ai";
 import type { Express } from "express";
 import { z } from "zod/v4";
-import { getLLMProvider } from "./llmProvider";
+import { getLLMProvider, getEmbeddingProvider } from "./llmProvider";
 import {
   getLeads,
   getLeadById,
   getContactMoments,
-  getAllEmbeddings,
   getLeadsByIds,
   upsertLeadEmbedding,
   updateLead,
   createContactMoment,
+  getRawPool,
 } from "./db";
 import { searchDocumentChunks, computePriorityScore } from "./documentRag";
-import mysql from "mysql2/promise";
-
-let _rawDb: mysql.Connection | null = null;
-async function getRawDb(): Promise<mysql.Connection | null> {
-  if (_rawDb) { try { await _rawDb.ping(); return _rawDb; } catch { _rawDb = null; } }
-  if (!process.env.DATABASE_URL) return null;
-  try { _rawDb = await mysql.createConnection(process.env.DATABASE_URL); return _rawDb; } catch { return null; }
-}
-
-// Cosine similarity between two vectors
-function cosineSimilarity(a: number[], b: number[]): number {
-  if (a.length !== b.length) return 0;
-  let dot = 0, normA = 0, normB = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    normA += a[i] * a[i];
-    normB += b[i] * b[i];
-  }
-  return dot / (Math.sqrt(normA) * Math.sqrt(normB) + 1e-8);
-}
 
 // Build a text representation of a lead for embedding
 export function buildLeadText(lead: Record<string, unknown>): string {
@@ -60,47 +40,51 @@ export function buildLeadText(lead: Record<string, unknown>): string {
   return parts.join("\n");
 }
 
-// Keyword-based search using TF-IDF style scoring
-function keywordScore(query: string, text: string): number {
-  const queryTokens = query.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
-  const textLower = text.toLowerCase();
-  if (queryTokens.length === 0) return 0;
-  let score = 0;
-  for (const token of queryTokens) {
-    const count = (textLower.match(new RegExp(token, "g")) ?? []).length;
-    if (count > 0) score += 1 + Math.log(count);
-  }
-  return score / queryTokens.length;
-}
-
-// Search over stored lead text content
+// Semantic search using pgvector cosine distance
 async function semanticSearch(query: string, topK = 8): Promise<Array<{ leadId: number; score: number }>> {
   try {
-    const allEmbeddings = await getAllEmbeddings();
-    if (allEmbeddings.length === 0) return [];
-    const scores = allEmbeddings
-      .filter((e) => e.textContent)
-      .map((e) => ({
-        leadId: e.leadId,
-        score: keywordScore(query, e.textContent as string),
-      }))
-      .filter((e) => e.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, topK);
-    return scores;
+    const embeddingProvider = await getEmbeddingProvider();
+    const { embedding: queryEmbedding } = await embed({
+      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      value: query,
+    });
+
+    const pool = await getRawPool();
+    if (!pool) return [];
+
+    const { rows } = await pool.query(
+      `SELECT "leadId", 1 - (embedding <=> $1::vector) as score
+       FROM lead_embeddings
+       WHERE embedding IS NOT NULL
+       ORDER BY embedding <=> $1::vector
+       LIMIT $2`,
+      [JSON.stringify(queryEmbedding), topK]
+    );
+
+    return rows.map((r: any) => ({
+      leadId: r.leadId,
+      score: parseFloat(r.score),
+    }));
   } catch (err) {
     console.error("[semanticSearch] Error:", err);
     return [];
   }
 }
 
-// Store text content for a lead (no embedding needed)
+// Store text content and embedding for a lead
 export async function indexLead(lead: Record<string, unknown>) {
   try {
     const text = buildLeadText(lead);
+
+    const embeddingProvider = await getEmbeddingProvider();
+    const { embedding } = await embed({
+      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      value: text,
+    });
+
     await upsertLeadEmbedding({
       leadId: lead.id as number,
-      embedding: [],
+      embedding,
       textContent: text,
     });
   } catch (err) {
@@ -161,19 +145,15 @@ Return a JSON object with these fields:
 
 export function registerCrmChatRoutes(app: Express) {
   // In-memory chat history store (keyed by chatId)
-  // For production, persist to DB; this is sufficient for single-session use
   const chatHistories = new Map<string, any[]>();
 
   // CRM AI Chat endpoint with RAG
   app.post("/api/crm-chat", async (req, res) => {
     try {
-      // AIChatBox sends { message, chatId, userId } — a single UIMessage
       const { message, chatId, messages: legacyMessages } = req.body;
 
-      // Support both single-message (new) and messages-array (legacy) formats
       let uiMessages: any[];
       if (message) {
-        // New format: single message from AIChatBox
         const historyKey = chatId ?? "default";
         const history = chatHistories.get(historyKey) ?? [];
         history.push(message);
@@ -323,8 +303,8 @@ export function registerCrmChatRoutes(app: Express) {
 
             // Refresh priority score
             const score = await computePriorityScore(leadId);
-            const db = await getRawDb();
-            if (db) await db.execute("UPDATE leads SET priorityScore = ? WHERE id = ?", [score, leadId]);
+            const pool = await getRawPool();
+            if (pool) await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
 
             return { success: true, leadId, updatedFields: Object.keys(updates), newPriorityScore: score };
           },
@@ -361,8 +341,8 @@ export function registerCrmChatRoutes(app: Express) {
 
             // Refresh priority score
             const score = await computePriorityScore(leadId);
-            const db = await getRawDb();
-            if (db) await db.execute("UPDATE leads SET priorityScore = ? WHERE id = ?", [score, leadId]);
+            const pool = await getRawPool();
+            if (pool) await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
 
             return { success: true, momentId: moment, leadName: lead.companyName, type, newPriorityScore: score };
           },
@@ -413,11 +393,9 @@ Guidelines:
           writer.merge(result.toUIMessageStream({ sendStart: false }));
         },
         onFinish: async ({ messages: finalMessages }) => {
-          // Append assistant response to history
           const assistantMsg = finalMessages[finalMessages.length - 1];
           if (assistantMsg?.role === "assistant") {
             const history = chatHistories.get(historyKey) ?? [];
-            // Only add if not already there
             if (!history.find((m: any) => m.id === assistantMsg.id)) {
               history.push(assistantMsg);
               chatHistories.set(historyKey, history);
