@@ -1,0 +1,1122 @@
+import DashboardLayout from "@/components/DashboardLayout";
+import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  ArrowLeft, Edit, Plus, Globe, Mail, Phone, Building2, Tag, Clock, FileText,
+  Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
+  Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
+  Users, UserPlus, Unlink as UnlinkIcon, Linkedin
+} from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { useLocation, useParams } from "wouter";
+import { toast } from "sonner";
+import {
+  STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, CONTACT_TYPE_ICONS, OUTCOME_COLORS,
+  ALL_STATUSES, ALL_PRIORITIES, ALL_CONTACT_TYPES, ALL_OUTCOMES, formatDate, formatRelativeTime, getInitials
+} from "@/lib/crm";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
+
+function ContactMomentForm({ leadId, onSuccess }: { leadId: number; onSuccess: () => void }) {
+  const [type, setType] = useState("email");
+  const [direction, setDirection] = useState("outbound");
+  const [subject, setSubject] = useState("");
+  const [notes, setNotes] = useState("");
+  const [outcome, setOutcome] = useState("neutral");
+  const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString().slice(0, 16));
+
+  const utils = trpc.useUtils();
+  const createMutation = trpc.contactMoments.create.useMutation({
+    onSuccess: () => {
+      utils.contactMoments.list.invalidate({ leadId });
+      utils.analytics.recentActivity.invalidate();
+      onSuccess();
+      toast.success("Contact moment logged");
+    },
+    onError: () => toast.error("Failed to log contact moment"),
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Type</Label>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ALL_CONTACT_TYPES.map((t) => (
+                <SelectItem key={t} value={t} className="capitalize">
+                  {CONTACT_TYPE_ICONS[t as keyof typeof CONTACT_TYPE_ICONS]} {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Direction</Label>
+          <Select value={direction} onValueChange={setDirection}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="outbound">Outbound</SelectItem>
+              <SelectItem value="inbound">Inbound</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Subject</Label>
+        <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="e.g. Follow-up call about proposal" />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Notes</Label>
+        <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="What happened? Key takeaways..." rows={3} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Outcome</Label>
+          <Select value={outcome} onValueChange={setOutcome}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {ALL_OUTCOMES.map((o) => (
+                <SelectItem key={o} value={o} className="capitalize">{o.replace("_", " ")}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Date & Time</Label>
+          <Input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} />
+        </div>
+      </div>
+      <Button
+        className="w-full"
+        onClick={() => createMutation.mutate({ leadId, type: type as any, direction: direction as any, subject, notes, outcome: outcome as any, occurredAt })}
+        disabled={createMutation.isPending}
+      >
+        {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+        Log Interaction
+      </Button>
+    </div>
+  );
+}
+
+function getDocIcon(mimeType?: string | null, fileName?: string) {
+  const m = (mimeType ?? "").toLowerCase();
+  const n = (fileName ?? "").toLowerCase();
+  if (m === "text/html" || n.endsWith(".html") || n.endsWith(".htm")) return <FileCode className="h-4 w-4 text-orange-400 shrink-0" />;
+  if (m === "application/pdf" || n.endsWith(".pdf")) return <FileText className="h-4 w-4 text-red-400 shrink-0" />;
+  if (n.endsWith(".xlsx") || n.endsWith(".xls") || m.includes("spreadsheet") || m.includes("excel")) return <FileSpreadsheet className="h-4 w-4 text-green-400 shrink-0" />;
+  if (n.endsWith(".docx") || n.endsWith(".doc") || m.includes("word")) return <BookOpen className="h-4 w-4 text-blue-400 shrink-0" />;
+  return <FileText className="h-4 w-4 text-muted-foreground shrink-0" />;
+}
+
+export default function LeadDetail() {
+  const params = useParams<{ id: string }>();
+  const leadId = parseInt(params.id ?? "0");
+  const [, setLocation] = useLocation();
+  const [logOpen, setLogOpen] = useState(false);
+  const [enriching, setEnriching] = useState(false);
+  const [linkPersonOpen, setLinkPersonOpen] = useState(false);
+  const [personSearch, setPersonSearch] = useState("");
+  const [linkingPersonId, setLinkingPersonId] = useState<number | null>(null);
+  const [linkRelationship, setLinkRelationship] = useState("contact_at");
+  const [uploadCategory, setUploadCategory] = useState<"proposal"|"contract"|"presentation"|"report"|"other">("other");
+  const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
+  const [shareTitle, setShareTitle] = useState("");
+  const [shareRecordMoment, setShareRecordMoment] = useState(true);
+  const [shareNotes, setShareNotes] = useState("");
+  const [sharing, setSharing] = useState(false);
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: lead, isLoading, refetch } = trpc.leads.get.useQuery({ id: leadId });
+  const { data: moments } = trpc.contactMoments.list.useQuery({ leadId });
+  const { data: documents } = trpc.documents.list.useQuery({ leadId });
+  const { data: shares, refetch: refetchShares } = trpc.documents.listShares.useQuery({ leadId });
+  const { data: linkedPersons, refetch: refetchPersons } = trpc.persons.getPersonsForLead.useQuery({ leadId });
+  const { data: allPersons } = trpc.persons.list.useQuery({ search: personSearch, limit: 20 });
+  const utils = trpc.useUtils();
+
+  const linkPersonMutation = trpc.persons.linkToLead.useMutation({
+    onSuccess: () => {
+      refetchPersons();
+      setLinkPersonOpen(false);
+      setPersonSearch("");
+      setLinkingPersonId(null);
+      toast.success("Person linked to lead");
+    },
+    onError: () => toast.error("Failed to link person"),
+  });
+
+  const unlinkPersonMutation = trpc.persons.unlinkFromLead.useMutation({
+    onSuccess: () => { refetchPersons(); toast.success("Person unlinked"); },
+    onError: () => toast.error("Failed to unlink person"),
+  });
+
+  const updateLeadMutation = trpc.leads.update.useMutation({
+    onSuccess: () => { refetch(); toast.success("Lead updated"); },
+    onError: () => toast.error("Failed to update lead"),
+  });
+
+  const deleteDocMutation = trpc.documents.delete.useMutation({
+    onSuccess: () => { utils.documents.list.invalidate({ leadId }); toast.success("Document removed"); },
+  });
+
+  const deactivateShareMutation = trpc.documents.deactivateShare.useMutation({
+    onSuccess: () => { refetchShares(); toast.success("Share link deactivated"); },
+  });
+
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("leadId", String(leadId));
+    formData.append("category", uploadCategory);
+    try {
+      const res = await fetch("/api/upload-document", { method: "POST", body: formData });
+      if (res.ok) {
+        utils.documents.list.invalidate({ leadId });
+        toast.success(`"${file.name}" uploaded and indexed for AI search`);
+      } else {
+        toast.error("Upload failed");
+      }
+    } catch {
+      toast.error("Upload failed");
+    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [leadId, uploadCategory, utils]);
+
+  const handleShare = async () => {
+    if (!shareDialogDoc) return;
+    setSharing(true);
+    try {
+      const res = await fetch("/api/share-presentation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentId: shareDialogDoc.id,
+          leadId,
+          title: shareTitle || shareDialogDoc.fileName,
+          recordContactMoment: shareRecordMoment,
+          notes: shareNotes,
+        }),
+      });
+      if (res.ok) {
+        const { shareUrl } = await res.json();
+        setSharedUrl(shareUrl);
+        refetchShares();
+        if (shareRecordMoment) utils.contactMoments.list.invalidate({ leadId });
+        toast.success("Share link created!");
+      } else {
+        toast.error("Failed to create share link");
+      }
+    } catch {
+      toast.error("Failed to create share link");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleEnrich = async () => {
+    setEnriching(true);
+    try {
+      const res = await fetch(`/api/enrich-lead/${leadId}`, { method: "POST" });
+      if (res.ok) {
+        await refetch();
+        toast.success("Lead enriched with AI insights!");
+      } else {
+        toast.error("Enrichment failed");
+      }
+    } catch {
+      toast.error("Enrichment failed");
+    } finally {
+      setEnriching(false);
+    }
+  };
+
+
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!lead) {
+    return (
+      <DashboardLayout>
+        <div className="text-center py-16 text-muted-foreground">Lead not found</div>
+      </DashboardLayout>
+    );
+  }
+
+  const enrichment = lead.enrichmentData as Record<string, unknown> | null;
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-4 max-w-5xl">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setLocation("/leads")} className="gap-1 -ml-2">
+            <ArrowLeft className="h-4 w-4" />
+            Leads
+          </Button>
+          <span className="text-muted-foreground">/</span>
+          <span className="text-sm font-medium">{lead.companyName}</span>
+        </div>
+
+        {/* Header Card */}
+        <Card className="border shadow-sm">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <Avatar className="h-14 w-14 border-2 border-border">
+                  <AvatarFallback className="text-lg font-bold bg-primary/10 text-primary">
+                    {getInitials(lead.companyName)}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h1 className="text-xl font-bold">{lead.companyName}</h1>
+                  <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                    <Badge className={`text-xs border ${STATUS_COLORS[lead.status as keyof typeof STATUS_COLORS] ?? ""}`} variant="outline">
+                      {STATUS_LABELS[lead.status as keyof typeof STATUS_LABELS] ?? lead.status}
+                    </Badge>
+                    <Badge className={`text-xs border capitalize ${PRIORITY_COLORS[lead.priority as keyof typeof PRIORITY_COLORS] ?? ""}`} variant="outline">
+                      {lead.priority} priority
+                    </Badge>
+                    {(lead as any).priorityScore != null && (
+                      <span className="flex items-center gap-1.5 text-xs">
+                        <span className="text-muted-foreground">Score:</span>
+                        <span className={`font-semibold ${
+                          (lead as any).priorityScore >= 70 ? "text-emerald-600" :
+                          (lead as any).priorityScore >= 40 ? "text-amber-600" : "text-red-500"
+                        }`}>{(lead as any).priorityScore}/100</span>
+                        <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              (lead as any).priorityScore >= 70 ? "bg-emerald-500" :
+                              (lead as any).priorityScore >= 40 ? "bg-amber-500" : "bg-red-400"
+                            }`}
+                            style={{ width: `${Math.min(100, (lead as any).priorityScore)}%` }}
+                          />
+                        </div>
+                      </span>
+                    )}
+                    {lead.source && (
+                      <span className="text-xs text-muted-foreground">via {lead.source}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
+                    {lead.website && (
+                      <a href={lead.website.startsWith("http") ? lead.website : `https://${lead.website}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        <Globe className="h-3.5 w-3.5" />
+                        {lead.website}
+                      </a>
+                    )}
+                    {lead.email && (
+                      <a href={`mailto:${lead.email}`} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                        <Mail className="h-3.5 w-3.5" />
+                        {lead.email}
+                      </a>
+                    )}
+                    {lead.phone && (
+                      <span className="flex items-center gap-1">
+                        <Phone className="h-3.5 w-3.5" />
+                        {lead.phone}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={handleEnrich} disabled={enriching} className="gap-1.5">
+                  {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  Enrich
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setLocation(`/leads/${leadId}/edit`)} className="gap-1.5">
+                  <Edit className="h-3.5 w-3.5" />
+                  Edit
+                </Button>
+                <Dialog open={logOpen} onOpenChange={setLogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />
+                      Log Interaction
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Log Interaction — {lead.companyName}</DialogTitle>
+                    </DialogHeader>
+                    <ContactMomentForm leadId={leadId} onSuccess={() => setLogOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabs */}
+        <Tabs defaultValue="overview">
+          <TabsList className="border-b w-full justify-start rounded-none bg-transparent h-auto p-0 gap-0">
+            {["overview", "timeline", "persons", "documents", "enrichment"].map((tab) => (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent capitalize px-4 py-2.5 text-sm"
+              >
+                {tab}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="mt-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Contact Info */}
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Contact</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {[
+                    { label: "Name", value: lead.contactPerson },
+                    { label: "Title", value: lead.contactTitle },
+                    { label: "Email", value: lead.email },
+                    { label: "Phone", value: lead.phone },
+                    { label: "Industry", value: lead.industry },
+                    { label: "Location", value: lead.location },
+                  ].map(({ label, value }) => value ? (
+                    <div key={label} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className="font-medium text-right max-w-[60%] truncate">{value}</span>
+                    </div>
+                  ) : null)}
+                </CardContent>
+              </Card>
+
+              {/* CRM Info */}
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">CRM Info</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {[
+                    { label: "Status", value: STATUS_LABELS[lead.status as keyof typeof STATUS_LABELS] },
+                    { label: "Priority", value: lead.priority },
+                    { label: "Source", value: lead.source },
+                    { label: "Last Contact", value: formatDate(lead.lastContactedAt) },
+                    { label: "Next Follow-up", value: formatDate(lead.nextFollowUpAt) },
+                    { label: "Created", value: formatDate(lead.createdAt) },
+                  ].map(({ label, value }) => value ? (
+                    <div key={label} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className="font-medium capitalize">{value}</span>
+                    </div>
+                  ) : null)}
+                </CardContent>
+              </Card>
+
+              {/* Pain Points */}
+              {lead.painPoints && (
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pain Points</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed">{lead.painPoints}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Opportunities */}
+              {lead.futureOpportunities && (
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Opportunities</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed">{lead.futureOpportunities}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Revenue Model */}
+              {lead.revenueModel && (
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revenue Model</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed">{lead.revenueModel}</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Notes */}
+              {lead.notes && (
+                <Card className="border shadow-sm">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Notes</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm leading-relaxed">{lead.notes}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            {/* Lead Type Attributes */}
+            <LeadAttributeEditor
+              leadType={(lead as any).leadType ?? 'default'}
+              attributes={((lead as any).leadAttributes ?? {}) as Record<string, unknown>}
+              onLeadTypeChange={async (newType) => {
+                await updateLeadMutation.mutateAsync({ id: leadId, data: { leadType: newType as any } });
+              }}
+              onAttributesChange={async (newAttrs) => {
+                await updateLeadMutation.mutateAsync({ id: leadId, data: { leadAttributes: newAttrs } });
+              }}
+            />
+          </TabsContent>
+
+          {/* Timeline Tab */}
+          <TabsContent value="timeline" className="mt-4">
+            <Card className="border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold">Contact History</CardTitle>
+                <Dialog open={logOpen} onOpenChange={setLogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline" className="gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />
+                      Log
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Log Interaction</DialogTitle>
+                    </DialogHeader>
+                    <ContactMomentForm leadId={leadId} onSuccess={() => setLogOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              </CardHeader>
+              <CardContent>
+                {(moments ?? []).length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No interactions logged yet</p>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+                    <div className="space-y-4 pl-10">
+                      {(moments ?? []).map((moment) => (
+                        <div key={moment.id} className="relative">
+                          <div className="absolute -left-6 top-1 w-4 h-4 rounded-full bg-background border-2 border-primary flex items-center justify-center">
+                            <span className="text-[8px]">{CONTACT_TYPE_ICONS[moment.type as keyof typeof CONTACT_TYPE_ICONS]}</span>
+                          </div>
+                          <div className="bg-muted/30 rounded-lg p-3 border">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium capitalize">{moment.type}</span>
+                                  <span className="text-xs text-muted-foreground">·</span>
+                                  <span className={`text-xs capitalize ${OUTCOME_COLORS[moment.outcome as keyof typeof OUTCOME_COLORS] ?? ""}`}>
+                                    {moment.outcome?.replace("_", " ")}
+                                  </span>
+                                  {moment.direction && (
+                                    <>
+                                      <span className="text-xs text-muted-foreground">·</span>
+                                      <span className="text-xs text-muted-foreground capitalize">{moment.direction}</span>
+                                    </>
+                                  )}
+                                </div>
+                                {moment.subject && (
+                                  <div className="text-sm font-medium mt-0.5">{moment.subject}</div>
+                                )}
+                                {moment.notes && (
+                                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{moment.notes}</p>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground shrink-0">
+                                {formatRelativeTime(moment.occurredAt)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Persons Tab */}
+          <TabsContent value="persons" className="mt-4 space-y-4">
+            <Card className="border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Users className="h-4 w-4" /> Linked People
+                </CardTitle>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setLinkPersonOpen(true)}>
+                  <UserPlus className="h-3.5 w-3.5" /> Link Person
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {(linkedPersons ?? []).length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No people linked yet</p>
+                    <p className="text-xs mt-1">Link contacts, partners, or decision makers to this lead</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {(linkedPersons ?? []).map((row: any) => (
+                      <div key={row.link.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary shrink-0">
+                            {(row.person.name ?? "?").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium">{row.person.name}</span>
+                              <Badge variant="outline" className="text-xs capitalize">{row.link.relationship?.replace(/_/g, " ")}</Badge>
+                            </div>
+                            <div className="flex items-center gap-3 mt-0.5">
+                              {row.person.title && <span className="text-xs text-muted-foreground">{row.person.title}</span>}
+                              {row.person.company && <span className="text-xs text-muted-foreground">· {row.person.company}</span>}
+                              {row.person.email && (
+                                <a href={`mailto:${row.person.email}`} className="text-xs text-blue-500 hover:underline flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />{row.person.email}
+                                </a>
+                              )}
+                              {row.person.linkedInUrl && (
+                                <a href={row.person.linkedInUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline flex items-center gap-1">
+                                  <Linkedin className="h-3 w-3" />LinkedIn
+                                </a>
+                              )}
+                            </div>
+                            {row.link.notes && <p className="text-xs text-muted-foreground mt-1 italic">{row.link.notes}</p>}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
+                            onClick={() => setLocation(`/persons/${row.person.id}`)}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" /> View
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={() => unlinkPersonMutation.mutate({ personId: row.person.id, leadId })}
+                          >
+                            <UnlinkIcon className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Link Person Dialog */}
+            <Dialog open={linkPersonOpen} onOpenChange={setLinkPersonOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" /> Link a Person
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>Search people</Label>
+                    <Input
+                      placeholder="Type a name..."
+                      value={personSearch}
+                      onChange={(e) => setPersonSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Relationship</Label>
+                    <Select value={linkRelationship} onValueChange={setLinkRelationship}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="contact_at">Contact at company</SelectItem>
+                        <SelectItem value="decision_maker">Decision Maker</SelectItem>
+                        <SelectItem value="champion">Champion / Advocate</SelectItem>
+                        <SelectItem value="introduced_by">Introduced by</SelectItem>
+                        <SelectItem value="partner">Partner</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto space-y-1">
+                    {(allPersons?.persons ?? []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No people found</p>
+                    ) : (
+                      (allPersons?.persons ?? []).map((p: any) => (
+                        <button
+                          key={p.id}
+                          className={`w-full text-left flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${
+                            linkingPersonId === p.id ? "bg-primary/10 border-primary" : "hover:bg-muted/50 border-transparent"
+                          }`}
+                          onClick={() => setLinkingPersonId(linkingPersonId === p.id ? null : p.id)}
+                        >
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                            {(p.name ?? "?").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium">{p.name}</div>
+                            <div className="text-xs text-muted-foreground">{[p.title, p.company].filter(Boolean).join(" · ")}</div>
+                          </div>
+                          {linkingPersonId === p.id && <CheckCircle2 className="h-4 w-4 text-primary ml-auto shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => { setLinkPersonOpen(false); setLinkingPersonId(null); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={!linkingPersonId || linkPersonMutation.isPending}
+                      onClick={() => {
+                        if (linkingPersonId) {
+                          linkPersonMutation.mutate({ personId: linkingPersonId, leadId, relationship: linkRelationship as any });
+                        }
+                      }}
+                    >
+                      {linkPersonMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Link Person
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
+          {/* Documents Tab */}
+          <TabsContent value="documents" className="mt-4 space-y-4">
+            {/* Upload Card */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Upload Document</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Select value={uploadCategory} onValueChange={(v) => setUploadCategory(v as any)}>
+                    <SelectTrigger className="w-full sm:w-48">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="proposal">📄 Proposal</SelectItem>
+                      <SelectItem value="contract">📝 Contract</SelectItem>
+                      <SelectItem value="presentation">📊 Presentation</SelectItem>
+                      <SelectItem value="report">📋 Report</SelectItem>
+                      <SelectItem value="other">📁 Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.html,.htm,.xlsx,.xls,.docx,.doc,.txt,.md,.pptx,.ppt"
+                    onChange={handleFileUpload}
+                  />
+                  <Button
+                    variant="outline"
+                    className="gap-2 flex-1"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4" />
+                    Choose File (PDF, HTML, Excel, Word)
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Uploaded documents are automatically parsed and indexed for AI search.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Documents List */}
+            <Card className="border shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-semibold">Attached Documents</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(documents ?? []).length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No documents attached</p>
+                    <p className="text-xs mt-1">Upload proposals, contracts, presentations, solution architectures...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {(documents ?? []).map((doc: any) => (
+                      <div key={doc.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+                        <div className="flex items-center gap-3 min-w-0">
+                          {getDocIcon(doc.mimeType, doc.fileName)}
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">{doc.fileName}</div>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xs text-muted-foreground capitalize">{doc.category}</span>
+                              {doc.chunkCount > 0 && (
+                                <span className="text-xs text-emerald-600 flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3" /> AI indexed ({doc.chunkCount} chunks)
+                                </span>
+                              )}
+                              {doc.shareCount > 0 && (
+                                <span className="text-xs text-blue-500 flex items-center gap-1">
+                                  <Share2 className="h-3 w-3" /> {doc.shareCount} share{doc.shareCount !== 1 ? "s" : ""}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
+                            onClick={() => {
+                              setShareDialogDoc(doc);
+                              setShareTitle(doc.fileName);
+                              setSharedUrl(null);
+                              setShareNotes("");
+                              setShareRecordMoment(true);
+                            }}
+                          >
+                            <Share2 className="h-3.5 w-3.5" /> Share
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" asChild>
+                            <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={() => deleteDocMutation.mutate({ id: doc.id })}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Active Share Links */}
+            {(shares ?? []).length > 0 && (
+              <Card className="border shadow-sm">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base font-semibold">Active Share Links</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {(shares ?? []).filter((s: any) => s.isActive).map((share: any) => (
+                      <div key={share.id} className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg border border-blue-200/50">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{share.title ?? share.fileName}</div>
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> {share.viewCount ?? 0} views
+                            </span>
+                            <span className="text-xs text-muted-foreground">{share.fileName}</span>
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
+                            onClick={() => {
+                              const url = `${window.location.origin}/share/${share.token}`;
+                              navigator.clipboard.writeText(url);
+                              toast.success("Link copied!");
+                            }}
+                          >
+                            <Copy className="h-3.5 w-3.5" /> Copy
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
+                            asChild
+                          >
+                            <a href={`/share/${share.token}`} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5" /> Preview
+                            </a>
+                          </Button>
+                          <Button
+                            variant="ghost" size="sm"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={() => deactivateShareMutation.mutate({ token: share.token })}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Share Dialog */}
+            <Dialog open={!!shareDialogDoc} onOpenChange={(o) => { if (!o) { setShareDialogDoc(null); setSharedUrl(null); } }}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Share2 className="h-4 w-4" /> Share Presentation
+                  </DialogTitle>
+                </DialogHeader>
+                {sharedUrl ? (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200/50">
+                      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">Share link created!</p>
+                      <div className="flex gap-2">
+                        <Input value={sharedUrl} readOnly className="text-xs" />
+                        <Button size="sm" onClick={() => { navigator.clipboard.writeText(sharedUrl); toast.success("Copied!"); }}>
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" asChild className="flex-1">
+                        <a href={sharedUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5 mr-1" /> Preview</a>
+                      </Button>
+                      <Button size="sm" className="flex-1" onClick={() => { setShareDialogDoc(null); setSharedUrl(null); }}>Done</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <Label>Title (shown to client)</Label>
+                      <Input value={shareTitle} onChange={(e) => setShareTitle(e.target.value)} placeholder={shareDialogDoc?.fileName} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="recordMoment"
+                        checked={shareRecordMoment}
+                        onChange={(e) => setShareRecordMoment(e.target.checked)}
+                        className="rounded"
+                      />
+                      <Label htmlFor="recordMoment" className="cursor-pointer">Record as contact moment</Label>
+                    </div>
+                    {shareRecordMoment && (
+                      <div className="space-y-1.5">
+                        <Label>Notes (optional)</Label>
+                        <Textarea
+                          value={shareNotes}
+                          onChange={(e) => setShareNotes(e.target.value)}
+                          placeholder="e.g. Sent proposal to John after demo call..."
+                          rows={2}
+                        />
+                      </div>
+                    )}
+                    <div className="flex gap-2">
+                      <Button variant="outline" className="flex-1" onClick={() => setShareDialogDoc(null)}>Cancel</Button>
+                      <Button className="flex-1 gap-2" onClick={handleShare} disabled={sharing}>
+                        {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4" />}
+                        Generate Link
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
+          {/* Enrichment Tab */}
+          <TabsContent value="enrichment" className="mt-4">
+            <Card className="border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold">AI Enrichment</CardTitle>
+                <Button size="sm" variant="outline" onClick={handleEnrich} disabled={enriching} className="gap-1.5">
+                  {enriching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                  {enrichment ? "Re-enrich" : "Enrich with AI"}
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {!enrichment ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm font-medium">No AI enrichment yet</p>
+                    <p className="text-xs mt-1">Click "Enrich with AI" to research this company online and generate a sales intelligence report</p>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {/* Header meta */}
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      {lead.enrichedAt && (
+                        <p className="text-xs text-muted-foreground">Last enriched: {formatDate(lead.enrichedAt)}</p>
+                      )}
+                      {(enrichment as any).webDataFound === true && (
+                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">🌐 Web data found</Badge>
+                      )}
+                    </div>
+
+                    {/* Scores row */}
+                    <div className="grid grid-cols-3 gap-3">
+                      {enrichment.urgencyScore !== undefined && (
+                        <div className="rounded-lg border p-3 text-center">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Urgency</div>
+                          <div className="text-2xl font-bold text-orange-600">{String(enrichment.urgencyScore)}<span className="text-sm text-muted-foreground">/10</span></div>
+                        </div>
+                      )}
+                      {enrichment.fitScore !== undefined && (
+                        <div className="rounded-lg border p-3 text-center">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Fit Score</div>
+                          <div className="text-2xl font-bold text-green-600">{String(enrichment.fitScore)}<span className="text-sm text-muted-foreground">/10</span></div>
+                        </div>
+                      )}
+                      {(enrichment as any).estimatedDealSize != null && (
+                        <div className="rounded-lg border p-3 text-center">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Est. Deal Size</div>
+                          <div className="text-sm font-bold">{String((enrichment as any).estimatedDealSize)}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Overview */}
+                    {(enrichment as any).overview != null && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Company Overview</div>
+                        <p className="text-sm leading-relaxed">{String((enrichment as any).overview)}</p>
+                      </div>
+                    )}
+
+                    {/* Recent News */}
+                    {(enrichment as any).recentNews != null && String((enrichment as any).recentNews) !== "No recent news found." && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">📰 Recent News</div>
+                        <p className="text-sm leading-relaxed">{String((enrichment as any).recentNews)}</p>
+                      </div>
+                    )}
+
+                    {/* Key People */}
+                    {(enrichment as any).keyPeople != null && String((enrichment as any).keyPeople) !== "Not found in web research." && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">👥 Key People</div>
+                        <p className="text-sm leading-relaxed">{String((enrichment as any).keyPeople)}</p>
+                      </div>
+                    )}
+
+                    {/* Talking Points */}
+                    {Array.isArray((enrichment as any).talkingPoints) && ((enrichment as any).talkingPoints as string[]).length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">💬 Talking Points for First Call</div>
+                        <ul className="space-y-1">
+                          {((enrichment as any).talkingPoints as string[]).map((tp: string, i: number) => (
+                            <li key={i} className="flex gap-2 text-sm">
+                              <span className="text-primary font-bold shrink-0">{i + 1}.</span>
+                              <span>{tp}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Pain Points + Opportunities */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(enrichment as any).painPoints != null && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Pain Points</div>
+                          <p className="text-sm leading-relaxed">{String((enrichment as any).painPoints)}</p>
+                        </div>
+                      )}
+                      {(enrichment as any).opportunities != null && (
+                        <div className="space-y-1">
+                          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Opportunities</div>
+                          <p className="text-sm leading-relaxed">{String((enrichment as any).opportunities)}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Competitive Landscape */}
+                    {(enrichment as any).competitiveLandscape != null && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Competitive Landscape</div>
+                        <p className="text-sm leading-relaxed">{String((enrichment as any).competitiveLandscape)}</p>
+                      </div>
+                    )}
+
+                    {/* Recommended Approach (legacy + new) */}
+                    {(enrichment as any).recommendedApproach != null && (
+                      <div className="space-y-1">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Recommended Approach</div>
+                        <p className="text-sm leading-relaxed">{String((enrichment as any).recommendedApproach)}</p>
+                      </div>
+                    )}
+
+                    {/* Next Best Action */}
+                    {(enrichment as any).nextBestAction != null && (
+                      <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 space-y-1">
+                        <div className="text-xs font-semibold text-primary uppercase tracking-wide">⚡ Next Best Action</div>
+                        <p className="text-sm font-medium">{String((enrichment as any).nextBestAction)}</p>
+                      </div>
+                    )}
+
+                    {/* Sources */}
+                    {Array.isArray((enrichment as any).sources) && ((enrichment as any).sources as Array<{type: string; url: string; title: string}>).length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sources</div>
+                        <div className="space-y-1">
+                          {((enrichment as any).sources as Array<{type: string; url: string; title: string}>).map((src, i: number) => (
+                            <a key={i} href={src.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-xs text-blue-600 hover:underline truncate">
+                              <span className="shrink-0">{src.type === "website" ? "🌐" : src.type === "wikipedia" ? "📖" : "📰"}</span>
+                              <span className="truncate">{src.title || src.url}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Legacy: buying signals (old enrichments) */}
+                    {Array.isArray(enrichment.buyingSignals) && (enrichment.buyingSignals as string[]).length > 0 && !(enrichment as any).talkingPoints && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Buying Signals</div>
+                        <div className="flex flex-wrap gap-2">
+                          {(enrichment.buyingSignals as string[]).map((s, i) => (
+                            <Badge key={i} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">{s}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {Array.isArray(enrichment.keyDecisionFactors) && (enrichment.keyDecisionFactors as string[]).length > 0 && !(enrichment as any).talkingPoints && (
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Key Decision Factors</div>
+                        <div className="flex flex-wrap gap-2">
+                          {(enrichment.keyDecisionFactors as string[]).map((f, i) => (
+                            <Badge key={i} variant="outline" className="text-xs">{f}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </DashboardLayout>
+  );
+}
