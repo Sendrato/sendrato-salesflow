@@ -25,6 +25,60 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 
+function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurredAt: string | Date }; leadId: number }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const utils = trpc.useUtils();
+  const updateMutation = trpc.contactMoments.update.useMutation({
+    onSuccess: () => {
+      utils.contactMoments.list.invalidate({ leadId });
+      setEditing(false);
+      toast.success("Date updated");
+    },
+    onError: () => toast.error("Failed to update date"),
+  });
+
+  if (editing) {
+    return (
+      <Input
+        type="datetime-local"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => {
+          if (value) {
+            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
+          } else {
+            setEditing(false);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && value) {
+            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
+          } else if (e.key === "Escape") {
+            setEditing(false);
+          }
+        }}
+        className="h-6 w-44 text-xs px-1"
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setValue(new Date(moment.occurredAt).toISOString().slice(0, 16));
+        setEditing(true);
+      }}
+      className="text-xs text-muted-foreground hover:text-primary hover:underline cursor-pointer"
+      title="Click to edit date"
+    >
+      {formatRelativeTime(moment.occurredAt)}
+    </button>
+  );
+}
+
 function ContactMomentForm({ leadId, onSuccess }: { leadId: number; onSuccess: () => void }) {
   const [type, setType] = useState("email");
   const [direction, setDirection] = useState("outbound");
@@ -553,8 +607,8 @@ export default function LeadDetail() {
                                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{moment.notes}</p>
                                 )}
                               </div>
-                              <div className="text-xs text-muted-foreground shrink-0">
-                                {formatRelativeTime(moment.occurredAt)}
+                              <div className="shrink-0">
+                                <EditableMomentDate moment={moment} leadId={leadId} />
                               </div>
                             </div>
                           </div>

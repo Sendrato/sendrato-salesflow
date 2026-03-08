@@ -24,6 +24,59 @@ import {
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS } from "@/lib/crm";
 
+function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occurredAt: string | Date }; onUpdated: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const updateMutation = trpc.contactMoments.update.useMutation({
+    onSuccess: () => {
+      onUpdated();
+      setEditing(false);
+      toast.success("Date updated");
+    },
+    onError: () => toast.error("Failed to update date"),
+  });
+
+  if (editing) {
+    return (
+      <Input
+        type="datetime-local"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => {
+          if (value) {
+            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
+          } else {
+            setEditing(false);
+          }
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && value) {
+            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
+          } else if (e.key === "Escape") {
+            setEditing(false);
+          }
+        }}
+        className="h-6 w-44 text-xs px-1"
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setValue(new Date(moment.occurredAt).toISOString().slice(0, 16));
+        setEditing(true);
+      }}
+      className="text-xs text-muted-foreground hover:text-primary hover:underline cursor-pointer"
+      title="Click to edit date"
+    >
+      {formatDate(moment.occurredAt)}
+    </button>
+  );
+}
+
 const PERSON_TYPE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   prospect:   { label: "Prospect",   color: "text-slate-700",  bg: "bg-slate-100" },
   contact:    { label: "Contact",    color: "text-blue-700",   bg: "bg-blue-100" },
@@ -54,6 +107,7 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
   const [subject, setSubject] = useState("");
   const [notes, setNotes] = useState("");
   const [outcome, setOutcome] = useState("neutral");
+  const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString().slice(0, 16));
 
   const logMutation = trpc.persons.logContactMoment.useMutation({
     onSuccess: () => {
@@ -109,22 +163,28 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
             <Label className="text-xs">Notes</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Key takeaways, next steps..." className="text-sm min-h-[80px]" />
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Outcome</Label>
-            <Select value={outcome} onValueChange={setOutcome}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="positive">Positive</SelectItem>
-                <SelectItem value="neutral">Neutral</SelectItem>
-                <SelectItem value="negative">Negative</SelectItem>
-                <SelectItem value="no_response">No Response</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Outcome</Label>
+              <Select value={outcome} onValueChange={setOutcome}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="positive">Positive</SelectItem>
+                  <SelectItem value="neutral">Neutral</SelectItem>
+                  <SelectItem value="negative">Negative</SelectItem>
+                  <SelectItem value="no_response">No Response</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Date & Time</Label>
+              <Input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} className="text-sm h-8" />
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
             <Button size="sm" disabled={logMutation.isPending} onClick={() =>
-              logMutation.mutate({ personId, type: type as any, direction: direction as any, subject: subject || undefined, notes: notes || undefined, outcome: outcome as any })
+              logMutation.mutate({ personId, type: type as any, direction: direction as any, subject: subject || undefined, notes: notes || undefined, outcome: outcome as any, occurredAt })
             }>
               {logMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
             </Button>
@@ -485,7 +545,7 @@ export default function PersonDetailPage() {
                                 {m.outcome ?? "neutral"}
                               </span>
                             </div>
-                            <span className="text-xs text-muted-foreground">{formatDate(m.occurredAt)}</span>
+                            <EditableMomentDate moment={m} onUpdated={refetchMoments} />
                           </div>
                           {m.subject && <p className="text-sm font-medium">{m.subject}</p>}
                           {m.notes && <p className="text-xs text-muted-foreground mt-1">{m.notes}</p>}

@@ -57,6 +57,7 @@ export const contactMomentsRouter = router({
           subject: z.string().optional(),
           notes: z.string().optional(),
           outcome: momentOutcomeEnum.optional(),
+          occurredAt: z.string().optional(),
           followUpAt: z.string().optional(),
           followUpDone: z.boolean().optional(),
         }),
@@ -65,6 +66,7 @@ export const contactMomentsRouter = router({
     .mutation(async ({ input }) => {
       return updateContactMoment(input.id, {
         ...input.data,
+        occurredAt: input.data.occurredAt ? new Date(input.data.occurredAt) : undefined,
         followUpAt: input.data.followUpAt ? new Date(input.data.followUpAt) : undefined,
       });
     }),
