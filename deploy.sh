@@ -104,6 +104,7 @@ echo "  Node $(node -v)  |  pnpm $(pnpm -v)"
 echo ">>> [5/9] Setting up application..."
 id -u ${APP_USER} &>/dev/null || useradd -r -m -s /bin/bash ${APP_USER}
 
+export GIT_TERMINAL_PROMPT=0
 if [ -d "${APP_DIR}" ]; then
   echo "  ${APP_DIR} exists — pulling latest..."
   cd "${APP_DIR}"
