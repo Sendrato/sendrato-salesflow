@@ -59,7 +59,8 @@ apt-get install -y curl git build-essential software-properties-common ufw
 # ──────────────────────────────────────────────
 echo ">>> [2/9] Configuring firewall..."
 ufw allow OpenSSH
-ufw allow 'Nginx Full'
+ufw allow 80/tcp
+ufw allow 443/tcp
 ufw --force enable
 
 # ──────────────────────────────────────────────
