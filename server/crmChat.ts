@@ -97,12 +97,12 @@ export async function enrichLead(leadId: number): Promise<Record<string, unknown
   const lead = await getLeadById(leadId);
   if (!lead) return null;
 
-  const { provider, chatModel } = await getLLMProvider();
+  const llm = await getLLMProvider();
   const leadText = buildLeadText(lead as unknown as Record<string, unknown>);
 
   try {
     const { text } = await generateText({
-      model: provider.chat(chatModel),
+      model: llm.model,
       system: `You are a B2B sales intelligence analyst. Given lead information, provide structured enrichment insights in JSON format.`,
       messages: [
         {
@@ -380,9 +380,9 @@ Guidelines:
         execute: async ({ writer }) => {
           writer.write({ type: "start", messageId: generateId() });
 
-          const { provider, chatModel } = await getLLMProvider();
+          const llm = await getLLMProvider();
           const result = streamText({
-            model: provider.chat(chatModel),
+            model: llm.model,
             system: systemPrompt,
             messages: modelMessages,
             tools: crmTools,

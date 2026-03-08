@@ -264,9 +264,9 @@ Based on ALL the above information, produce a JSON intelligence report with thes
 Respond with ONLY the JSON object, no markdown fences.`;
 
   // ── Call LLM ──────────────────────────────────────────────────────────────
-  const { provider, enrichModel } = await getLLMProvider();
+  const llm = await getLLMProvider();
   const { text: content } = await generateText({
-    model: provider.chat(enrichModel),
+    model: llm.enrichModel,
     messages: [{ role: "user", content: prompt }],
     maxOutputTokens: 1500,
   });

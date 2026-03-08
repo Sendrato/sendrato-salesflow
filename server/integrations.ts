@@ -752,7 +752,7 @@ export function registerIntegrationRoutes(app: Express) {
         console.warn("[linkedin-import] Could not fetch page:", fetchErr);
       }
 
-      const { provider, chatModel } = await getLLMProvider();
+      const llm = await getLLMProvider();
 
       const systemPrompt = `You are a data extraction assistant. Extract person details from LinkedIn profile information.
 Always return ONLY a valid JSON object with these exact fields (use null for unknown fields):
@@ -778,7 +778,7 @@ Return ONLY the JSON object, no markdown, no explanation.`;
         : `The LinkedIn profile at ${profileUrl} could not be fetched (LinkedIn blocks automated access).\n\nURL slug: "${urlSlug}"\nName hint from slug: "${slugNameHint}"\n\nUse the slug to infer the person's full name (e.g. "john-doe" -> "John Doe", "zijlma" -> "Zijlma"). Set summary to "LinkedIn profile — please complete details manually" and personType to "prospect". Leave all other fields as null.`;
 
       const { text: llmText } = await generateText({
-        model: provider.chat(chatModel),
+        model: llm.model,
         system: systemPrompt,
         prompt: userPrompt,
         maxOutputTokens: 600,

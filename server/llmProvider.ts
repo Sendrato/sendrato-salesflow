@@ -3,91 +3,128 @@
  *
  * Centralised LLM provider factory.
  * Reads the app_settings table at runtime to determine which provider/model/key to use.
- * Falls back to the Manus Forge API if no custom key is configured.
+ * Uses the correct AI SDK provider package for each backend (Anthropic, Google, OpenAI).
  *
  * Usage:
- *   const { provider, chatModel, enrichModel } = await getLLMProvider();
- *   const result = await streamText({ model: provider.chat(chatModel), ... });
+ *   const { model, enrichModel } = await getLLMProvider();
+ *   const result = await streamText({ model, ... });
  */
 
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import type { LanguageModel } from "ai";
 import { ENV } from "./_core/env";
 import { getAllLLMSettings } from "./settingsDb";
 
 export interface LLMProvider {
-  /** AI SDK LanguageModelV1 factory — call .chat(modelId) to get a model */
-  provider: ReturnType<typeof createOpenAI>;
-  /** Model to use for AI chat conversations */
-  chatModel: string;
-  /** Model to use for lead enrichment */
-  enrichModel: string;
-  /** Model to use for text embeddings */
+  /** Ready-to-use chat model */
+  model: LanguageModel;
+  /** Ready-to-use enrichment model */
+  enrichModel: LanguageModel;
+  /** Model ID string for chat */
+  chatModelId: string;
+  /** Model ID string for enrichment */
+  enrichModelId: string;
+  /** Embedding model ID */
   embeddingModel: string;
   /** Which provider is active (for logging/display) */
   providerName: string;
+  /** Legacy: OpenAI-compatible provider factory (for embeddings) */
+  provider: ReturnType<typeof createOpenAI>;
 }
 
 /**
- * Returns the configured LLM provider and model names.
+ * Returns the configured LLM provider and models.
  * Always reads from DB so config changes take effect without restart.
  */
 export async function getLLMProvider(): Promise<LLMProvider> {
   const settings = await getAllLLMSettings();
 
-  // If no custom API key is set, use the Manus Forge API
+  // If no custom API key is set, use the built-in Forge API (OpenAI-compatible)
   if (!settings.apiKey) {
+    if (!ENV.forgeApiUrl) {
+      throw new Error(
+        "No LLM provider configured. Go to Settings → AI Provider to add your API key."
+      );
+    }
     const forgeProvider = createOpenAI({
       apiKey: ENV.forgeApiKey,
       baseURL: `${ENV.forgeApiUrl}/v1`,
     });
+    const chatModelId = settings.chatModel || "gemini-2.5-flash";
+    const enrichModelId = settings.enrichModel || "claude-sonnet-4-5";
     return {
-      provider: forgeProvider,
-      chatModel: settings.chatModel || "gemini-2.5-flash",
-      enrichModel: settings.enrichModel || "claude-sonnet-4-5",
+      model: forgeProvider.chat(chatModelId),
+      enrichModel: forgeProvider.chat(enrichModelId),
+      chatModelId,
+      enrichModelId,
       embeddingModel: "text-embedding-3-small",
       providerName: "forge",
+      provider: forgeProvider,
     };
   }
 
-  // Custom provider configured
-  let baseURL: string;
-  if (settings.baseUrl) {
-    // User-specified base URL (custom endpoint, Ollama, Groq, etc.)
-    baseURL = settings.baseUrl;
-  } else {
-    // Derive base URL from provider name
-    switch (settings.provider) {
-      case "anthropic":
-        baseURL = "https://api.anthropic.com/v1";
-        break;
-      case "google":
-        // Google Gemini via OpenAI-compatible endpoint
-        baseURL = "https://generativelanguage.googleapis.com/v1beta/openai";
-        break;
-      case "openai":
-      default:
-        baseURL = "https://api.openai.com/v1";
-        break;
+  // Custom provider configured — use the correct SDK
+  const chatModelId = settings.chatModel || defaultChatModel(settings.provider);
+  const enrichModelId = settings.enrichModel || defaultEnrichModel(settings.provider);
+
+  switch (settings.provider) {
+    case "anthropic": {
+      const anthropic = createAnthropic({ apiKey: settings.apiKey });
+      // For embeddings we still need an OpenAI-compatible provider
+      const openaiForEmbeddings = createOpenAI({
+        apiKey: ENV.forgeApiKey || "dummy",
+        baseURL: ENV.forgeApiUrl ? `${ENV.forgeApiUrl}/v1` : "https://api.openai.com/v1",
+      });
+      return {
+        model: anthropic.languageModel(chatModelId),
+        enrichModel: anthropic.languageModel(enrichModelId),
+        chatModelId,
+        enrichModelId,
+        embeddingModel: "text-embedding-3-small",
+        providerName: "anthropic",
+        provider: openaiForEmbeddings,
+      };
+    }
+
+    case "google": {
+      const google = createGoogleGenerativeAI({ apiKey: settings.apiKey });
+      const openaiForEmbeddings = createOpenAI({
+        apiKey: ENV.forgeApiKey || "dummy",
+        baseURL: ENV.forgeApiUrl ? `${ENV.forgeApiUrl}/v1` : "https://api.openai.com/v1",
+      });
+      return {
+        model: google(chatModelId),
+        enrichModel: google(enrichModelId),
+        chatModelId,
+        enrichModelId,
+        embeddingModel: "text-embedding-3-small",
+        providerName: "google",
+        provider: openaiForEmbeddings,
+      };
+    }
+
+    case "openai":
+    default: {
+      const baseURL = settings.baseUrl || "https://api.openai.com/v1";
+      const openai = createOpenAI({ apiKey: settings.apiKey, baseURL });
+      return {
+        model: openai.chat(chatModelId),
+        enrichModel: openai.chat(enrichModelId),
+        chatModelId,
+        enrichModelId,
+        embeddingModel: "text-embedding-3-small",
+        providerName: settings.provider || "openai",
+        provider: openai,
+      };
     }
   }
-
-  const customProvider = createOpenAI({
-    apiKey: settings.apiKey,
-    baseURL,
-  });
-
-  return {
-    provider: customProvider,
-    chatModel: settings.chatModel || defaultChatModel(settings.provider),
-    enrichModel: settings.enrichModel || defaultEnrichModel(settings.provider),
-    embeddingModel: "text-embedding-3-small",
-    providerName: settings.provider,
-  };
 }
 
 /**
  * Returns an OpenAI-compatible provider specifically for embeddings.
- * Always uses the Forge API or OpenAI, since not all providers support embeddings.
+ * Always uses OpenAI or Forge API, since not all providers support embeddings.
  */
 export async function getEmbeddingProvider(): Promise<ReturnType<typeof createOpenAI>> {
   const settings = await getAllLLMSettings();
@@ -101,10 +138,16 @@ export async function getEmbeddingProvider(): Promise<ReturnType<typeof createOp
   }
 
   // Otherwise fall back to Forge API (OpenAI-compatible)
-  return createOpenAI({
-    apiKey: ENV.forgeApiKey,
-    baseURL: `${ENV.forgeApiUrl}/v1`,
-  });
+  if (ENV.forgeApiUrl) {
+    return createOpenAI({
+      apiKey: ENV.forgeApiKey,
+      baseURL: `${ENV.forgeApiUrl}/v1`,
+    });
+  }
+
+  throw new Error(
+    "No embedding provider available. Configure an OpenAI API key in Settings, or set BUILT_IN_FORGE_API_URL."
+  );
 }
 
 function defaultChatModel(provider: string): string {

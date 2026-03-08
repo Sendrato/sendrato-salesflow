@@ -2,6 +2,8 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getAllLLMSettings, getSetting, setSetting, SETTING_KEYS } from "../settingsDb";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { generateText } from "ai";
 import { ENV } from "../_core/env";
 
@@ -55,27 +57,40 @@ export const settingsRouter = router({
     )
     .mutation(async ({ input }) => {
       try {
-        // Determine API key and base URL
+        // Determine API key
         const apiKey = input.apiKey && input.apiKey.length > 0
           ? input.apiKey
           : await getSetting(SETTING_KEYS.LLM_API_KEY) ?? ENV.forgeApiKey;
 
-        let baseUrl: string;
-        if (input.baseUrl && input.baseUrl.length > 0) {
-          baseUrl = input.baseUrl;
-        } else if (input.provider === "forge" || (!input.baseUrl && !input.apiKey)) {
-          baseUrl = `${ENV.forgeApiUrl}/v1`;
-        } else if (input.provider === "anthropic") {
-          baseUrl = "https://api.anthropic.com/v1";
-        } else if (input.provider === "google") {
-          baseUrl = "https://generativelanguage.googleapis.com/v1beta/openai";
-        } else {
-          baseUrl = "https://api.openai.com/v1";
+        if (!apiKey) {
+          return { success: false, error: "No API key provided" };
         }
 
-        const openai = createOpenAI({ apiKey, baseURL: baseUrl });
+        // Build the correct model based on provider
+        let model;
+        if (input.provider === "anthropic") {
+          const anthropic = createAnthropic({ apiKey });
+          model = anthropic.languageModel(input.model);
+        } else if (input.provider === "google") {
+          const google = createGoogleGenerativeAI({ apiKey });
+          model = google(input.model);
+        } else if (input.provider === "forge") {
+          if (!ENV.forgeApiUrl) {
+            return { success: false, error: "BUILT_IN_FORGE_API_URL not configured on server" };
+          }
+          const forge = createOpenAI({ apiKey: ENV.forgeApiKey, baseURL: `${ENV.forgeApiUrl}/v1` });
+          model = forge.chat(input.model);
+        } else {
+          // OpenAI or custom
+          const baseUrl = input.baseUrl && input.baseUrl.length > 0
+            ? input.baseUrl
+            : "https://api.openai.com/v1";
+          const openai = createOpenAI({ apiKey, baseURL: baseUrl });
+          model = openai.chat(input.model);
+        }
+
         const result = await generateText({
-          model: openai.chat(input.model),
+          model,
           messages: [{ role: "user", content: "Reply with exactly: OK" }],
           maxOutputTokens: 10,
         });
