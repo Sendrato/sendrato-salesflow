@@ -68,6 +68,11 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+
+    // Start IMAP email polling (non-blocking)
+    import("../imapPoller")
+      .then(({ startImapPolling }) => startImapPolling())
+      .catch((err) => console.warn("[IMAP] Failed to start polling:", err));
   });
 }
 

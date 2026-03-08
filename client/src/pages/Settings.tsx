@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import {
   Settings,
   Key,
@@ -26,6 +27,7 @@ import {
   UserPlus,
   Lock,
   Copy,
+  Mail,
 } from "lucide-react";
 
 const PROVIDERS = [
@@ -225,6 +227,285 @@ function InviteUserCard() {
             </AlertDescription>
           </Alert>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ImapSettingsCard() {
+  const { data: imapConfig, isLoading, refetch } = trpc.settings.getImapConfig.useQuery();
+  const updateMutation = trpc.settings.updateImapConfig.useMutation();
+  const testMutation = trpc.settings.testImapConnection.useMutation();
+
+  const [enabled, setEnabled] = useState(false);
+  const [host, setHost] = useState("");
+  const [port, setPort] = useState("993");
+  const [secure, setSecure] = useState(true);
+  const [user, setUser] = useState("");
+  const [password, setPassword] = useState("");
+  const [pollInterval, setPollInterval] = useState("5");
+  const [folder, setFolder] = useState("INBOX");
+  const [showPassword, setShowPassword] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    success: boolean;
+    folders?: string[];
+    error?: string;
+  } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+
+  const [imapInitialised, setImapInitialised] = useState(false);
+  if (imapConfig && !imapInitialised) {
+    setEnabled(imapConfig.enabled);
+    setHost(imapConfig.host);
+    setPort(String(imapConfig.port));
+    setSecure(imapConfig.secure);
+    setUser(imapConfig.user);
+    setPollInterval(String(imapConfig.pollInterval));
+    setFolder(imapConfig.folder);
+    setImapInitialised(true);
+  }
+
+  function markImapChanged() {
+    setHasChanges(true);
+    setTestResult(null);
+  }
+
+  async function handleSaveImap() {
+    try {
+      await updateMutation.mutateAsync({
+        enabled,
+        host,
+        port: parseInt(port) || 993,
+        secure,
+        user,
+        ...(password.length > 0 ? { password } : {}),
+        pollInterval: parseInt(pollInterval) || 5,
+        folder,
+      });
+      setPassword("");
+      setHasChanges(false);
+      await refetch();
+      toast.success("IMAP settings saved — polling restarted");
+    } catch (err) {
+      toast.error("Failed to save IMAP settings");
+    }
+  }
+
+  async function handleTestImap() {
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const result = await testMutation.mutateAsync({
+        host,
+        port: parseInt(port) || 993,
+        secure,
+        user,
+        ...(password.length > 0 ? { password } : {}),
+      });
+      setTestResult(result);
+    } catch (err) {
+      setTestResult({
+        success: false,
+        error: err instanceof Error ? err.message : "Connection failed",
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  }
+
+  if (isLoading) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Mail className="h-5 w-5 text-primary" />
+          <CardTitle>Email Integration (IMAP)</CardTitle>
+        </div>
+        <CardDescription>
+          Connect to a mailbox to automatically ingest emails and match them with
+          leads and contacts. Supports direct emails and forwarded messages.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Enable/Disable toggle */}
+        <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+          <div>
+            <p className="text-sm font-medium">Enable IMAP Polling</p>
+            <p className="text-xs text-muted-foreground">
+              {enabled
+                ? `Polling every ${pollInterval} min for ${user || "..."}`
+                : "Polling is disabled"}
+            </p>
+          </div>
+          <Switch
+            checked={enabled}
+            onCheckedChange={(v) => {
+              setEnabled(v);
+              markImapChanged();
+            }}
+          />
+        </div>
+
+        <Separator />
+
+        {/* Server settings */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="imapHost">IMAP Server</Label>
+            <Input
+              id="imapHost"
+              value={host}
+              onChange={(e) => {
+                setHost(e.target.value);
+                markImapChanged();
+              }}
+              placeholder="imap.example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="imapPort">Port</Label>
+            <Input
+              id="imapPort"
+              type="number"
+              value={port}
+              onChange={(e) => {
+                setPort(e.target.value);
+                markImapChanged();
+              }}
+              placeholder="993"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Switch
+            id="imapSecure"
+            checked={secure}
+            onCheckedChange={(v) => {
+              setSecure(v);
+              markImapChanged();
+            }}
+          />
+          <Label htmlFor="imapSecure">Use TLS/SSL</Label>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="imapUser">Email Address</Label>
+            <Input
+              id="imapUser"
+              value={user}
+              onChange={(e) => {
+                setUser(e.target.value);
+                markImapChanged();
+              }}
+              placeholder="crm@example.com"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="imapPassword">Password</Label>
+            <div className="relative">
+              <Input
+                id="imapPassword"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  markImapChanged();
+                }}
+                placeholder={
+                  imapConfig?.hasPassword
+                    ? "••••••••• (set — enter to replace)"
+                    : "Enter password"
+                }
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4" />
+                ) : (
+                  <Eye className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="imapFolder">Folder</Label>
+            <Input
+              id="imapFolder"
+              value={folder}
+              onChange={(e) => {
+                setFolder(e.target.value);
+                markImapChanged();
+              }}
+              placeholder="INBOX"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="imapInterval">Poll Interval (minutes)</Label>
+            <Input
+              id="imapInterval"
+              type="number"
+              min="1"
+              value={pollInterval}
+              onChange={(e) => {
+                setPollInterval(e.target.value);
+                markImapChanged();
+              }}
+              placeholder="5"
+            />
+          </div>
+        </div>
+
+        {/* Test result */}
+        {testResult && (
+          <Alert variant={testResult.success ? "default" : "destructive"}>
+            {testResult.success ? (
+              <CheckCircle2 className="h-4 w-4" />
+            ) : (
+              <XCircle className="h-4 w-4" />
+            )}
+            <AlertDescription>
+              {testResult.success
+                ? `Connected successfully! Available folders: ${testResult.folders?.join(", ")}`
+                : `Connection failed: ${testResult.error}`}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-3 pt-2">
+          <Button
+            onClick={handleSaveImap}
+            disabled={updateMutation.isPending || !hasChanges}
+          >
+            {updateMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Save Settings
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleTestImap}
+            disabled={isTesting || !host || !user}
+          >
+            {isTesting ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Zap className="h-4 w-4 mr-2" />
+            )}
+            Test Connection
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -593,6 +874,9 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* IMAP Email Integration */}
+        <ImapSettingsCard />
 
         {/* Change Password */}
         <ChangePasswordCard />

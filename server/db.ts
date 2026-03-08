@@ -9,6 +9,8 @@ import {
   leadDocuments,
   leadEmbeddings,
   emailIngestLog,
+  persons,
+  personLeadLinks,
   type Lead,
   type InsertLead,
   type InsertContactMoment,
@@ -368,6 +370,9 @@ export async function logEmailIngest(data: {
   parsedTo: string;
   parsedSubject: string;
   matchedLeadId?: number;
+  matchedPersonId?: number;
+  messageId?: string;
+  source?: string;
   status: "matched" | "unmatched" | "error";
 }) {
   const db = await getDb();
@@ -375,9 +380,43 @@ export async function logEmailIngest(data: {
   await db.insert(emailIngestLog).values(data);
 }
 
+export async function isMessageProcessed(messageId: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db
+    .select({ id: emailIngestLog.id })
+    .from(emailIngestLog)
+    .where(eq(emailIngestLog.messageId, messageId))
+    .limit(1);
+  return result.length > 0;
+}
+
 export async function findLeadByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
   const result = await db.select().from(leads).where(eq(leads.email, email)).limit(1);
   return result[0];
+}
+
+export async function findPersonByEmail(emailAddr: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(persons)
+    .where(eq(persons.email, emailAddr))
+    .limit(1);
+  if (!result[0]) return undefined;
+  const person = result[0];
+  // Fetch linked leads
+  const links = await db
+    .select({
+      leadId: personLeadLinks.leadId,
+      relationship: personLeadLinks.relationship,
+      companyName: leads.companyName,
+    })
+    .from(personLeadLinks)
+    .innerJoin(leads, eq(personLeadLinks.leadId, leads.id))
+    .where(eq(personLeadLinks.personId, person.id));
+  return { person, linkedLeads: links };
 }

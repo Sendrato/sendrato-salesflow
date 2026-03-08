@@ -312,6 +312,9 @@ export const emailIngestLog = pgTable("email_ingest_log", {
   parsedTo: text("parsedTo"),
   parsedSubject: varchar("parsedSubject", { length: 512 }),
   matchedLeadId: integer("matchedLeadId"),
+  matchedPersonId: integer("matchedPersonId"),
+  messageId: varchar("messageId", { length: 512 }),
+  source: varchar("source", { length: 64 }).default("webhook"),
   status: emailIngestStatusEnum("status").default("unmatched"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

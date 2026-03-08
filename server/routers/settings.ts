@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
-import { getAllLLMSettings, getSetting, setSetting, SETTING_KEYS } from "../settingsDb";
+import { getAllLLMSettings, getAllImapSettings, getSetting, setSetting, SETTING_KEYS } from "../settingsDb";
+import { ImapFlow } from "imapflow";
+import { restartImapPolling } from "../imapPoller";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -101,6 +103,91 @@ export const settingsRouter = router({
           model: input.model,
           provider: input.provider,
         };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { success: false, error: msg };
+      }
+    }),
+
+  // ── IMAP Settings ───────────────────────────────────────────────────────────
+
+  getImapConfig: protectedProcedure.query(async () => {
+    const settings = await getAllImapSettings();
+    return {
+      enabled: settings.enabled,
+      host: settings.host,
+      port: settings.port,
+      secure: settings.secure,
+      user: settings.user,
+      hasPassword: settings.password.length > 0,
+      pollInterval: settings.pollInterval,
+      folder: settings.folder,
+    };
+  }),
+
+  updateImapConfig: protectedProcedure
+    .input(
+      z.object({
+        enabled: z.boolean().optional(),
+        host: z.string().optional(),
+        port: z.number().optional(),
+        secure: z.boolean().optional(),
+        user: z.string().optional(),
+        password: z.string().optional(),
+        pollInterval: z.number().optional(),
+        folder: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const updates: Promise<void>[] = [];
+      if (input.enabled !== undefined) updates.push(setSetting(SETTING_KEYS.IMAP_ENABLED, String(input.enabled)));
+      if (input.host !== undefined) updates.push(setSetting(SETTING_KEYS.IMAP_HOST, input.host));
+      if (input.port !== undefined) updates.push(setSetting(SETTING_KEYS.IMAP_PORT, String(input.port)));
+      if (input.secure !== undefined) updates.push(setSetting(SETTING_KEYS.IMAP_SECURE, String(input.secure)));
+      if (input.user !== undefined) updates.push(setSetting(SETTING_KEYS.IMAP_USER, input.user));
+      if (input.password !== undefined && input.password.length > 0) updates.push(setSetting(SETTING_KEYS.IMAP_PASSWORD, input.password));
+      if (input.pollInterval !== undefined) updates.push(setSetting(SETTING_KEYS.IMAP_POLL_INTERVAL, String(input.pollInterval)));
+      if (input.folder !== undefined) updates.push(setSetting(SETTING_KEYS.IMAP_FOLDER, input.folder));
+      await Promise.all(updates);
+      // Restart polling with new settings
+      await restartImapPolling();
+      return { success: true };
+    }),
+
+  testImapConnection: protectedProcedure
+    .input(
+      z.object({
+        host: z.string(),
+        port: z.number(),
+        secure: z.boolean(),
+        user: z.string(),
+        password: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      try {
+        const password = input.password && input.password.length > 0
+          ? input.password
+          : (await getAllImapSettings()).password;
+
+        if (!password) {
+          return { success: false, error: "No password provided" };
+        }
+
+        const client = new ImapFlow({
+          host: input.host,
+          port: input.port,
+          secure: input.secure,
+          auth: { user: input.user, pass: password },
+          logger: false,
+        });
+
+        await client.connect();
+        const mailboxes = await client.list();
+        const folderNames = mailboxes.map((m) => m.path);
+        await client.logout();
+
+        return { success: true, folders: folderNames };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
         return { success: false, error: msg };

@@ -9,7 +9,6 @@ import type { Express, Request, Response } from "express";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import {
-  findLeadByEmail,
   createContactMoment,
   createLead,
   logEmailIngest,
@@ -18,6 +17,7 @@ import {
   updateLead,
   getRawPool,
 } from "./db";
+import { extractEmailAddresses, matchEmailAddresses } from "./emailMatcher";
 import { enrichLeadFromWeb } from "./enrichmentEngine";
 import { storagePut } from "./storage";
 import { indexLead } from "./crmChat";
@@ -46,20 +46,16 @@ export function registerIntegrationRoutes(app: Express) {
 
       const rawPayload = JSON.stringify(body).slice(0, 10000);
 
-      // Extract sender email address
-      const fromEmailMatch = from.match(/[\w.+-]+@[\w.-]+\.\w+/);
-      const fromEmail = fromEmailMatch ? fromEmailMatch[0] : from;
+      // Extract all email addresses (handles forwarded emails too)
+      const emailAddresses = extractEmailAddresses(from, text || html);
+      const match = await matchEmailAddresses(emailAddresses);
+      const fromEmail = match.matchedEmail ?? emailAddresses[0] ?? from;
 
-      // Try to match lead by sender email
-      let matchedLead = await findLeadByEmail(fromEmail);
+      let status: "matched" | "unmatched" | "error" = (match.lead || match.person) ? "matched" : "unmatched";
 
-      // If not matched by sender, try to find from subject or body
-      let status: "matched" | "unmatched" | "error" = matchedLead ? "matched" : "unmatched";
-
-      if (matchedLead) {
-        // Create a contact moment
+      if (match.lead) {
         await createContactMoment({
-          leadId: matchedLead.id,
+          leadId: match.lead.id,
           type: "email",
           direction: "inbound",
           subject: subject.slice(0, 512),
@@ -70,6 +66,25 @@ export function registerIntegrationRoutes(app: Express) {
           source: "email_ingest",
           occurredAt: new Date(),
         });
+      } else if (match.person) {
+        const { person, linkedLeads } = match.person;
+        if (linkedLeads && linkedLeads.length > 0) {
+          for (const link of linkedLeads) {
+            await createContactMoment({
+              leadId: link.leadId,
+              personId: person.id,
+              type: "email",
+              direction: "inbound",
+              subject: subject.slice(0, 512),
+              notes: text.slice(0, 5000),
+              emailFrom: fromEmail,
+              emailTo: to,
+              emailRaw: (html || text).slice(0, 10000),
+              source: "email_ingest",
+              occurredAt: new Date(),
+            });
+          }
+        }
       }
 
       await logEmailIngest({
@@ -77,14 +92,16 @@ export function registerIntegrationRoutes(app: Express) {
         parsedFrom: fromEmail,
         parsedTo: to,
         parsedSubject: subject,
-        matchedLeadId: matchedLead?.id,
+        matchedLeadId: match.lead?.id,
+        matchedPersonId: match.person?.person.id,
+        source: "webhook",
         status,
       });
 
       res.json({
         success: true,
         status,
-        matchedLead: matchedLead ? { id: matchedLead.id, companyName: matchedLead.companyName } : null,
+        matchedLead: match.lead ? { id: match.lead.id, companyName: match.lead.companyName } : null,
       });
     } catch (error) {
       console.error("[/api/email-ingest] Error:", error);
