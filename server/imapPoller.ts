@@ -35,6 +35,12 @@ async function pollOnce(): Promise<void> {
     secure: settings.secure,
     auth: { user: settings.user, pass: settings.password },
     logger: false,
+    tls: {
+      rejectUnauthorized: false,
+      servername: settings.host,
+      minVersion: "TLSv1" as const,
+      ciphers: "DEFAULT:@SECLEVEL=0",
+    },
   });
 
   try {

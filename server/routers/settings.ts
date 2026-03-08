@@ -180,6 +180,12 @@ export const settingsRouter = router({
           secure: input.secure,
           auth: { user: input.user, pass: password },
           logger: false,
+          tls: {
+            rejectUnauthorized: false,
+            servername: input.host,
+            minVersion: "TLSv1" as const,
+            ciphers: "DEFAULT:@SECLEVEL=0",
+          },
         });
 
         await client.connect();
