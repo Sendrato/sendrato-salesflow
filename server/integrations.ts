@@ -225,6 +225,7 @@ export function registerIntegrationRoutes(app: Express) {
         notes: "notes",
         industry: "industry",
         location: "location",
+        country: "country",
         "pain points": "painPoints",
         "pain_points": "painPoints",
         opportunities: "futureOpportunities",
@@ -238,6 +239,23 @@ export function registerIntegrationRoutes(app: Express) {
         "brand tone": "brandTone",
         "survey status": "surveyStatus",
         "decision maker": "contactPerson",
+        // Event attributes
+        "event name": "companyName",
+        "est. visitors": "attr:visitorCount",
+        visitors: "attr:visitorCount",
+        "estimated visitors": "attr:visitorCount",
+        "duration (days)": "attr:eventDurationDays",
+        "duration days": "attr:eventDurationDays",
+        "typical dates": "attr:typicalDates",
+        region: "attr:region",
+        "hotel need score": "attr:hotelNeedScore",
+        "revenue engine fit": "attr:revenueEngineFit",
+        "venue capacity": "attr:venueCapacity",
+        "event category": "attr:eventCategory",
+        "ticket price range": "attr:ticketPriceRange",
+        "key contact / organiser": "attr:organizerName",
+        organiser: "attr:organizerName",
+        organizer: "attr:organizerName",
       };
 
       const effectiveMapping = { ...defaultMapping, ...mapping };
@@ -262,6 +280,25 @@ export function registerIntegrationRoutes(app: Express) {
           if (!lead.companyName) {
             const firstVal = Object.values(row).find((v) => v && typeof v === "string");
             if (firstVal) lead.companyName = String(firstVal);
+          }
+          // Extract attr: prefixed fields into leadAttributes
+          const attrs: Record<string, unknown> = {};
+          const numericAttrs = ["visitorCount", "eventDurationDays", "venueCapacity"];
+          for (const key of Object.keys(lead)) {
+            if (key.startsWith("attr:")) {
+              const attrKey = key.slice(5);
+              let val: unknown = lead[key];
+              if (numericAttrs.includes(attrKey)) {
+                const num = Number(String(val).replace(/,/g, ""));
+                if (!isNaN(num)) val = num;
+              }
+              attrs[attrKey] = val;
+              delete lead[key];
+            }
+          }
+          if (Object.keys(attrs).length > 0) {
+            lead.leadType = "event";
+            lead.leadAttributes = attrs;
           }
           return lead;
         })

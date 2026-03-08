@@ -19,6 +19,7 @@ const leadInputSchema = z.object({
   industry: z.string().optional(),
   companySize: z.string().optional(),
   location: z.string().optional(),
+  country: z.string().optional(),
   contactPerson: z.string().optional(),
   contactTitle: z.string().optional(),
   email: z.string().optional(),
@@ -55,6 +56,7 @@ export const leadsRouter = router({
         status: z.string().optional(),
         priority: z.string().optional(),
         source: z.string().optional(),
+        country: z.string().optional(),
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       })

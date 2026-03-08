@@ -25,15 +25,23 @@ export default function Leads() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
+  const [country, setCountry] = useState<string>("all");
   const [page, setPage] = useState(0);
 
   const { data, isLoading } = trpc.leads.list.useQuery({
     search: search || undefined,
     status: status === "all" ? undefined : status,
     priority: priority === "all" ? undefined : priority,
+    country: country === "all" ? undefined : country,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
+
+  // Fetch all leads (without filters) to extract distinct countries for the filter dropdown
+  const { data: allLeadsData } = trpc.leads.list.useQuery({ limit: 1000 });
+  const countries = Array.from(
+    new Set((allLeadsData?.items ?? []).map((l) => l.country).filter(Boolean) as string[])
+  ).sort();
 
   const leads = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -95,6 +103,19 @@ export default function Leads() {
                   ))}
                 </SelectContent>
               </Select>
+              {countries.length > 0 && (
+                <Select value={country} onValueChange={(v) => { setCountry(v); setPage(0); }}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="All Countries" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Countries</SelectItem>
+                    {countries.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -112,6 +133,7 @@ export default function Leads() {
                   <TableHead className="w-[90px]">
                     <span className="flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> Score</span>
                   </TableHead>
+                  <TableHead>Country</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Last Contact</TableHead>
                   <TableHead className="w-[80px]"></TableHead>
@@ -121,7 +143,7 @@ export default function Leads() {
                 {isLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 8 }).map((_, j) => (
+                      {Array.from({ length: 9 }).map((_, j) => (
                         <TableCell key={j}>
                           <div className="h-4 bg-muted rounded animate-pulse" />
                         </TableCell>
@@ -130,7 +152,7 @@ export default function Leads() {
                   ))
                 ) : leads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-16 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-16 text-muted-foreground">
                       <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
                       <p>No leads found</p>
                       {search && <p className="text-sm mt-1">Try adjusting your search</p>}
@@ -195,6 +217,9 @@ export default function Leads() {
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">{lead.country ?? "—"}</span>
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-muted-foreground capitalize">{lead.source ?? "—"}</span>

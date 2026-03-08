@@ -126,6 +126,7 @@ export const leads = pgTable("leads", {
   industry: varchar("industry", { length: 128 }),
   companySize: varchar("companySize", { length: 64 }),
   location: varchar("location", { length: 255 }),
+  country: varchar("country", { length: 128 }),
   // Primary contact
   contactPerson: varchar("contactPerson", { length: 255 }),
   contactTitle: varchar("contactTitle", { length: 255 }),

@@ -17,6 +17,7 @@ type FormData = {
   website: string;
   industry: string;
   location: string;
+  country: string;
   contactPerson: string;
   contactTitle: string;
   email: string;
@@ -34,7 +35,7 @@ type FormData = {
 };
 
 const EMPTY_FORM: FormData = {
-  companyName: "", website: "", industry: "", location: "",
+  companyName: "", website: "", industry: "", location: "", country: "",
   contactPerson: "", contactTitle: "", email: "", phone: "",
   status: "new", priority: "medium", source: "manual",
   estimatedValue: "", notes: "", painPoints: "", futureOpportunities: "",
@@ -57,6 +58,7 @@ export default function LeadForm() {
         website: existing.website ?? "",
         industry: existing.industry ?? "",
         location: existing.location ?? "",
+        country: existing.country ?? "",
         contactPerson: existing.contactPerson ?? "",
         contactTitle: existing.contactTitle ?? "",
         email: existing.email ?? "",
@@ -109,6 +111,7 @@ export default function LeadForm() {
       website: form.website || undefined,
       industry: form.industry || undefined,
       location: form.location || undefined,
+      country: form.country || undefined,
       contactPerson: form.contactPerson || undefined,
       contactTitle: form.contactTitle || undefined,
       email: form.email || undefined,
@@ -174,6 +177,10 @@ export default function LeadForm() {
               <div className="space-y-1.5">
                 <Label>Location</Label>
                 <Input value={form.location} onChange={set("location")} placeholder="Phoenix, AZ" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Country</Label>
+                <Input value={form.country} onChange={set("country")} placeholder="United Kingdom" />
               </div>
             </CardContent>
           </Card>

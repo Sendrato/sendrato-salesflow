@@ -33,7 +33,7 @@ NODE_VERSION=20
 # PostgreSQL
 PG_DB="salesflow"
 PG_USER="salesflow"
-PG_PASS="$(openssl rand -base64 24)"
+PG_PASS="$(openssl rand -hex 16)"
 
 # Let's Encrypt
 CERTBOT_EMAIL="admin@sendrato.com"   # change to your email
@@ -76,13 +76,21 @@ apt-get install -y "postgresql-${PG_MAJOR}-pgvector"
 systemctl start postgresql
 systemctl enable postgresql
 
-# Create database, user, and enable pgvector extension
+# Create database, user, and enable pgvector extension (idempotent for re-runs)
 sudo -u postgres psql <<EOSQL
-CREATE USER ${PG_USER} WITH PASSWORD '${PG_PASS}';
-CREATE DATABASE ${PG_DB} OWNER ${PG_USER};
-\c ${PG_DB}
-CREATE EXTENSION IF NOT EXISTS vector;
+DO \$\$
+BEGIN
+  CREATE ROLE ${PG_USER} WITH LOGIN PASSWORD '${PG_PASS}';
+EXCEPTION WHEN duplicate_object THEN
+  ALTER ROLE ${PG_USER} WITH PASSWORD '${PG_PASS}';
+END
+\$\$;
 EOSQL
+
+sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${PG_DB}'" \
+  | grep -q 1 || sudo -u postgres createdb -O "${PG_USER}" "${PG_DB}"
+
+sudo -u postgres psql -d "${PG_DB}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
 echo "  PostgreSQL user: ${PG_USER} / ${PG_PASS}"
 

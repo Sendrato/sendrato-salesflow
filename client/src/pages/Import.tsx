@@ -16,6 +16,7 @@ const CRM_FIELDS = [
   { value: "website", label: "Website" },
   { value: "industry", label: "Industry" },
   { value: "location", label: "Location" },
+  { value: "country", label: "Country" },
   { value: "contactPerson", label: "Contact Person" },
   { value: "contactTitle", label: "Contact Title" },
   { value: "email", label: "Email" },
@@ -29,18 +30,43 @@ const CRM_FIELDS = [
   { value: "risks", label: "Risks" },
   { value: "source", label: "Source" },
   { value: "estimatedValue", label: "Estimated Value" },
+  // Event attributes (stored in leadAttributes JSON)
+  { value: "attr:visitorCount", label: "Est. Visitors (Event)" },
+  { value: "attr:eventDurationDays", label: "Duration Days (Event)" },
+  { value: "attr:typicalDates", label: "Typical Dates (Event)" },
+  { value: "attr:region", label: "Region (Event)" },
+  { value: "attr:hotelNeedScore", label: "Hotel Need Score (Event)" },
+  { value: "attr:revenueEngineFit", label: "Revenue Engine Fit (Event)" },
+  { value: "attr:venueCapacity", label: "Venue Capacity (Event)" },
+  { value: "attr:eventCategory", label: "Event Category (Event)" },
+  { value: "attr:ticketPriceRange", label: "Ticket Price Range (Event)" },
+  { value: "attr:organizerName", label: "Organizer (Event)" },
 ];
 
 const AUTO_DETECT: Record<string, string> = {
   "company name": "companyName", "company": "companyName", "company_name": "companyName",
+  "event name": "companyName",
   "website": "website", "url": "website",
   "contact": "contactPerson", "contact person": "contactPerson", "name": "contactPerson",
   "email": "email", "e-mail": "email",
   "phone": "phone", "telephone": "phone",
   "status": "status", "priority": "priority", "notes": "notes",
-  "industry": "industry", "location": "location",
+  "industry": "industry", "location": "location", "country": "country",
   "pain points": "painPoints", "opportunities": "futureOpportunities",
   "revenue model": "revenueModel", "risks": "risks",
+  // Event attributes
+  "est. visitors": "attr:visitorCount", "visitors": "attr:visitorCount",
+  "estimated visitors": "attr:visitorCount",
+  "duration (days)": "attr:eventDurationDays", "duration days": "attr:eventDurationDays",
+  "typical dates": "attr:typicalDates",
+  "region": "attr:region",
+  "hotel need score": "attr:hotelNeedScore",
+  "revenue engine fit": "attr:revenueEngineFit",
+  "venue capacity": "attr:venueCapacity",
+  "event category": "attr:eventCategory",
+  "ticket price range": "attr:ticketPriceRange",
+  "key contact / organiser": "attr:organizerName",
+  "organiser": "attr:organizerName", "organizer": "attr:organizerName",
 };
 
 type PreviewData = {

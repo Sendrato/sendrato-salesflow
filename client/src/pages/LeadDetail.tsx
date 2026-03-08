@@ -401,6 +401,7 @@ export default function LeadDetail() {
                     { label: "Phone", value: lead.phone },
                     { label: "Industry", value: lead.industry },
                     { label: "Location", value: lead.location },
+                    { label: "Country", value: lead.country },
                   ].map(({ label, value }) => value ? (
                     <div key={label} className="flex justify-between text-sm">
                       <span className="text-muted-foreground">{label}</span>
