@@ -25,7 +25,7 @@ Full-stack TypeScript monorepo: React frontend + Express/tRPC backend + PostgreS
 - **`client/src/`** — React 19 frontend (Vite, Wouter routing, shadcn/ui + Radix UI + Tailwind CSS)
   - `pages/` — Route page components; `components/` — Reusable UI; `hooks/` — Custom hooks; `contexts/` — React contexts
 - **`server/`** — Express backend with tRPC routers
-  - `_core/` — Server bootstrap, tRPC setup, auth middleware, OAuth, SDK
+  - `_core/` — Server bootstrap, tRPC setup, auth middleware, session management
   - `routers/` — tRPC route handlers (leads, persons, contactMoments, documents, analytics, settings)
   - Top-level `.ts` files — Business logic (crmChat, enrichmentEngine, documentRag, db, integrations)
 - **`shared/`** — Types, constants, and error definitions shared between client and server

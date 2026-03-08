@@ -15,8 +15,6 @@ import {
   type InsertLeadDocument,
   type InsertLeadEmbedding,
 } from "../drizzle/schema";
-import { ENV } from "./_core/env";
-
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: pg.Pool | null = null;
 
@@ -58,6 +56,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     updateSet[field] = normalized;
   }
 
+  if (user.passwordHash !== undefined) {
+    values.passwordHash = user.passwordHash;
+    updateSet.passwordHash = user.passwordHash;
+  }
   if (user.lastSignedIn !== undefined) {
     values.lastSignedIn = user.lastSignedIn;
     updateSet.lastSignedIn = user.lastSignedIn;
@@ -65,9 +67,6 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   if (user.role !== undefined) {
     values.role = user.role;
     updateSet.role = user.role;
-  } else if (user.openId === ENV.ownerOpenId) {
-    values.role = "admin";
-    updateSet.role = "admin";
   }
 
   if (!values.lastSignedIn) values.lastSignedIn = new Date();
@@ -85,6 +84,38 @@ export async function getUserByOpenId(openId: string) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
   return result[0];
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email.toLowerCase()))
+    .limit(1);
+  return result[0];
+}
+
+export async function getUserCount(): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(users);
+  return Number(result[0]?.count ?? 0);
+}
+
+export async function updateUserPassword(
+  userId: number,
+  passwordHash: string
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(users)
+    .set({ passwordHash, updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 // ─── Leads ────────────────────────────────────────────────────────────────────

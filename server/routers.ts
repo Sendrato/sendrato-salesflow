@@ -1,28 +1,102 @@
 import { COOKIE_NAME } from "@shared/const";
-import { getSessionCookieOptions } from "./_core/cookies";
-import { systemRouter } from "./_core/systemRouter";
-import { settingsRouter } from "./routers/settings";
-import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
-import { leadsRouter } from "./routers/leads";
-import { contactMomentsRouter } from "./routers/contactMoments";
-import { documentsRouter } from "./routers/documents";
-import { analyticsRouter } from "./routers/analytics";
-import { personsRouter } from "./routers/persons";
-import { storagePut } from "./storage";
+import bcrypt from "bcryptjs";
 import { nanoid } from "nanoid";
 import { z } from "zod/v4";
+import { getSessionCookieOptions } from "./_core/cookies";
+import { systemRouter } from "./_core/systemRouter";
+import {
+  adminProcedure,
+  protectedProcedure,
+  publicProcedure,
+  router,
+} from "./_core/trpc";
+import * as db from "./db";
+import { analyticsRouter } from "./routers/analytics";
+import { contactMomentsRouter } from "./routers/contactMoments";
+import { documentsRouter } from "./routers/documents";
+import { leadsRouter } from "./routers/leads";
+import { personsRouter } from "./routers/persons";
+import { settingsRouter } from "./routers/settings";
+
+const BCRYPT_ROUNDS = 12;
 
 export const appRouter = router({
   system: systemRouter,
   settings: settingsRouter,
 
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
+    me: publicProcedure.query((opts) => {
+      if (!opts.ctx.user) return null;
+      const { passwordHash: _, ...user } = opts.ctx.user;
+      return user;
+    }),
+
+    hasUsers: publicProcedure.query(async () => {
+      const count = await db.getUserCount();
+      return count > 0;
+    }),
+
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+
+    changePassword: protectedProcedure
+      .input(
+        z.object({
+          currentPassword: z.string(),
+          newPassword: z.string().min(8),
+        })
+      )
+      .mutation(async ({ ctx, input }) => {
+        const user = await db.getUserByOpenId(ctx.user.openId);
+        if (!user?.passwordHash) {
+          throw new Error("No password set for this account");
+        }
+
+        const valid = await bcrypt.compare(
+          input.currentPassword,
+          user.passwordHash
+        );
+        if (!valid) {
+          throw new Error("Current password is incorrect");
+        }
+
+        const newHash = await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS);
+        await db.updateUserPassword(user.id, newHash);
+
+        return { success: true } as const;
+      }),
+
+    inviteUser: adminProcedure
+      .input(
+        z.object({
+          email: z.email(),
+          name: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const existing = await db.getUserByEmail(input.email);
+        if (existing) {
+          throw new Error("A user with this email already exists");
+        }
+
+        const tempPassword = nanoid(16);
+        const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+        const openId = nanoid();
+
+        await db.upsertUser({
+          openId,
+          name: input.name || null,
+          email: input.email.toLowerCase(),
+          passwordHash,
+          loginMethod: "email",
+          lastSignedIn: new Date(),
+        });
+
+        return { tempPassword };
+      }),
   }),
 
   leads: leadsRouter,
@@ -42,7 +116,6 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        // Return a presigned-style endpoint — client will POST file to /api/upload-file
         return {
           uploadEndpoint: "/api/upload-file",
           fileKey: `leads/${input.leadId}/${nanoid()}-${input.fileName}`,

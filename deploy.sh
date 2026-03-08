@@ -39,13 +39,9 @@ PG_PASS="$(openssl rand -base64 24)"
 CERTBOT_EMAIL="admin@sendrato.com"   # change to your email
 
 # App environment — fill in your actual values
-VITE_APP_ID=""
 JWT_SECRET="$(openssl rand -base64 32)"
-OAUTH_SERVER_URL=""
-OWNER_OPEN_ID=""
 BUILT_IN_FORGE_API_URL=""
 BUILT_IN_FORGE_API_KEY=""
-VITE_OAUTH_PORTAL_URL=""
 VITE_FRONTEND_FORGE_API_KEY=""
 VITE_FRONTEND_FORGE_API_URL=""
 
@@ -128,12 +124,8 @@ PORT=${APP_PORT}
 # Database (PostgreSQL + pgvector)
 DATABASE_URL=postgresql://${PG_USER}:${PG_PASS}@localhost:5432/${PG_DB}
 
-# Auth / OAuth
-VITE_APP_ID=${VITE_APP_ID}
+# Auth
 JWT_SECRET=${JWT_SECRET}
-OAUTH_SERVER_URL=${OAUTH_SERVER_URL}
-OWNER_OPEN_ID=${OWNER_OPEN_ID}
-VITE_OAUTH_PORTAL_URL=${VITE_OAUTH_PORTAL_URL}
 
 # LLM / Forge API
 BUILT_IN_FORGE_API_URL=${BUILT_IN_FORGE_API_URL}
@@ -260,9 +252,12 @@ echo "  PostgreSQL user:     ${PG_USER}"
 echo "  PostgreSQL password: ${PG_PASS}"
 echo ""
 echo "  IMPORTANT: Save the credentials above securely!"
-echo "  IMPORTANT: Edit ${APP_DIR}/.env with your actual"
-echo "             OAuth and Forge API values, then restart:"
+echo "  IMPORTANT: Edit ${APP_DIR}/.env with your Forge API"
+echo "             values if using AI features, then restart:"
 echo "             systemctl restart salesflow"
+echo ""
+echo "  AUTH: Visit https://${DOMAIN} to create the first"
+echo "        admin account (email + password)."
 echo ""
 echo "  SSL auto-renewal is handled by certbot's systemd timer."
 echo "  Verify with: systemctl list-timers | grep certbot"

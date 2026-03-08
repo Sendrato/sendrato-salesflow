@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,13 +23,16 @@ import {
   Info,
   Zap,
   Globe,
+  UserPlus,
+  Lock,
+  Copy,
 } from "lucide-react";
 
 const PROVIDERS = [
   {
     value: "forge",
-    label: "Manus Forge (Default)",
-    description: "Built-in Manus AI gateway — no key needed on Manus hosting",
+    label: "Forge (Default)",
+    description: "Built-in AI gateway — uses BUILT_IN_FORGE_API_URL from server env",
     models: ["gemini-2.5-flash", "claude-sonnet-4-5", "gpt-4o", "gpt-4o-mini"],
     requiresKey: false,
   },
@@ -68,6 +72,163 @@ const PROVIDERS = [
     needsBaseUrl: true,
   },
 ];
+
+function ChangePasswordCard() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const changePasswordMutation = trpc.auth.changePassword.useMutation();
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
+      setCurrentPassword("");
+      setNewPassword("");
+      toast.success("Password changed successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to change password");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Lock className="h-5 w-5 text-primary" />
+          <CardTitle>Change Password</CardTitle>
+        </div>
+        <CardDescription>Update your account password.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleChangePassword} className="space-y-4 max-w-sm">
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Current Password</Label>
+            <Input
+              id="currentPassword"
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">New Password</Label>
+            <Input
+              id="newPassword"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
+              minLength={8}
+              placeholder="Min. 8 characters"
+            />
+          </div>
+          <Button type="submit" disabled={changePasswordMutation.isPending}>
+            {changePasswordMutation.isPending && (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            )}
+            Change Password
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InviteUserCard() {
+  const { user } = useAuth();
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const inviteMutation = trpc.auth.inviteUser.useMutation();
+
+  if (user?.role !== "admin") return null;
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setTempPassword(null);
+    try {
+      const result = await inviteMutation.mutateAsync({ email, name: name || undefined });
+      setTempPassword(result.tempPassword);
+      setEmail("");
+      setName("");
+      toast.success("User invited successfully");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to invite user");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <UserPlus className="h-5 w-5 text-primary" />
+          <CardTitle>Invite User</CardTitle>
+        </div>
+        <CardDescription>Create a new user account. Share the temporary password with them.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <form onSubmit={handleInvite} className="space-y-4 max-w-sm">
+          <div className="space-y-2">
+            <Label htmlFor="inviteEmail">Email</Label>
+            <Input
+              id="inviteEmail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="user@example.com"
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="inviteName">Name (optional)</Label>
+            <Input
+              id="inviteName"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="John Doe"
+            />
+          </div>
+          <Button type="submit" disabled={inviteMutation.isPending}>
+            {inviteMutation.isPending && (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            )}
+            Invite User
+          </Button>
+        </form>
+
+        {tempPassword && (
+          <Alert>
+            <Key className="h-4 w-4" />
+            <AlertDescription className="space-y-2">
+              <p>User created. Share this temporary password:</p>
+              <div className="flex items-center gap-2">
+                <code className="bg-muted px-2 py-1 rounded font-mono text-sm">
+                  {tempPassword}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7"
+                  onClick={() => {
+                    navigator.clipboard.writeText(tempPassword);
+                    toast.success("Copied to clipboard");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The user should change this password after first login.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function SettingsPage() {
   const { data: config, isLoading, refetch } = trpc.settings.getLLMConfig.useQuery();
@@ -128,7 +289,7 @@ export default function SettingsPage() {
     try {
       await clearKeyMutation.mutateAsync();
       await refetch();
-      toast.success("API key cleared — will use Manus Forge fallback");
+      toast.success("API key cleared — will use built-in Forge fallback");
     } catch {
       toast.error("Failed to clear API key");
     }
@@ -185,8 +346,8 @@ export default function SettingsPage() {
             </div>
             <CardDescription>
               Choose which LLM provider powers the AI chat, lead enrichment, and LinkedIn import features.
-              By default, SalesFlow uses the built-in Manus Forge API — no key needed on Manus hosting.
-              For self-hosting on DigitalOcean or other platforms, configure your own API key here.
+              Choose which LLM provider powers the AI chat, lead enrichment, and LinkedIn import features.
+              Configure your own API key here, or use the built-in Forge API if configured on the server.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -203,12 +364,12 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium">
                   {config?.hasApiKey
                     ? `Using custom ${config.provider} API key`
-                    : "Using Manus Forge API (default)"}
+                    : "Using built-in Forge API (default)"}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {config?.hasApiKey
                     ? `Chat model: ${config.chatModel} · Enrichment model: ${config.enrichModel}`
-                    : "Automatically uses the best available models via Manus Forge"}
+                    : "Automatically uses the configured Forge API models"}
                 </p>
               </div>
               {config?.hasApiKey && (
@@ -433,6 +594,12 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Change Password */}
+        <ChangePasswordCard />
+
+        {/* Invite User (admin only) */}
+        <InviteUserCard />
+
         {/* Self-hosting guide */}
         <Card>
           <CardHeader>
@@ -444,7 +611,7 @@ export default function SettingsPage() {
           <CardContent className="space-y-4 text-sm">
             <p className="text-muted-foreground">
               SalesFlow CRM is designed to be self-hosted on any Node.js-compatible platform.
-              When running outside Manus, configure your own LLM API key above.
+              Configure your preferred LLM provider above for AI-powered features.
             </p>
             <div className="space-y-3">
               <div className="rounded-lg border p-3 space-y-1">

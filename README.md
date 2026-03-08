@@ -64,17 +64,13 @@ The dev server starts at `http://localhost:3000` with Vite HMR for the frontend 
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string (`postgresql://user:pass@host:5432/db`) |
-| `JWT_SECRET` | Secret for signing session JWTs |
-| `VITE_APP_ID` | OAuth application ID |
-| `OAUTH_SERVER_URL` | OAuth server URL |
-| `OWNER_OPEN_ID` | Admin user's OpenID |
-| `BUILT_IN_FORGE_API_URL` | Default LLM API base URL |
-| `BUILT_IN_FORGE_API_KEY` | Default LLM API key |
-| `VITE_OAUTH_PORTAL_URL` | OAuth login portal URL (frontend) |
-| `VITE_FRONTEND_FORGE_API_KEY` | Frontend API key |
-| `VITE_FRONTEND_FORGE_API_URL` | Frontend API base URL |
+| `JWT_SECRET` | Secret for signing session JWTs (min. 32 characters) |
+| `BUILT_IN_FORGE_API_URL` | Default LLM API base URL (for AI features) |
+| `BUILT_IN_FORGE_API_KEY` | Default LLM API key (for AI features) |
+| `VITE_FRONTEND_FORGE_API_KEY` | Frontend API key (for client-side AI features) |
+| `VITE_FRONTEND_FORGE_API_URL` | Frontend API base URL (for client-side AI features) |
 
-`VITE_*` variables are embedded at build time.
+`VITE_*` variables are embedded at build time. The first user to register becomes the admin.
 
 ## Scripts
 
@@ -98,7 +94,7 @@ client/             React frontend
     hooks/          Custom React hooks
     contexts/       React contexts (theme)
 server/             Express backend
-  _core/            Server bootstrap, tRPC setup, auth, OAuth
+  _core/            Server bootstrap, tRPC setup, auth
   routers/          tRPC route handlers
   *.ts              Business logic (crmChat, enrichmentEngine, documentRag, integrations)
 shared/             Types and constants shared between client and server
