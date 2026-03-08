@@ -24,7 +24,7 @@ set -euo pipefail
 # ──────────────────────────────────────────────
 DOMAIN="crm.sendrato.com"
 APP_DIR="/opt/salesflow"
-REPO_URL="https://github.com/sendrato/salesflow.git"   # adjust if private / different
+REPO_URL="https://github.com/Sendrato/sendrato-salesflow.git"
 BRANCH="main"
 APP_USER="salesflow"
 APP_PORT=3000
