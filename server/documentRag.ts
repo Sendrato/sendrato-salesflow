@@ -5,7 +5,7 @@
  */
 import { embed, embedMany } from "ai";
 import { getRawPool } from "./db";
-import { getEmbeddingProvider } from "./llmProvider";
+import { getEmbeddingModel } from "./llmProvider";
 
 // ─── Text Extraction ──────────────────────────────────────────────────────────
 
@@ -138,9 +138,9 @@ export async function indexDocument(
   // Generate embeddings for all chunks in batch
   let embeddings: number[][] = [];
   try {
-    const embeddingProvider = await getEmbeddingProvider();
+    const embeddingModel = await getEmbeddingModel();
     const result = await embedMany({
-      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      model: embeddingModel,
       values: chunks,
     });
     embeddings = result.embeddings;
@@ -181,9 +181,9 @@ export async function searchDocumentChunks(
   if (!pool) return [];
 
   try {
-    const embeddingProvider = await getEmbeddingProvider();
+    const embeddingModel = await getEmbeddingModel();
     const { embedding: queryEmbedding } = await embed({
-      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      model: embeddingModel,
       value: query,
     });
 

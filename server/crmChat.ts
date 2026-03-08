@@ -6,7 +6,7 @@
 import { streamText, stepCountIs, tool, generateText, embed, createUIMessageStream, pipeUIMessageStreamToResponse, convertToModelMessages, generateId } from "ai";
 import type { Express } from "express";
 import { z } from "zod/v4";
-import { getLLMProvider, getEmbeddingProvider } from "./llmProvider";
+import { getLLMProvider, getEmbeddingModel } from "./llmProvider";
 import {
   getLeads,
   getLeadById,
@@ -43,9 +43,9 @@ export function buildLeadText(lead: Record<string, unknown>): string {
 // Semantic search using pgvector cosine distance
 async function semanticSearch(query: string, topK = 8): Promise<Array<{ leadId: number; score: number }>> {
   try {
-    const embeddingProvider = await getEmbeddingProvider();
+    const embeddingModel = await getEmbeddingModel();
     const { embedding: queryEmbedding } = await embed({
-      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      model: embeddingModel,
       value: query,
     });
 
@@ -76,9 +76,9 @@ export async function indexLead(lead: Record<string, unknown>) {
   try {
     const text = buildLeadText(lead);
 
-    const embeddingProvider = await getEmbeddingProvider();
+    const embeddingModel = await getEmbeddingModel();
     const { embedding } = await embed({
-      model: embeddingProvider.textEmbeddingModel("text-embedding-3-small"),
+      model: embeddingModel,
       value: text,
     });
 

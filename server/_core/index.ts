@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
 import net from "net";
+import path from "path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerAuthRoutes } from "./auth";
 import { registerChatRoutes } from "./chat";
@@ -42,6 +43,8 @@ async function startServer() {
   registerChatRoutes(app);
   // CRM AI Chat with RAG
   registerCrmChatRoutes(app);
+  // Serve uploaded files from local storage
+  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   // Integration routes: email ingest, Slack, import
   registerIntegrationRoutes(app);
   // tRPC API

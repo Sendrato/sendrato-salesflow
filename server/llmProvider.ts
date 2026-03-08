@@ -13,9 +13,10 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import type { LanguageModel } from "ai";
+import { createMistral } from "@ai-sdk/mistral";
+import type { EmbeddingModel, LanguageModel } from "ai";
 import { ENV } from "./_core/env";
-import { getAllLLMSettings } from "./settingsDb";
+import { getAllLLMSettings, getSetting, SETTING_KEYS } from "./settingsDb";
 
 export interface LLMProvider {
   /** Ready-to-use chat model */
@@ -26,12 +27,8 @@ export interface LLMProvider {
   chatModelId: string;
   /** Model ID string for enrichment */
   enrichModelId: string;
-  /** Embedding model ID */
-  embeddingModel: string;
   /** Which provider is active (for logging/display) */
   providerName: string;
-  /** Legacy: OpenAI-compatible provider factory (for embeddings) */
-  provider: ReturnType<typeof createOpenAI>;
 }
 
 /**
@@ -59,9 +56,7 @@ export async function getLLMProvider(): Promise<LLMProvider> {
       enrichModel: forgeProvider.chat(enrichModelId),
       chatModelId,
       enrichModelId,
-      embeddingModel: "text-embedding-3-small",
       providerName: "forge",
-      provider: forgeProvider,
     };
   }
 
@@ -72,36 +67,23 @@ export async function getLLMProvider(): Promise<LLMProvider> {
   switch (settings.provider) {
     case "anthropic": {
       const anthropic = createAnthropic({ apiKey: settings.apiKey });
-      // For embeddings we still need an OpenAI-compatible provider
-      const openaiForEmbeddings = createOpenAI({
-        apiKey: ENV.forgeApiKey || "dummy",
-        baseURL: ENV.forgeApiUrl ? `${ENV.forgeApiUrl}/v1` : "https://api.openai.com/v1",
-      });
       return {
         model: anthropic.languageModel(chatModelId),
         enrichModel: anthropic.languageModel(enrichModelId),
         chatModelId,
         enrichModelId,
-        embeddingModel: "text-embedding-3-small",
         providerName: "anthropic",
-        provider: openaiForEmbeddings,
       };
     }
 
     case "google": {
       const google = createGoogleGenerativeAI({ apiKey: settings.apiKey });
-      const openaiForEmbeddings = createOpenAI({
-        apiKey: ENV.forgeApiKey || "dummy",
-        baseURL: ENV.forgeApiUrl ? `${ENV.forgeApiUrl}/v1` : "https://api.openai.com/v1",
-      });
       return {
         model: google(chatModelId),
         enrichModel: google(enrichModelId),
         chatModelId,
         enrichModelId,
-        embeddingModel: "text-embedding-3-small",
         providerName: "google",
-        provider: openaiForEmbeddings,
       };
     }
 
@@ -114,40 +96,27 @@ export async function getLLMProvider(): Promise<LLMProvider> {
         enrichModel: openai.chat(enrichModelId),
         chatModelId,
         enrichModelId,
-        embeddingModel: "text-embedding-3-small",
         providerName: settings.provider || "openai",
-        provider: openai,
       };
     }
   }
 }
 
 /**
- * Returns an OpenAI-compatible provider specifically for embeddings.
- * Always uses OpenAI or Forge API, since not all providers support embeddings.
+ * Returns a ready-to-use Mistral embedding model.
+ * Uses the embedding API key from Settings.
  */
-export async function getEmbeddingProvider(): Promise<ReturnType<typeof createOpenAI>> {
-  const settings = await getAllLLMSettings();
+export async function getEmbeddingModel(): Promise<EmbeddingModel> {
+  const apiKey = await getSetting(SETTING_KEYS.EMBEDDING_API_KEY);
 
-  // If user has OpenAI as their provider with a custom key, use that
-  if (settings.apiKey && settings.provider === "openai") {
-    return createOpenAI({
-      apiKey: settings.apiKey,
-      baseURL: settings.baseUrl || "https://api.openai.com/v1",
-    });
+  if (!apiKey) {
+    throw new Error(
+      "No embedding API key configured. Go to Settings and add your Mistral API key for embeddings."
+    );
   }
 
-  // Otherwise fall back to Forge API (OpenAI-compatible)
-  if (ENV.forgeApiUrl) {
-    return createOpenAI({
-      apiKey: ENV.forgeApiKey,
-      baseURL: `${ENV.forgeApiUrl}/v1`,
-    });
-  }
-
-  throw new Error(
-    "No embedding provider available. Configure an OpenAI API key in Settings, or set BUILT_IN_FORGE_API_URL."
-  );
+  const mistral = createMistral({ apiKey });
+  return mistral.textEmbeddingModel("mistral-embed");
 }
 
 function defaultChatModel(provider: string): string {

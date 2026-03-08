@@ -522,7 +522,9 @@ export default function SettingsPage() {
   const [enrichModel, setEnrichModel] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>("");
   const [baseUrl, setBaseUrl] = useState<string>("");
+  const [embeddingApiKey, setEmbeddingApiKey] = useState<string>("");
   const [showKey, setShowKey] = useState(false);
+  const [showEmbeddingKey, setShowEmbeddingKey] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
     response?: string;
@@ -556,8 +558,10 @@ export default function SettingsPage() {
         enrichModel,
         ...(apiKey.length > 0 ? { apiKey } : {}),
         baseUrl,
+        ...(embeddingApiKey.length > 0 ? { embeddingApiKey } : {}),
       });
       setApiKey("");
+      setEmbeddingApiKey("");
       setHasUnsavedChanges(false);
       await refetch();
       toast.success("Settings saved successfully");
@@ -831,6 +835,47 @@ export default function SettingsPage() {
                 </p>
               </div>
             )}
+
+            {/* Embedding API Key (Mistral) */}
+            <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="embeddingApiKey" className="flex items-center gap-1.5">
+                <Key className="h-3.5 w-3.5" />
+                Embedding API Key (Mistral)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="embeddingApiKey"
+                  type={showEmbeddingKey ? "text" : "password"}
+                  value={embeddingApiKey}
+                  onChange={(e) => { setEmbeddingApiKey(e.target.value); markChanged(); }}
+                  placeholder={
+                    config?.hasEmbeddingKey
+                      ? "••••••••••••••••••••••• (key set — enter new key to replace)"
+                      : "Enter your Mistral API key"
+                  }
+                  className="pr-10 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEmbeddingKey(!showEmbeddingKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showEmbeddingKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Used for document and lead embeddings (semantic search). Get a key at{" "}
+                <a
+                  href="https://console.mistral.ai/api-keys"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  console.mistral.ai
+                </a>
+              </p>
+            </div>
 
             {/* Test connection result */}
             {testResult && (

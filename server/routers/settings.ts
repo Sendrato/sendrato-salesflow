@@ -12,13 +12,14 @@ import { ENV } from "../_core/env";
 export const settingsRouter = router({
   getLLMConfig: protectedProcedure.query(async () => {
     const settings = await getAllLLMSettings();
-    // Mask the API key — return only whether one is set
+    const embeddingApiKey = await getSetting(SETTING_KEYS.EMBEDDING_API_KEY);
     return {
       provider: settings.provider,
       chatModel: settings.chatModel,
       enrichModel: settings.enrichModel,
       hasApiKey: settings.apiKey.length > 0,
       baseUrl: settings.baseUrl,
+      hasEmbeddingKey: (embeddingApiKey ?? "").length > 0,
     };
   }),
 
@@ -30,6 +31,7 @@ export const settingsRouter = router({
         enrichModel: z.string().optional(),
         apiKey: z.string().optional(),
         baseUrl: z.string().optional(),
+        embeddingApiKey: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -39,6 +41,7 @@ export const settingsRouter = router({
       if (input.enrichModel !== undefined) updates.push(setSetting(SETTING_KEYS.LLM_ENRICH_MODEL, input.enrichModel));
       if (input.apiKey !== undefined && input.apiKey.length > 0) updates.push(setSetting(SETTING_KEYS.LLM_API_KEY, input.apiKey));
       if (input.baseUrl !== undefined) updates.push(setSetting(SETTING_KEYS.LLM_BASE_URL, input.baseUrl));
+      if (input.embeddingApiKey !== undefined && input.embeddingApiKey.length > 0) updates.push(setSetting(SETTING_KEYS.EMBEDDING_API_KEY, input.embeddingApiKey));
       await Promise.all(updates);
       return { success: true };
     }),

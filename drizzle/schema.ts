@@ -226,7 +226,7 @@ export const documentChunks = pgTable("document_chunks", {
   leadId: integer("leadId").notNull(),
   chunkIndex: integer("chunkIndex").notNull(),
   textContent: text("textContent").notNull(),
-  embedding: vector("embedding", { dimensions: 1536 }),
+  embedding: vector("embedding", { dimensions: 1024 }),
   pageNumber: integer("pageNumber"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -257,7 +257,7 @@ export type InsertShareablePresentation = typeof shareablePresentations.$inferIn
 export const leadEmbeddings = pgTable("lead_embeddings", {
   id: serial("id").primaryKey(),
   leadId: integer("leadId").notNull().unique(),
-  embedding: vector("embedding", { dimensions: 1536 }),
+  embedding: vector("embedding", { dimensions: 1024 }),
   textContent: text("textContent"),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
