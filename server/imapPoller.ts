@@ -94,7 +94,8 @@ async function processFolder(
         const emailAddresses = extractEmailAddresses(
           from,
           textBody || htmlBody,
-          crmAddress
+          crmAddress,
+          subject
         );
 
         console.log(`[IMAP]   Extracted emails: [${emailAddresses.join(", ")}]`);

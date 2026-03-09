@@ -175,4 +175,58 @@
       max-width: 1280px; /* Standard content width */
     }
   }
+
+  /* Email content styling */
+  .email-content {
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  .email-content p {
+    margin: 0.25em 0;
+  }
+  .email-content blockquote,
+  .email-content .email-quote {
+    border-left: 3px solid var(--border);
+    padding-left: 0.75em;
+    margin: 0.5em 0;
+    color: var(--muted-foreground);
+  }
+  .email-content a {
+    color: var(--primary);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .email-content a:hover {
+    opacity: 0.8;
+  }
+  .email-content img {
+    max-width: 100%;
+    height: auto;
+  }
+  .email-content table {
+    border-collapse: collapse;
+    max-width: 100%;
+  }
+  .email-content td,
+  .email-content th {
+    padding: 0.25em 0.5em;
+  }
+  .email-content pre {
+    background: var(--muted);
+    padding: 0.5em;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 0.85em;
+  }
+  .email-content h1,
+  .email-content h2,
+  .email-content h3 {
+    font-weight: 600;
+    margin: 0.5em 0 0.25em;
+  }
+  .email-content hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.75em 0;
+  }
 }

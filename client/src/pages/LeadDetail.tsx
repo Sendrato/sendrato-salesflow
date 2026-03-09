@@ -23,6 +23,7 @@ import {
   ALL_STATUSES, ALL_PRIORITIES, ALL_CONTACT_TYPES, ALL_OUTCOMES, formatDate, formatRelativeTime, getInitials
 } from "@/lib/crm";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import EmailBody from "@/components/EmailBody";
 import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 
 function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurredAt: string | Date }; leadId: number }) {
@@ -603,9 +604,11 @@ export default function LeadDetail() {
                                 {moment.subject && (
                                   <div className="text-sm font-medium mt-0.5">{moment.subject}</div>
                                 )}
-                                {moment.notes && (
-                                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{moment.notes}</p>
-                                )}
+                                {moment.type === "email" && (moment.emailRaw || moment.notes) ? (
+                                  <EmailBody html={moment.emailRaw} text={moment.notes} />
+                                ) : moment.notes ? (
+                                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed whitespace-pre-wrap">{moment.notes}</p>
+                                ) : null}
                               </div>
                               <div className="shrink-0">
                                 <EditableMomentDate moment={moment} leadId={leadId} />

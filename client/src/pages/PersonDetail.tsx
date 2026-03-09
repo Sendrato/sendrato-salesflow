@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS } from "@/lib/crm";
+import EmailBody from "@/components/EmailBody";
 
 function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occurredAt: string | Date }; onUpdated: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -548,7 +549,11 @@ export default function PersonDetailPage() {
                             <EditableMomentDate moment={m} onUpdated={refetchMoments} />
                           </div>
                           {m.subject && <p className="text-sm font-medium">{m.subject}</p>}
-                          {m.notes && <p className="text-xs text-muted-foreground mt-1">{m.notes}</p>}
+                          {m.type === "email" && (m.emailRaw || m.notes) ? (
+                            <EmailBody html={m.emailRaw} text={m.notes} />
+                          ) : m.notes ? (
+                            <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{m.notes}</p>
+                          ) : null}
                         </div>
                       </div>
                     ))}

@@ -47,7 +47,7 @@ export function registerIntegrationRoutes(app: Express) {
       const rawPayload = JSON.stringify(body).slice(0, 10000);
 
       // Extract all email addresses (handles forwarded emails too)
-      const emailAddresses = extractEmailAddresses(from, text || html);
+      const emailAddresses = extractEmailAddresses(from, text || html, undefined, subject);
       const match = await matchEmailAddresses(emailAddresses);
       const fromEmail = match.matchedEmail ?? emailAddresses[0] ?? from;
 

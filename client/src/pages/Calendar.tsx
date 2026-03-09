@@ -419,7 +419,7 @@ export default function CalendarPage() {
                       </div>
                     </div>
                     {e.subject && <p className="text-sm mt-1.5 font-medium">{e.subject}</p>}
-                    {e.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{e.notes}</p>}
+                    {e.notes && <p className="text-xs text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{e.notes}</p>}
                     <p className="text-xs text-muted-foreground mt-1.5">
                       <Clock className="h-3 w-3 inline mr-1" />
                       {e.date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}

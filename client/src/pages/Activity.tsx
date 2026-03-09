@@ -115,7 +115,7 @@ export default function Activity() {
                               <div className="text-sm font-medium mt-0.5">{item.moment.subject}</div>
                             )}
                             {item.moment.notes && (
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{item.moment.notes}</p>
+                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{item.moment.notes}</p>
                             )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
