@@ -649,7 +649,7 @@ export default function LeadDetail() {
                           <div className="bg-muted/30 rounded-lg p-3 border">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="text-sm font-medium capitalize">{moment.type}</span>
                                   <span className="text-xs text-muted-foreground">·</span>
                                   <span className={`text-xs capitalize ${OUTCOME_COLORS[moment.outcome as keyof typeof OUTCOME_COLORS] ?? ""}`}>
@@ -660,6 +660,12 @@ export default function LeadDetail() {
                                       <span className="text-xs text-muted-foreground">·</span>
                                       <span className="text-xs text-muted-foreground capitalize">{moment.direction}</span>
                                     </>
+                                  )}
+                                  {(moment as any).personName && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 text-xs font-medium">
+                                      <Users className="h-3 w-3" />
+                                      {(moment as any).personName}
+                                    </span>
                                   )}
                                 </div>
                                 {moment.subject && (

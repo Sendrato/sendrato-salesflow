@@ -221,11 +221,52 @@ export async function getLeadStats() {
 export async function getContactMoments(leadId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db
-    .select()
+
+  // Find person IDs linked to this lead
+  const linkedPersonIds = await db
+    .select({ personId: personLeadLinks.personId })
+    .from(personLeadLinks)
+    .where(eq(personLeadLinks.leadId, leadId));
+
+  const personIds = linkedPersonIds.map((r) => r.personId);
+
+  // Fetch moments: directly on this lead OR on linked persons (even if logged against a different/no lead)
+  const condition =
+    personIds.length > 0
+      ? or(
+          eq(contactMoments.leadId, leadId),
+          inArray(contactMoments.personId, personIds)
+        )
+      : eq(contactMoments.leadId, leadId);
+
+  const rows = await db
+    .select({
+      id: contactMoments.id,
+      leadId: contactMoments.leadId,
+      type: contactMoments.type,
+      direction: contactMoments.direction,
+      subject: contactMoments.subject,
+      notes: contactMoments.notes,
+      outcome: contactMoments.outcome,
+      emailFrom: contactMoments.emailFrom,
+      emailTo: contactMoments.emailTo,
+      emailRaw: contactMoments.emailRaw,
+      personId: contactMoments.personId,
+      source: contactMoments.source,
+      userId: contactMoments.userId,
+      occurredAt: contactMoments.occurredAt,
+      createdAt: contactMoments.createdAt,
+      updatedAt: contactMoments.updatedAt,
+      followUpAt: contactMoments.followUpAt,
+      followUpDone: contactMoments.followUpDone,
+      personName: persons.name,
+    })
     .from(contactMoments)
-    .where(eq(contactMoments.leadId, leadId))
+    .leftJoin(persons, eq(contactMoments.personId, persons.id))
+    .where(condition)
     .orderBy(desc(contactMoments.occurredAt));
+
+  return rows;
 }
 
 export async function getRecentContactMoments(limit = 20) {
