@@ -98,9 +98,9 @@ export default function Activity() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <button
                                 className="text-sm font-semibold hover:underline"
-                                onClick={() => setLocation(`/leads/${item.lead?.id}`)}
+                                onClick={() => setLocation(item.lead?.companyName ? `/leads/${item.lead?.id}` : `/persons/${item.person?.id}`)}
                               >
-                                {item.lead?.companyName ?? "Unknown Lead"}
+                                {item.lead?.companyName || item.person?.name || "Unknown"}
                               </button>
                               <Badge variant="outline" className="text-xs capitalize">{item.moment.type}</Badge>
                               {item.moment.outcome && (
@@ -125,7 +125,7 @@ export default function Activity() {
                               variant="ghost"
                               size="sm"
                               className="h-6 w-6 p-0"
-                              onClick={() => setLocation(`/leads/${item.lead?.id}`)}
+                              onClick={() => setLocation(item.lead?.companyName ? `/leads/${item.lead?.id}` : `/persons/${item.person?.id}`)}
                             >
                               <ExternalLink className="h-3 w-3" />
                             </Button>
