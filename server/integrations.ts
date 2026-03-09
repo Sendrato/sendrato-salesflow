@@ -62,7 +62,7 @@ export function registerIntegrationRoutes(app: Express) {
         await createContactMoment({
           leadId: match.lead.id,
           type: "email",
-          direction: "inbound",
+          direction: "outbound",
           subject: subject.slice(0, 512),
           notes: text.slice(0, 5000),
           emailFrom: fromEmail,
@@ -80,7 +80,7 @@ export function registerIntegrationRoutes(app: Express) {
               leadId: link.leadId,
               personId: person.id,
               type: "email",
-              direction: "inbound",
+              direction: "outbound",
               subject: subject.slice(0, 512),
               notes: text.slice(0, 5000),
               emailFrom: fromEmail,
