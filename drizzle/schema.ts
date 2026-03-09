@@ -424,6 +424,9 @@ export const webLinks = pgTable("web_links", {
   leadId: integer("leadId"),
   personId: integer("personId"),
   competitorId: integer("competitorId"),
+  scrapedContent: text("scrapedContent"),
+  aiSummary: text("aiSummary"),
+  scrapedAt: timestamp("scrapedAt"),
   createdBy: integer("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

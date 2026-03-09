@@ -19,8 +19,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, ExternalLink, Globe, Pencil, Trash2, Link2 } from "lucide-react";
+import {
+  Plus,
+  ExternalLink,
+  Globe,
+  Pencil,
+  Trash2,
+  Link2,
+  RefreshCw,
+  Loader2,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { toast } from "sonner";
+import { formatRelativeTime } from "@/lib/crm";
 
 type EntityType = "lead" | "person" | "competitor";
 
@@ -42,7 +55,10 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_CONFIG);
 
-export default function WebLinksCard({ entityType, entityId }: WebLinksCardProps) {
+export default function WebLinksCard({
+  entityType,
+  entityId,
+}: WebLinksCardProps) {
   const leadQuery = trpc.webLinks.listByLead.useQuery(
     { leadId: entityId },
     { enabled: entityType === "lead" }
@@ -68,7 +84,10 @@ export default function WebLinksCard({ entityType, entityId }: WebLinksCardProps
   const createMutation = trpc.webLinks.create.useMutation({
     onSuccess: () => {
       activeQuery.refetch();
-      toast.success("Link added");
+      toast.success("Link added — scraping content...");
+      // Refetch after a delay to pick up scrape results
+      setTimeout(() => activeQuery.refetch(), 5000);
+      setTimeout(() => activeQuery.refetch(), 12000);
     },
     onError: () => toast.error("Failed to add link"),
   });
@@ -89,12 +108,21 @@ export default function WebLinksCard({ entityType, entityId }: WebLinksCardProps
     onError: () => toast.error("Failed to remove link"),
   });
 
+  const rescrapeMutation = trpc.webLinks.rescrape.useMutation({
+    onSuccess: () => {
+      activeQuery.refetch();
+      toast.success("Content re-scraped");
+    },
+    onError: () => toast.error("Failed to scrape content"),
+  });
+
   const [addOpen, setAddOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<any>(null);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("other");
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   function resetForm() {
     setUrl("");
@@ -255,65 +283,138 @@ export default function WebLinksCard({ entityType, entityId }: WebLinksCardProps
             {links.map((link: any) => {
               const catCfg =
                 CATEGORY_CONFIG[link.category] ?? CATEGORY_CONFIG.other;
+              const isExpanded = expandedId === link.id;
+              const isScraping = !link.scrapedAt;
+              const hasAiSummary = !!link.aiSummary;
+              const scrapeFailed =
+                link.scrapedAt && !link.scrapedContent && !link.aiSummary;
+
               return (
                 <div
                   key={link.id}
-                  className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border"
+                  className="p-3 bg-muted/30 rounded-lg border"
                 >
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <Globe className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={
-                            link.url.startsWith("http")
-                              ? link.url
-                              : `https://${link.url}`
-                          }
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-primary hover:underline truncate flex items-center gap-1"
-                        >
-                          {link.title ||
-                            link.url
-                              .replace(/^https?:\/\//, "")
-                              .replace(/\/$/, "")
-                              .slice(0, 60)}
-                          <ExternalLink className="h-3 w-3 shrink-0" />
-                        </a>
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${catCfg.color}`}
-                        >
-                          {catCfg.label}
-                        </span>
+                  {/* Top row: link + meta + actions */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <Globe className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <a
+                            href={
+                              link.url.startsWith("http")
+                                ? link.url
+                                : `https://${link.url}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-primary hover:underline truncate flex items-center gap-1"
+                          >
+                            {link.title ||
+                              link.url
+                                .replace(/^https?:\/\//, "")
+                                .replace(/\/$/, "")
+                                .slice(0, 60)}
+                            <ExternalLink className="h-3 w-3 shrink-0" />
+                          </a>
+                          <span
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${catCfg.color}`}
+                          >
+                            {catCfg.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {formatRelativeTime(link.createdAt)}
+                          </span>
+                        </div>
+                        {link.description && (
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                            {link.description}
+                          </p>
+                        )}
                       </div>
-                      {link.description && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
-                          {link.description}
-                        </p>
-                      )}
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Re-scrape content"
+                        disabled={rescrapeMutation.isPending}
+                        onClick={() =>
+                          rescrapeMutation.mutate({ id: link.id })
+                        }
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 ${rescrapeMutation.isPending ? "animate-spin" : ""}`}
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={() => openEdit(link)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          deleteMutation.mutate({ id: link.id })
+                        }
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => openEdit(link)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                      onClick={() =>
-                        deleteMutation.mutate({ id: link.id })
-                      }
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+
+                  {/* AI Summary / Scraping status */}
+                  {isScraping && (
+                    <div className="flex items-center gap-2 mt-2 pl-7 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Scraping content...
+                    </div>
+                  )}
+                  {scrapeFailed && (
+                    <div className="mt-2 pl-7 text-xs text-muted-foreground">
+                      Could not fetch content from this URL
+                    </div>
+                  )}
+                  {hasAiSummary && (
+                    <div className="mt-2 pl-7">
+                      <div className="flex items-start gap-1.5 text-xs">
+                        <Sparkles className="h-3 w-3 text-primary mt-0.5 shrink-0" />
+                        <p className="text-muted-foreground leading-relaxed">
+                          {link.aiSummary}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Expandable raw content */}
+                  {link.scrapedContent && (
+                    <div className="mt-1.5 pl-7">
+                      <button
+                        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() =>
+                          setExpandedId(isExpanded ? null : link.id)
+                        }
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="h-3 w-3" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3" />
+                        )}
+                        {isExpanded ? "Hide" : "Show"} scraped content
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-1.5 p-2 bg-muted/50 rounded text-xs text-muted-foreground max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                          {link.scrapedContent}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

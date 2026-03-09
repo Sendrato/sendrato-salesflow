@@ -7,6 +7,7 @@ import {
   createWebLink,
   updateWebLink,
   deleteWebLink,
+  scrapeAndSummarizeWebLink,
 } from "../webLinksDb";
 
 const categoryEnum = z.enum([
@@ -55,9 +56,15 @@ export const webLinksRouter = router({
           }
         )
     )
-    .mutation(({ input, ctx }) =>
-      createWebLink({ ...input, createdBy: ctx.user.id })
-    ),
+    .mutation(async ({ input, ctx }) => {
+      const link = await createWebLink({ ...input, createdBy: ctx.user.id });
+      // Background scrape + AI summarize
+      setTimeout(
+        () => scrapeAndSummarizeWebLink(link.id).catch(console.error),
+        100
+      );
+      return link;
+    }),
 
   update: protectedProcedure
     .input(
@@ -72,6 +79,13 @@ export const webLinksRouter = router({
       })
     )
     .mutation(({ input }) => updateWebLink(input.id, input.data)),
+
+  rescrape: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await scrapeAndSummarizeWebLink(input.id);
+      return { success: true };
+    }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))

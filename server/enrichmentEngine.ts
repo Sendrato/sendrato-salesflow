@@ -39,7 +39,7 @@ export interface EnrichmentResult {
 const USER_AGENT =
   "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   // Remove scripts, styles, nav, footer
   let text = html
     .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
@@ -59,7 +59,7 @@ function stripHtml(html: string): string {
   return text.slice(0, 4000); // cap at 4k chars
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<string> {
+export async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
