@@ -11,7 +11,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
 } from "recharts";
 import {
-  STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatRelativeTime, formatCurrency
+  STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatRelativeTime, formatCurrency, formatDate
 } from "@/lib/crm";
 
 const PIPELINE_COLORS = [
@@ -25,6 +25,9 @@ export default function Dashboard() {
   const { data: topLeads } = trpc.analytics.topLeads.useQuery({ limit: 8 });
   const { data: recentActivity } = trpc.analytics.recentActivity.useQuery({ limit: 8 });
   const { data: contactFreq } = trpc.analytics.contactFrequency.useQuery({ days: 30 });
+  const { data: followUpData } = trpc.analytics.followUps.useQuery(undefined, {
+    refetchInterval: 60_000,
+  });
 
   const totalLeads = overview?.leadStats?.total ?? 0;
   const statusCounts = overview?.leadStats?.statusCounts ?? [];
@@ -63,6 +66,76 @@ export default function Dashboard() {
             New Lead
           </Button>
         </div>
+
+        {/* Follow-Up Alerts */}
+        {((followUpData?.overdueCount ?? 0) > 0 || (followUpData?.upcomingCount ?? 0) > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {(followUpData?.overdueCount ?? 0) > 0 && (
+              <Card className="border border-red-200 dark:border-red-900 shadow-sm bg-red-50/50 dark:bg-red-950/20">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-red-700 dark:text-red-400">
+                    <AlertCircle className="h-4 w-4" />
+                    Overdue Follow-ups ({followUpData!.overdueCount})
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setLocation("/calendar")} className="gap-1 text-xs text-red-600">
+                    Calendar <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-red-100 dark:divide-red-900/50">
+                    {(followUpData?.overdue ?? []).slice(0, 5).map((item) => (
+                      <div
+                        key={item.momentId}
+                        className="flex items-center justify-between px-6 py-2.5 hover:bg-red-100/50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
+                        onClick={() => setLocation(`/leads/${item.leadId}`)}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{item.companyName ?? "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground truncate">{item.subject ?? item.type}</div>
+                        </div>
+                        <span className="text-xs text-red-600 dark:text-red-400 shrink-0 ml-2">
+                          {item.followUpAt ? formatDate(item.followUpAt) : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {(followUpData?.upcomingCount ?? 0) > 0 && (
+              <Card className="border border-amber-200 dark:border-amber-900 shadow-sm bg-amber-50/50 dark:bg-amber-950/20">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                    <Clock className="h-4 w-4" />
+                    Upcoming Follow-ups ({followUpData!.upcomingCount})
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setLocation("/calendar")} className="gap-1 text-xs text-amber-600">
+                    Calendar <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-amber-100 dark:divide-amber-900/50">
+                    {(followUpData?.upcoming ?? []).slice(0, 5).map((item) => (
+                      <div
+                        key={item.momentId}
+                        className="flex items-center justify-between px-6 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-950/30 cursor-pointer transition-colors"
+                        onClick={() => setLocation(`/leads/${item.leadId}`)}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{item.companyName ?? "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground truncate">{item.subject ?? item.type}</div>
+                        </div>
+                        <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 ml-2">
+                          {item.followUpAt ? formatDate(item.followUpAt) : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* KPI Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

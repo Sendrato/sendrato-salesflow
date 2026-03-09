@@ -148,21 +148,23 @@ export const personsRouter = router({
         notes: z.string().optional(),
         outcome: z.enum(["positive", "neutral", "negative", "no_response"]).optional().default("neutral"),
         occurredAt: z.string().optional(),
+        followUpAt: z.string().optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("DB not available");
-      const { occurredAt, ...rest } = input;
+      const { occurredAt, followUpAt, ...rest } = input;
       const [result] = await db.insert(contactMoments).values({
         ...rest,
         leadId: rest.leadId ?? 0, // 0 = person-only moment
         userId: ctx.user.id,
         source: "manual",
         occurredAt: occurredAt ? new Date(occurredAt) : new Date(),
+        followUpAt: followUpAt ? new Date(followUpAt) : undefined,
       }).returning({ id: contactMoments.id });
       // Update person lastContactedAt
-      await updatePerson(input.personId, { lastContactedAt: new Date() });
+      await updatePerson(input.personId, { lastContactedAt: occurredAt ? new Date(occurredAt) : new Date() });
       return { id: result.id };
     }),
 });

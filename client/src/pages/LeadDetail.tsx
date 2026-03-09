@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   ArrowLeft, Edit, Plus, Globe, Mail, Phone, Building2, Tag, Clock, FileText,
   Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
@@ -87,6 +88,7 @@ function ContactMomentForm({ leadId, onSuccess }: { leadId: number; onSuccess: (
   const [notes, setNotes] = useState("");
   const [outcome, setOutcome] = useState("neutral");
   const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [followUpAt, setFollowUpAt] = useState("");
 
   const utils = trpc.useUtils();
   const createMutation = trpc.contactMoments.create.useMutation({
@@ -153,9 +155,30 @@ function ContactMomentForm({ leadId, onSuccess }: { leadId: number; onSuccess: (
           <Input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} />
         </div>
       </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="scheduleFollowUp"
+            checked={!!followUpAt}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                const d = new Date(occurredAt);
+                d.setDate(d.getDate() + 3);
+                setFollowUpAt(d.toISOString().slice(0, 16));
+              } else {
+                setFollowUpAt("");
+              }
+            }}
+          />
+          <Label htmlFor="scheduleFollowUp" className="cursor-pointer text-sm font-normal">Schedule follow-up</Label>
+        </div>
+        {followUpAt && (
+          <Input type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} />
+        )}
+      </div>
       <Button
         className="w-full"
-        onClick={() => createMutation.mutate({ leadId, type: type as any, direction: direction as any, subject, notes, outcome: outcome as any, occurredAt })}
+        onClick={() => createMutation.mutate({ leadId, type: type as any, direction: direction as any, subject, notes, outcome: outcome as any, occurredAt, followUpAt: followUpAt || undefined })}
         disabled={createMutation.isPending}
       >
         {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
@@ -216,6 +239,13 @@ export default function LeadDetail() {
   const unlinkPersonMutation = trpc.persons.unlinkFromLead.useMutation({
     onSuccess: () => { refetchPersons(); toast.success("Person unlinked"); },
     onError: () => toast.error("Failed to unlink person"),
+  });
+
+  const toggleFollowUpMutation = trpc.contactMoments.update.useMutation({
+    onSuccess: () => {
+      utils.contactMoments.list.invalidate({ leadId });
+      utils.analytics.followUps.invalidate();
+    },
   });
 
   const updateLeadMutation = trpc.leads.update.useMutation({
@@ -609,6 +639,29 @@ export default function LeadDetail() {
                                 ) : moment.notes ? (
                                   <p className="text-sm text-muted-foreground mt-1 leading-relaxed whitespace-pre-wrap">{moment.notes}</p>
                                 ) : null}
+                                {moment.followUpAt && (
+                                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
+                                    <Checkbox
+                                      checked={!!moment.followUpDone}
+                                      onCheckedChange={(checked) => {
+                                        toggleFollowUpMutation.mutate({
+                                          id: moment.id,
+                                          data: { followUpDone: !!checked },
+                                        });
+                                      }}
+                                      className="h-3.5 w-3.5"
+                                    />
+                                    <span className={`text-xs ${
+                                      moment.followUpDone
+                                        ? "text-muted-foreground line-through"
+                                        : new Date(moment.followUpAt) < new Date()
+                                          ? "text-red-600 font-medium"
+                                          : "text-amber-600"
+                                    }`}>
+                                      Follow-up {moment.followUpDone ? "done" : `due ${formatDate(moment.followUpAt)}`}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                               <div className="shrink-0">
                                 <EditableMomentDate moment={moment} leadId={leadId} />

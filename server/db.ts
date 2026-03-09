@@ -244,8 +244,13 @@ export async function createContactMoment(data: InsertContactMoment) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const [inserted] = await db.insert(contactMoments).values(data).returning({ id: contactMoments.id });
+  const contactDate = data.occurredAt ?? new Date();
   // Update lastContactedAt on lead
-  await db.update(leads).set({ lastContactedAt: data.occurredAt ?? new Date(), updatedAt: new Date() }).where(eq(leads.id, data.leadId));
+  await db.update(leads).set({ lastContactedAt: contactDate, updatedAt: new Date() }).where(eq(leads.id, data.leadId));
+  // Update lastContactedAt on person if linked
+  if (data.personId) {
+    await db.update(persons).set({ lastContactedAt: contactDate, updatedAt: new Date() }).where(eq(persons.id, data.personId));
+  }
   const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, inserted.id)).limit(1);
   return rows[0];
 }
@@ -255,7 +260,33 @@ export async function updateContactMoment(id: number, data: Partial<InsertContac
   if (!db) throw new Error("Database not available");
   await db.update(contactMoments).set({ ...data, updatedAt: new Date() }).where(eq(contactMoments.id, id));
   const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, id)).limit(1);
-  return rows[0];
+  const updated = rows[0];
+  // Recalculate lastContactedAt on lead/person when occurredAt changes
+  if (data.occurredAt && updated) {
+    await recalcLastContactedAt(db, updated.leadId, updated.personId);
+  }
+  return updated;
+}
+
+async function recalcLastContactedAt(db: ReturnType<typeof drizzle>, leadId: number, personId?: number | null) {
+  // Lead: find the most recent occurredAt across all its contact moments
+  const [leadMax] = await db
+    .select({ max: sql<Date>`max(${contactMoments.occurredAt})` })
+    .from(contactMoments)
+    .where(eq(contactMoments.leadId, leadId));
+  if (leadMax?.max) {
+    await db.update(leads).set({ lastContactedAt: leadMax.max, updatedAt: new Date() }).where(eq(leads.id, leadId));
+  }
+  // Person: same logic
+  if (personId) {
+    const [personMax] = await db
+      .select({ max: sql<Date>`max(${contactMoments.occurredAt})` })
+      .from(contactMoments)
+      .where(eq(contactMoments.personId, personId));
+    if (personMax?.max) {
+      await db.update(persons).set({ lastContactedAt: personMax.max, updatedAt: new Date() }).where(eq(persons.id, personId));
+    }
+  }
 }
 
 export async function deleteContactMoment(id: number) {

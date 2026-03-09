@@ -336,9 +336,6 @@ export function registerCrmChatRoutes(app: Express) {
               followUpAt: followUpAt ? new Date(followUpAt) : undefined,
             });
 
-            // Update lastContactedAt on lead
-            await updateLead(leadId, { lastContactedAt: new Date() });
-
             // Refresh priority score
             const score = await computePriorityScore(leadId);
             const pool = await getRawPool();

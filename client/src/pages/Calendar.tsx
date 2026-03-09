@@ -6,10 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertCircle,
-  Clock, Phone, Mail, Users, MessageSquare, Presentation, Loader2, Bell
+  Clock, Phone, Mail, Users, MessageSquare, Presentation, Loader2, Bell, CheckCircle2
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
+import { toast } from "sonner";
 import { CONTACT_TYPE_ICONS, formatDate } from "@/lib/crm";
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -29,6 +30,7 @@ type CalEvent = {
   date: Date;
   isFollowUp: boolean;
   followUpDone?: boolean;
+  originalMomentId?: number;
 };
 
 const TYPE_COLORS: Record<string, string> = {
@@ -59,6 +61,15 @@ export default function CalendarPage() {
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [view, setView] = useState<"month" | "week">("month");
+
+  const utils = trpc.useUtils();
+  const markDoneMutation = trpc.contactMoments.update.useMutation({
+    onSuccess: () => {
+      utils.contactMoments.listAll.invalidate();
+      utils.analytics.followUps.invalidate();
+      toast.success("Follow-up marked as done");
+    },
+  });
 
   // Fetch all contact moments with follow-up dates
   const { data: allMoments, isLoading } = trpc.contactMoments.listAll.useQuery({
@@ -97,6 +108,7 @@ export default function CalendarPage() {
           date: new Date(m.followUpAt),
           isFollowUp: true,
           followUpDone: m.followUpDone ?? false,
+          originalMomentId: m.id,
         });
       }
     }
@@ -409,9 +421,29 @@ export default function CalendarPage() {
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {e.isFollowUp && (
-                          <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
-                            Follow-up
-                          </Badge>
+                          <>
+                            <Badge variant="outline" className="text-xs border-amber-300 text-amber-600">
+                              Follow-up
+                            </Badge>
+                            {e.originalMomentId && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs gap-1"
+                                onClick={(ev) => {
+                                  ev.stopPropagation();
+                                  markDoneMutation.mutate({
+                                    id: e.originalMomentId!,
+                                    data: { followUpDone: true },
+                                  });
+                                }}
+                                disabled={markDoneMutation.isPending}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                                Done
+                              </Button>
+                            )}
+                          </>
                         )}
                         {e.outcome && (
                           <span className={`w-2 h-2 rounded-full ${OUTCOME_DOT[e.outcome] ?? "bg-gray-400"}`} title={e.outcome} />
