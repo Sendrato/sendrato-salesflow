@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
@@ -25,10 +26,13 @@ import {
   Zap,
   Globe,
   UserPlus,
+  Users,
   Lock,
   Copy,
   Mail,
+  RotateCcw,
 } from "lucide-react";
+import { formatRelativeTime } from "@/lib/crm";
 
 const PROVIDERS = [
   {
@@ -132,6 +136,139 @@ function ChangePasswordCard() {
             Change Password
           </Button>
         </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UserManagementCard() {
+  const { user } = useAuth();
+  const { data: userList, isLoading } = trpc.auth.listUsers.useQuery(undefined, {
+    enabled: user?.role === "admin",
+  });
+  const utils = trpc.useUtils();
+  const reinviteMutation = trpc.auth.reinviteUser.useMutation({
+    onSuccess: () => {
+      utils.auth.listUsers.invalidate();
+    },
+  });
+  const [reinviteResult, setReinviteResult] = useState<{ email: string | null; tempPassword: string } | null>(null);
+
+  if (user?.role !== "admin") return null;
+
+  async function handleReinvite(userId: number) {
+    setReinviteResult(null);
+    try {
+      const result = await reinviteMutation.mutateAsync({ userId });
+      setReinviteResult(result);
+      toast.success("New temporary password generated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to re-invite user");
+    }
+  }
+
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <Users className="h-5 w-5 text-primary" />
+          <CardTitle>Users</CardTitle>
+        </div>
+        <CardDescription>Overview of all users in the system.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Last Active</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(userList ?? []).map((u) => {
+                const isActive = u.lastSignedIn && new Date(u.lastSignedIn) > thirtyDaysAgo;
+                return (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">{u.name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={u.role === "admin" ? "default" : "outline"} className="text-xs capitalize">
+                        {u.role}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={`text-xs ${isActive ? "border-green-300 text-green-700 dark:text-green-400" : "border-gray-300 text-gray-500"}`}
+                      >
+                        {isActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatRelativeTime(u.lastSignedIn)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={() => handleReinvite(u.id)}
+                        disabled={reinviteMutation.isPending}
+                      >
+                        {reinviteMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        )}
+                        Re-invite
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        {reinviteResult && (
+          <Alert>
+            <Key className="h-4 w-4" />
+            <AlertDescription className="space-y-2">
+              <p>New temporary password for <strong>{reinviteResult.email}</strong>:</p>
+              <div className="flex items-center gap-2">
+                <code className="bg-muted px-2 py-1 rounded font-mono text-sm">
+                  {reinviteResult.tempPassword}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7"
+                  onClick={() => {
+                    navigator.clipboard.writeText(reinviteResult.tempPassword);
+                    toast.success("Copied to clipboard");
+                  }}
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Share this password with the user. They should change it after login.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );
@@ -956,6 +1093,9 @@ export default function SettingsPage() {
 
         {/* Change Password */}
         <ChangePasswordCard />
+
+        {/* User Management (admin only) */}
+        <UserManagementCard />
 
         {/* Invite User (admin only) */}
         <InviteUserCard />

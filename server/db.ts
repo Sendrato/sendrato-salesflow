@@ -120,6 +120,29 @@ export async function updateUserPassword(
     .where(eq(users.id, userId));
 }
 
+export async function listUsers() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      createdAt: users.createdAt,
+      lastSignedIn: users.lastSignedIn,
+    })
+    .from(users)
+    .orderBy(users.createdAt);
+}
+
+export async function getUserById(userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return result[0];
+}
+
 // ─── Leads ────────────────────────────────────────────────────────────────────
 export async function getLeads(opts: {
   search?: string;

@@ -100,6 +100,25 @@ export const appRouter = router({
 
         return { tempPassword };
       }),
+
+    listUsers: adminProcedure.query(async () => {
+      return db.listUsers();
+    }),
+
+    reinviteUser: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input }) => {
+        const user = await db.getUserById(input.userId);
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        const tempPassword = nanoid(16);
+        const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
+        await db.updateUserPassword(user.id, passwordHash);
+
+        return { tempPassword, email: user.email };
+      }),
   }),
 
   leads: leadsRouter,
