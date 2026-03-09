@@ -23,8 +23,7 @@ export async function extractTextFromBuffer(
       const { PDFParse } = await import("pdf-parse");
       const parser = new PDFParse({ data: buffer } as any);
       const result = await (parser as any).getText();
-      const text = (result?.pages ?? []).map((p: any) => p.content ?? "").join("\n");
-      return { text: text || "", pages: result?.total ?? 0 };
+      return { text: result?.text ?? "", pages: result?.total ?? 0 };
     } catch (e) {
       console.error("[DocumentRAG] PDF parse error:", e);
       return { text: "" };
