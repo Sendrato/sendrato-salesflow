@@ -81,6 +81,7 @@ export const analyticsRouter = router({
     const baseSelect = {
       momentId: contactMoments.id,
       leadId: contactMoments.leadId,
+      personId: contactMoments.personId,
       companyName: leads.companyName,
       personName: persons.name,
       subject: contactMoments.subject,

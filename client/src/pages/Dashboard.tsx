@@ -87,7 +87,7 @@ export default function Dashboard() {
                       <div
                         key={item.momentId}
                         className="flex items-center justify-between px-6 py-2.5 hover:bg-red-100/50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
-                        onClick={() => setLocation(`/leads/${item.leadId}`)}
+                        onClick={() => setLocation(item.companyName && item.leadId ? `/leads/${item.leadId}` : `/persons/${item.personId}`)}
                       >
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
@@ -119,7 +119,7 @@ export default function Dashboard() {
                       <div
                         key={item.momentId}
                         className="flex items-center justify-between px-6 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-950/30 cursor-pointer transition-colors"
-                        onClick={() => setLocation(`/leads/${item.leadId}`)}
+                        onClick={() => setLocation(item.companyName && item.leadId ? `/leads/${item.leadId}` : `/persons/${item.personId}`)}
                       >
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
