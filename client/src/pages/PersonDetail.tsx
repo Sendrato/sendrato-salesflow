@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS } from "@/lib/crm";
 import EmailBody from "@/components/EmailBody";
+import RichNotes from "@/components/RichNotes";
 import WebLinksCard from "@/components/WebLinksCard";
 
 function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occurredAt: string | Date }; onUpdated: () => void }) {
@@ -579,7 +580,7 @@ export default function PersonDetailPage() {
                           {m.type === "email" && (m.emailRaw || m.notes) ? (
                             <EmailBody html={m.emailRaw} text={m.notes} />
                           ) : m.notes ? (
-                            <p className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{m.notes}</p>
+                            <RichNotes notes={m.notes} className="text-xs text-muted-foreground mt-1" />
                           ) : null}
                           {m.followUpAt && (
                             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">

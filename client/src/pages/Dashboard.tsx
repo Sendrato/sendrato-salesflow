@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, TrendingUp, MessageSquare, Target, ArrowRight, Plus, Clock, CheckCircle2, AlertCircle
+  Building2, TrendingUp, MessageSquare, Target, ArrowRight, Plus, Clock, CheckCircle2, AlertCircle, Video
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -68,7 +68,7 @@ export default function Dashboard() {
         </div>
 
         {/* Follow-Up Alerts */}
-        {((followUpData?.overdueCount ?? 0) > 0 || (followUpData?.upcomingCount ?? 0) > 0) && (
+        {((followUpData?.overdueCount ?? 0) > 0 || (followUpData?.upcomingCount ?? 0) > 0 || (followUpData?.upcomingMeetingsCount ?? 0) > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {(followUpData?.overdueCount ?? 0) > 0 && (
               <Card className="border border-red-200 dark:border-red-900 shadow-sm bg-red-50/50 dark:bg-red-950/20">
@@ -127,6 +127,38 @@ export default function Dashboard() {
                         </div>
                         <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 ml-2">
                           {item.followUpAt ? formatDate(item.followUpAt) : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            {(followUpData?.upcomingMeetingsCount ?? 0) > 0 && (
+              <Card className="border border-blue-200 dark:border-blue-900 shadow-sm bg-blue-50/50 dark:bg-blue-950/20">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                    <Video className="h-4 w-4" />
+                    Upcoming Meetings ({followUpData!.upcomingMeetingsCount})
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setLocation("/calendar")} className="gap-1 text-xs text-blue-600">
+                    Calendar <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-blue-100 dark:divide-blue-900/50">
+                    {(followUpData?.upcomingMeetings ?? []).slice(0, 5).map((item) => (
+                      <div
+                        key={item.momentId}
+                        className="flex items-center justify-between px-6 py-2.5 hover:bg-blue-100/50 dark:hover:bg-blue-950/30 cursor-pointer transition-colors"
+                        onClick={() => setLocation(item.companyName && item.leadId ? `/leads/${item.leadId}` : `/persons/${item.personId}`)}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
+                          <div className="text-xs text-muted-foreground truncate">{item.subject ?? "Meeting"}</div>
+                        </div>
+                        <span className="text-xs text-blue-600 dark:text-blue-400 shrink-0 ml-2">
+                          {item.occurredAt ? formatDate(item.occurredAt) : ""}
                         </span>
                       </div>
                     ))}

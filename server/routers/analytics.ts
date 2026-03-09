@@ -137,11 +137,46 @@ export const analyticsRouter = router({
         notDone,
       ));
 
+    // Upcoming meetings: type="meeting" with occurredAt in the future (within 7 days)
+    const upcomingMeetings = await db
+      .select({
+        momentId: contactMoments.id,
+        leadId: contactMoments.leadId,
+        personId: contactMoments.personId,
+        companyName: leads.companyName,
+        personName: persons.name,
+        subject: contactMoments.subject,
+        type: contactMoments.type,
+        occurredAt: contactMoments.occurredAt,
+        notes: contactMoments.notes,
+      })
+      .from(contactMoments)
+      .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+      .leftJoin(persons, eq(contactMoments.personId, persons.id))
+      .where(and(
+        eq(contactMoments.type, "meeting"),
+        gte(contactMoments.occurredAt, now),
+        lte(contactMoments.occurredAt, sevenDaysFromNow),
+      ))
+      .orderBy(contactMoments.occurredAt)
+      .limit(20);
+
+    const [upcomingMeetingsCount] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(contactMoments)
+      .where(and(
+        eq(contactMoments.type, "meeting"),
+        gte(contactMoments.occurredAt, now),
+        lte(contactMoments.occurredAt, sevenDaysFromNow),
+      ));
+
     return {
       overdue,
       upcoming,
       overdueCount: Number(overdueCount?.count ?? 0),
       upcomingCount: Number(upcomingCount?.count ?? 0),
+      upcomingMeetings,
+      upcomingMeetingsCount: Number(upcomingMeetingsCount?.count ?? 0),
     };
   }),
 });

@@ -25,6 +25,7 @@ import {
 } from "@/lib/crm";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import EmailBody from "@/components/EmailBody";
+import RichNotes from "@/components/RichNotes";
 import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 import WebLinksCard from "@/components/WebLinksCard";
 
@@ -674,7 +675,7 @@ export default function LeadDetail() {
                                 {moment.type === "email" && (moment.emailRaw || moment.notes) ? (
                                   <EmailBody html={moment.emailRaw} text={moment.notes} />
                                 ) : moment.notes ? (
-                                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed whitespace-pre-wrap">{moment.notes}</p>
+                                  <RichNotes notes={moment.notes} className="text-sm text-muted-foreground mt-1 leading-relaxed" />
                                 ) : null}
                                 {moment.followUpAt && (
                                   <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">

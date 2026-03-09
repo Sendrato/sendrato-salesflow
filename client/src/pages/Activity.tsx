@@ -1,4 +1,5 @@
 import DashboardLayout from "@/components/DashboardLayout";
+import RichNotes from "@/components/RichNotes";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -115,7 +116,7 @@ export default function Activity() {
                               <div className="text-sm font-medium mt-0.5">{item.moment.subject}</div>
                             )}
                             {item.moment.notes && (
-                              <p className="text-sm text-muted-foreground mt-1 line-clamp-2 whitespace-pre-wrap">{item.moment.notes}</p>
+                              <RichNotes notes={item.moment.notes} className="text-sm text-muted-foreground mt-1" lineClamp={2} />
                             )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
