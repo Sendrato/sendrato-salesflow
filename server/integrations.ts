@@ -40,14 +40,15 @@ export function registerIntegrationRoutes(app: Express) {
       const body = req.body;
       const from: string = body.from ?? body.sender ?? "";
       const to: string = body.to ?? body.recipient ?? "";
+      const cc: string = body.cc ?? "";
       const subject: string = body.subject ?? "";
       const text: string = body.text ?? body.plain ?? "";
       const html: string = body.html ?? "";
 
       const rawPayload = JSON.stringify(body).slice(0, 10000);
 
-      // Extract all email addresses (handles forwarded emails too)
-      const emailAddresses = extractEmailAddresses(from, text || html, undefined, subject);
+      // Extract all email addresses (handles forwarded, CC, and BCC scenarios)
+      const emailAddresses = extractEmailAddresses(from, text || html, undefined, subject, to, cc);
       const match = await matchEmailAddresses(emailAddresses);
       const fromEmail = match.matchedEmail ?? emailAddresses[0] ?? from;
 

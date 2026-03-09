@@ -63,7 +63,9 @@ export function extractEmailAddresses(
   fromHeader: string,
   body: string,
   excludeAddress?: string,
-  subject?: string
+  subject?: string,
+  toHeader?: string,
+  ccHeader?: string
 ): string[] {
   const found = new Set<string>();
   const ordered: string[] = [];
@@ -98,6 +100,35 @@ export function extractEmailAddresses(
   if (envelopeFrom && !excluded.has(envelopeFrom) && !found.has(envelopeFrom)) {
     found.add(envelopeFrom);
     ordered.push(envelopeFrom);
+  }
+
+  // Add To recipients — crucial for BCC/CC scenarios where the
+  // sender is the CRM user and the recipient is the lead
+  if (toHeader) {
+    const toMatches = toHeader.match(EMAIL_REGEX);
+    if (toMatches) {
+      for (const email of toMatches) {
+        const lower = email.toLowerCase();
+        if (!found.has(lower) && !excluded.has(lower)) {
+          found.add(lower);
+          ordered.push(lower);
+        }
+      }
+    }
+  }
+
+  // Add CC recipients
+  if (ccHeader) {
+    const ccMatches = ccHeader.match(EMAIL_REGEX);
+    if (ccMatches) {
+      for (const email of ccMatches) {
+        const lower = email.toLowerCase();
+        if (!found.has(lower) && !excluded.has(lower)) {
+          found.add(lower);
+          ordered.push(lower);
+        }
+      }
+    }
   }
 
   // Extract from body (catches additional addresses)

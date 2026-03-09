@@ -77,6 +77,7 @@ async function processFolder(
           ? `${msg.envelope.from[0].name ?? ""} <${msg.envelope.from[0].address ?? ""}>`
           : "";
         const to = msg.envelope?.to?.map((a) => a.address).join(", ") ?? "";
+        const cc = msg.envelope?.cc?.map((a: any) => a.address).join(", ") ?? "";
         const subject = msg.envelope?.subject ?? "";
 
         console.log(`[IMAP] Processing: "${subject}" from ${from} (uid=${msg.uid}, id=${messageId.slice(0, 40)})`);
@@ -90,12 +91,14 @@ async function processFolder(
         const textBody = parsed?.text ?? "";
         const htmlBody = parsed?.html || "";
 
-        // Extract all email addresses (handles forwarded emails)
+        // Extract all email addresses (handles forwarded, CC, and BCC scenarios)
         const emailAddresses = extractEmailAddresses(
           from,
           textBody || htmlBody,
           crmAddress,
-          subject
+          subject,
+          to,
+          cc
         );
 
         console.log(`[IMAP]   Extracted emails: [${emailAddresses.join(", ")}]`);
