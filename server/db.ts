@@ -299,9 +299,11 @@ export async function getRecentContactMoments(limit = 20) {
     .select({
       moment: contactMoments,
       lead: { id: leads.id, companyName: leads.companyName, contactPerson: leads.contactPerson },
+      person: { id: persons.id, name: persons.name },
     })
     .from(contactMoments)
     .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+    .leftJoin(persons, eq(contactMoments.personId, persons.id))
     .orderBy(desc(contactMoments.occurredAt))
     .limit(limit);
 }
@@ -311,8 +313,12 @@ export async function createContactMoment(data: InsertContactMoment) {
   if (!db) throw new Error("Database not available");
   const [inserted] = await db.insert(contactMoments).values(data).returning({ id: contactMoments.id });
   const contactDate = data.occurredAt ?? new Date();
-  // Update lastContactedAt on lead
-  await db.update(leads).set({ lastContactedAt: contactDate, updatedAt: new Date() }).where(eq(leads.id, data.leadId));
+  // Update lastContactedAt on lead; auto-transition "new" → "contacted"
+  await db.update(leads).set({
+    lastContactedAt: contactDate,
+    status: sql`CASE WHEN ${leads.status} = 'new' THEN 'contacted' ELSE ${leads.status} END`,
+    updatedAt: new Date(),
+  }).where(eq(leads.id, data.leadId));
   // Update lastContactedAt on person if linked
   if (data.personId) {
     await db.update(persons).set({ lastContactedAt: contactDate, updatedAt: new Date() }).where(eq(persons.id, data.personId));

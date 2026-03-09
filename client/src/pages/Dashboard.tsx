@@ -377,7 +377,7 @@ export default function Dashboard() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium truncate">
-                          {item.lead?.companyName ?? "Unknown"}
+                          {item.lead?.companyName || (item as any).person?.name || "Unknown"}
                         </div>
                         <div className="text-xs text-muted-foreground truncate">
                           {item.moment.type} · {item.moment.subject ?? item.moment.notes?.slice(0, 60) ?? "No notes"}

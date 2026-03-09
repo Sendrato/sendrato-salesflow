@@ -26,6 +26,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import EmailBody from "@/components/EmailBody";
 import RichNotes from "@/components/RichNotes";
+import { Markdown } from "@/components/Markdown";
 import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 import WebLinksCard from "@/components/WebLinksCard";
 
@@ -555,7 +556,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pain Points</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm leading-relaxed">{lead.painPoints}</p>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.painPoints}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
@@ -567,7 +568,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Opportunities</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm leading-relaxed">{lead.futureOpportunities}</p>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.futureOpportunities}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
@@ -579,7 +580,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revenue Model</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm leading-relaxed">{lead.revenueModel}</p>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.revenueModel}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
@@ -591,7 +592,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Notes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm leading-relaxed">{lead.notes}</p>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.notes}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
