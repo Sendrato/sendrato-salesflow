@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import { publicProcedure, router } from "../_core/trpc";
 import { getLeadStats, getContactMomentStats, getRecentContactMoments } from "../db";
 import { getDb } from "../db";
-import { leads, contactMoments } from "../../drizzle/schema";
+import { leads, contactMoments, persons } from "../../drizzle/schema";
 import { sql, desc, eq, and, lt, gte, lte } from "drizzle-orm";
 
 export const analyticsRouter = router({
@@ -82,6 +82,7 @@ export const analyticsRouter = router({
       momentId: contactMoments.id,
       leadId: contactMoments.leadId,
       companyName: leads.companyName,
+      personName: persons.name,
       subject: contactMoments.subject,
       type: contactMoments.type,
       followUpAt: contactMoments.followUpAt,
@@ -93,6 +94,7 @@ export const analyticsRouter = router({
       .select(baseSelect)
       .from(contactMoments)
       .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+      .leftJoin(persons, eq(contactMoments.personId, persons.id))
       .where(and(
         sql`${contactMoments.followUpAt} IS NOT NULL`,
         lt(contactMoments.followUpAt, now),
@@ -105,6 +107,7 @@ export const analyticsRouter = router({
       .select(baseSelect)
       .from(contactMoments)
       .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+      .leftJoin(persons, eq(contactMoments.personId, persons.id))
       .where(and(
         sql`${contactMoments.followUpAt} IS NOT NULL`,
         gte(contactMoments.followUpAt, now),

@@ -53,6 +53,10 @@ export function registerIntegrationRoutes(app: Express) {
 
       let status: "matched" | "unmatched" | "error" = (match.lead || match.person) ? "matched" : "unmatched";
 
+      const ingestDate = new Date();
+      const ingestFollowUp = new Date(ingestDate);
+      ingestFollowUp.setDate(ingestFollowUp.getDate() + 1);
+
       if (match.lead) {
         await createContactMoment({
           leadId: match.lead.id,
@@ -64,7 +68,8 @@ export function registerIntegrationRoutes(app: Express) {
           emailTo: to,
           emailRaw: (html || text).slice(0, 10000),
           source: "email_ingest",
-          occurredAt: new Date(),
+          occurredAt: ingestDate,
+          followUpAt: ingestFollowUp,
         });
       } else if (match.person) {
         const { person, linkedLeads } = match.person;
@@ -81,7 +86,8 @@ export function registerIntegrationRoutes(app: Express) {
               emailTo: to,
               emailRaw: (html || text).slice(0, 10000),
               source: "email_ingest",
-              occurredAt: new Date(),
+              occurredAt: ingestDate,
+              followUpAt: ingestFollowUp,
             });
           }
         }

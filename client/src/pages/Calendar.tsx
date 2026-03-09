@@ -82,7 +82,7 @@ export default function CalendarPage() {
     const evts: CalEvent[] = [];
     for (const row of allMoments) {
       const m = row.moment;
-      const leadName = row.lead?.companyName ?? "Unknown";
+      const leadName = row.lead?.companyName || (row as any).person?.name || "Unknown";
       // Actual contact moment
       evts.push({
         id: m.id,
@@ -102,7 +102,7 @@ export default function CalendarPage() {
           leadId: m.leadId,
           leadName,
           type: m.type,
-          subject: `Follow-up: ${m.subject ?? m.type}`,
+          subject: `Follow-up: ${m.subject ?? leadName}`,
           notes: m.notes,
           outcome: m.outcome,
           date: new Date(m.followUpAt),

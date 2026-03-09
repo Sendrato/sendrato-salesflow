@@ -105,6 +105,9 @@ async function processFolder(
 
         if (match.lead) {
           console.log(`[IMAP]   -> Matched LEAD: ${match.lead.companyName} (id=${match.lead.id}) via ${match.matchedEmail}`);
+          const emailDate = msg.envelope?.date ?? new Date();
+          const followUpDate = new Date(emailDate);
+          followUpDate.setDate(followUpDate.getDate() + 1);
           await createContactMoment({
             leadId: match.lead.id,
             type: "email",
@@ -115,7 +118,8 @@ async function processFolder(
             emailTo: to,
             emailRaw: (htmlBody || textBody).slice(0, 10000),
             source: "imap",
-            occurredAt: msg.envelope?.date ?? new Date(),
+            occurredAt: emailDate,
+            followUpAt: followUpDate,
           });
 
           await logEmailIngest({
@@ -133,6 +137,9 @@ async function processFolder(
           console.log(`[IMAP]   -> Matched PERSON: ${person.name} (id=${person.id}) via ${match.matchedEmail}, ${linkedLeads?.length ?? 0} linked leads`);
 
           if (linkedLeads && linkedLeads.length > 0) {
+            const pEmailDate = msg.envelope?.date ?? new Date();
+            const pFollowUpDate = new Date(pEmailDate);
+            pFollowUpDate.setDate(pFollowUpDate.getDate() + 1);
             for (const link of linkedLeads) {
               await createContactMoment({
                 leadId: link.leadId,
@@ -145,7 +152,8 @@ async function processFolder(
                 emailTo: to,
                 emailRaw: (htmlBody || textBody).slice(0, 10000),
                 source: "imap",
-                occurredAt: msg.envelope?.date ?? new Date(),
+                occurredAt: pEmailDate,
+                followUpAt: pFollowUpDate,
               });
             }
           }

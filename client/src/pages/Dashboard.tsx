@@ -90,7 +90,7 @@ export default function Dashboard() {
                         onClick={() => setLocation(`/leads/${item.leadId}`)}
                       >
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{item.companyName ?? "Unknown"}</div>
+                          <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
                           <div className="text-xs text-muted-foreground truncate">{item.subject ?? item.type}</div>
                         </div>
                         <span className="text-xs text-red-600 dark:text-red-400 shrink-0 ml-2">
@@ -122,7 +122,7 @@ export default function Dashboard() {
                         onClick={() => setLocation(`/leads/${item.leadId}`)}
                       >
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{item.companyName ?? "Unknown"}</div>
+                          <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
                           <div className="text-xs text-muted-foreground truncate">{item.subject ?? item.type}</div>
                         </div>
                         <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 ml-2">

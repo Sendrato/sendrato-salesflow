@@ -320,9 +320,11 @@ export async function getRecentContactMomentsWithLeads(opts: {
     .select({
       moment: contactMoments,
       lead: { id: leads.id, companyName: leads.companyName, contactPerson: leads.contactPerson },
+      person: { id: persons.id, name: persons.name },
     })
     .from(contactMoments)
     .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+    .leftJoin(persons, eq(contactMoments.personId, persons.id))
     .where(whereClause)
     .orderBy(desc(contactMoments.occurredAt))
     .limit(opts.limit ?? 50);
