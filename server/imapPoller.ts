@@ -20,42 +20,24 @@ let pollingTimer: ReturnType<typeof setTimeout> | null = null;
 let isPolling = false;
 
 /**
- * Run a single poll cycle: connect, fetch unseen, process, disconnect.
+ * Process unseen messages in a single folder.
  */
-async function pollOnce(): Promise<void> {
-  const settings = await getAllImapSettings();
-
-  if (!settings.enabled || !settings.host || !settings.user || !settings.password) {
-    return;
-  }
-
-  const client = new ImapFlow({
-    host: settings.host,
-    port: settings.port,
-    secure: settings.secure,
-    auth: { user: settings.user, pass: settings.password },
-    logger: false,
-    tls: {
-      rejectUnauthorized: false,
-      servername: settings.host,
-      minVersion: "TLSv1" as const,
-      ciphers: "DEFAULT:@SECLEVEL=0",
-    },
-  });
+async function processFolder(
+  client: ImapFlow,
+  folder: string,
+  crmAddress: string
+): Promise<number> {
+  let processed = 0;
+  const lock = await client.getMailboxLock(folder);
 
   try {
-    await client.connect();
-    const lock = await client.getMailboxLock(settings.folder);
+    const messages = client.fetch({ seen: false }, {
+      envelope: true,
+      source: true,
+      uid: true,
+    });
 
-    try {
-      // Fetch all unseen messages
-      const messages = client.fetch({ seen: false }, {
-        envelope: true,
-        source: true,
-        uid: true,
-      });
-
-      for await (const msg of messages) {
+    for await (const msg of messages) {
         try {
           const messageId = msg.envelope?.messageId;
           if (!messageId) continue;
@@ -83,7 +65,7 @@ async function pollOnce(): Promise<void> {
           const emailAddresses = extractEmailAddresses(
             from,
             textBody || htmlBody,
-            settings.user // exclude the CRM mailbox address
+            crmAddress // exclude the CRM mailbox address
           );
 
           // Try to match
@@ -162,6 +144,7 @@ async function pollOnce(): Promise<void> {
 
           // Mark as seen on the IMAP server
           await client.messageFlagsAdd({ uid: msg.uid }, ["\\Seen"], { uid: true });
+          processed++;
         } catch (msgErr) {
           console.error("[IMAP] Error processing message:", msgErr);
         }
@@ -170,11 +153,65 @@ async function pollOnce(): Promise<void> {
       lock.release();
     }
 
+  return processed;
+}
+
+/**
+ * Run a single poll cycle: connect, fetch unseen from all configured folders, disconnect.
+ * Returns the number of messages processed.
+ */
+export async function pollOnce(): Promise<number> {
+  const settings = await getAllImapSettings();
+
+  if (!settings.host || !settings.user || !settings.password) {
+    return 0;
+  }
+
+  const client = new ImapFlow({
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    auth: { user: settings.user, pass: settings.password },
+    logger: false,
+    tls: {
+      rejectUnauthorized: false,
+      servername: settings.host,
+      minVersion: "TLSv1" as const,
+      ciphers: "DEFAULT:@SECLEVEL=0",
+    },
+  });
+
+  // Parse folder setting: comma-separated list, e.g. "INBOX, Sent, Archive"
+  const folders = settings.folder
+    .split(",")
+    .map((f) => f.trim())
+    .filter((f) => f.length > 0);
+  if (folders.length === 0) folders.push("INBOX");
+
+  let totalProcessed = 0;
+
+  try {
+    await client.connect();
+
+    for (const folder of folders) {
+      try {
+        const count = await processFolder(client, folder, settings.user);
+        if (count > 0) {
+          console.log(`[IMAP] Processed ${count} messages from ${folder}`);
+        }
+        totalProcessed += count;
+      } catch (folderErr) {
+        console.error(`[IMAP] Error processing folder ${folder}:`, folderErr);
+      }
+    }
+
     await client.logout();
   } catch (err) {
     console.error("[IMAP] Poll error:", err);
     try { await client.logout(); } catch { /* ignore */ }
   }
+
+  return totalProcessed;
 }
 
 /**

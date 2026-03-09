@@ -236,6 +236,7 @@ function ImapSettingsCard() {
   const { data: imapConfig, isLoading, refetch } = trpc.settings.getImapConfig.useQuery();
   const updateMutation = trpc.settings.updateImapConfig.useMutation();
   const testMutation = trpc.settings.testImapConnection.useMutation();
+  const syncMutation = trpc.settings.syncImapNow.useMutation();
 
   const [enabled, setEnabled] = useState(false);
   const [host, setHost] = useState("");
@@ -439,7 +440,7 @@ function ImapSettingsCard() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="imapFolder">Folder</Label>
+            <Label htmlFor="imapFolder">Folders</Label>
             <Input
               id="imapFolder"
               value={folder}
@@ -449,6 +450,9 @@ function ImapSettingsCard() {
               }}
               placeholder="INBOX"
             />
+            <p className="text-xs text-muted-foreground">
+              Comma-separated for multiple folders, e.g. <code className="bg-muted px-1 rounded">INBOX, Sent</code>
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="imapInterval">Poll Interval (minutes)</Label>
@@ -504,6 +508,33 @@ function ImapSettingsCard() {
               <Zap className="h-4 w-4 mr-2" />
             )}
             Test Connection
+          </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              try {
+                const result = await syncMutation.mutateAsync();
+                if (result.success) {
+                  toast.success(
+                    result.processed
+                      ? `Synced ${result.processed} new email${result.processed === 1 ? "" : "s"}`
+                      : "Sync complete — no new emails"
+                  );
+                } else {
+                  toast.error(`Sync failed: ${result.error}`);
+                }
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Sync failed");
+              }
+            }}
+            disabled={syncMutation.isPending || !imapConfig?.hasPassword}
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <Mail className="h-4 w-4 mr-2" />
+            )}
+            Sync Now
           </Button>
         </div>
       </CardContent>

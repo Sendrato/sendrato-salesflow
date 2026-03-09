@@ -2,7 +2,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getAllLLMSettings, getAllImapSettings, getSetting, setSetting, SETTING_KEYS } from "../settingsDb";
 import { ImapFlow } from "imapflow";
-import { restartImapPolling } from "../imapPoller";
+import { restartImapPolling, pollOnce } from "../imapPoller";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -156,6 +156,16 @@ export const settingsRouter = router({
       await restartImapPolling();
       return { success: true };
     }),
+
+  syncImapNow: protectedProcedure.mutation(async () => {
+    try {
+      const processed = await pollOnce();
+      return { success: true, processed };
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return { success: false, error: msg, processed: 0 };
+    }
+  }),
 
   testImapConnection: protectedProcedure
     .input(
