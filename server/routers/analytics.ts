@@ -137,7 +137,8 @@ export const analyticsRouter = router({
         notDone,
       ));
 
-    // Upcoming meetings: type="meeting" with occurredAt in the future (within 7 days)
+    // Upcoming meetings: type="meeting" with occurredAt in the future (within 21 days)
+    const twentyOneDaysFromNow = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
     const upcomingMeetings = await db
       .select({
         momentId: contactMoments.id,
@@ -156,7 +157,7 @@ export const analyticsRouter = router({
       .where(and(
         eq(contactMoments.type, "meeting"),
         gte(contactMoments.occurredAt, now),
-        lte(contactMoments.occurredAt, sevenDaysFromNow),
+        lte(contactMoments.occurredAt, twentyOneDaysFromNow),
       ))
       .orderBy(contactMoments.occurredAt)
       .limit(20);
@@ -167,7 +168,7 @@ export const analyticsRouter = router({
       .where(and(
         eq(contactMoments.type, "meeting"),
         gte(contactMoments.occurredAt, now),
-        lte(contactMoments.occurredAt, sevenDaysFromNow),
+        lte(contactMoments.occurredAt, twentyOneDaysFromNow),
       ));
 
     return {
