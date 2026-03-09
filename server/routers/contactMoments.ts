@@ -64,11 +64,15 @@ export const contactMomentsRouter = router({
       })
     )
     .mutation(async ({ input }) => {
-      return updateContactMoment(input.id, {
-        ...input.data,
-        occurredAt: input.data.occurredAt ? new Date(input.data.occurredAt) : undefined,
-        followUpAt: input.data.followUpAt ? new Date(input.data.followUpAt) : undefined,
-      });
+      const updateData: Record<string, any> = {};
+      if (input.data.type !== undefined) updateData.type = input.data.type;
+      if (input.data.subject !== undefined) updateData.subject = input.data.subject;
+      if (input.data.notes !== undefined) updateData.notes = input.data.notes;
+      if (input.data.outcome !== undefined) updateData.outcome = input.data.outcome;
+      if (input.data.occurredAt) updateData.occurredAt = new Date(input.data.occurredAt);
+      if (input.data.followUpAt) updateData.followUpAt = new Date(input.data.followUpAt);
+      if (input.data.followUpDone !== undefined) updateData.followUpDone = input.data.followUpDone;
+      return updateContactMoment(input.id, updateData);
     }),
 
   delete: protectedProcedure

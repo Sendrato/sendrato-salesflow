@@ -268,17 +268,19 @@ export async function updateContactMoment(id: number, data: Partial<InsertContac
   return updated;
 }
 
-async function recalcLastContactedAt(db: ReturnType<typeof drizzle>, leadId: number, personId?: number | null) {
+async function recalcLastContactedAt(db: any, leadId: number, personId?: number | null) {
   // Lead: find the most recent occurredAt across all its contact moments
-  const [leadMax] = await db
-    .select({ max: sql<Date>`max(${contactMoments.occurredAt})` })
-    .from(contactMoments)
-    .where(eq(contactMoments.leadId, leadId));
-  if (leadMax?.max) {
-    await db.update(leads).set({ lastContactedAt: leadMax.max, updatedAt: new Date() }).where(eq(leads.id, leadId));
+  if (leadId && leadId > 0) {
+    const [leadMax] = await db
+      .select({ max: sql<Date>`max(${contactMoments.occurredAt})` })
+      .from(contactMoments)
+      .where(eq(contactMoments.leadId, leadId));
+    if (leadMax?.max) {
+      await db.update(leads).set({ lastContactedAt: leadMax.max, updatedAt: new Date() }).where(eq(leads.id, leadId));
+    }
   }
   // Person: same logic
-  if (personId) {
+  if (personId && personId > 0) {
     const [personMax] = await db
       .select({ max: sql<Date>`max(${contactMoments.occurredAt})` })
       .from(contactMoments)
