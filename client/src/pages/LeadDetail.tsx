@@ -14,7 +14,7 @@ import {
   ArrowLeft, Edit, Plus, Globe, Mail, Phone, Building2, Tag, Clock, FileText,
   Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
   Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
-  Users, UserPlus, Unlink as UnlinkIcon, Linkedin
+  Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
@@ -30,15 +30,23 @@ import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurredAt: string | Date }; leadId: number }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
+  const submitting = useRef(false);
   const utils = trpc.useUtils();
   const updateMutation = trpc.contactMoments.update.useMutation({
     onSuccess: () => {
+      submitting.current = false;
       utils.contactMoments.list.invalidate({ leadId });
       setEditing(false);
       toast.success("Date updated");
     },
-    onError: () => toast.error("Failed to update date"),
+    onError: () => { submitting.current = false; toast.error("Failed to update date"); },
   });
+
+  const submit = () => {
+    if (submitting.current || !value) { setEditing(false); return; }
+    submitting.current = true;
+    updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
+  };
 
   if (editing) {
     return (
@@ -46,19 +54,10 @@ function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurred
         type="datetime-local"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        onBlur={() => {
-          if (value) {
-            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
-          } else {
-            setEditing(false);
-          }
-        }}
+        onBlur={submit}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && value) {
-            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
-          } else if (e.key === "Escape") {
-            setEditing(false);
-          }
+          if (e.key === "Enter") submit();
+          else if (e.key === "Escape") setEditing(false);
         }}
         className="h-6 w-44 text-xs px-1"
         autoFocus
@@ -208,6 +207,15 @@ export default function LeadDetail() {
   const [personSearch, setPersonSearch] = useState("");
   const [linkingPersonId, setLinkingPersonId] = useState<number | null>(null);
   const [linkRelationship, setLinkRelationship] = useState("contact_at");
+  const [linkCompetitorOpen, setLinkCompetitorOpen] = useState(false);
+  const [competitorSearch, setCompetitorSearch] = useState("");
+  const [linkingCompetitorId, setLinkingCompetitorId] = useState<number | null>(null);
+  const [compProduct, setCompProduct] = useState("");
+  const [compContractStart, setCompContractStart] = useState("");
+  const [compContractEnd, setCompContractEnd] = useState("");
+  const [compSatisfaction, setCompSatisfaction] = useState("neutral");
+  const [compLikes, setCompLikes] = useState("");
+  const [compDislikes, setCompDislikes] = useState("");
   const [uploadCategory, setUploadCategory] = useState<"proposal"|"contract"|"presentation"|"report"|"other">("other");
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
   const [shareTitle, setShareTitle] = useState("");
@@ -223,6 +231,8 @@ export default function LeadDetail() {
   const { data: shares, refetch: refetchShares } = trpc.documents.listShares.useQuery({ leadId });
   const { data: linkedPersons, refetch: refetchPersons } = trpc.persons.getPersonsForLead.useQuery({ leadId });
   const { data: allPersons } = trpc.persons.list.useQuery({ search: personSearch, limit: 20 });
+  const { data: linkedCompetitors, refetch: refetchCompetitors } = trpc.competitors.getCompetitorsForLead.useQuery({ leadId });
+  const { data: allCompetitors } = trpc.competitors.list.useQuery({ search: competitorSearch, limit: 20 });
   const utils = trpc.useUtils();
 
   const linkPersonMutation = trpc.persons.linkToLead.useMutation({
@@ -239,6 +249,24 @@ export default function LeadDetail() {
   const unlinkPersonMutation = trpc.persons.unlinkFromLead.useMutation({
     onSuccess: () => { refetchPersons(); toast.success("Person unlinked"); },
     onError: () => toast.error("Failed to unlink person"),
+  });
+
+  const linkCompetitorMutation = trpc.competitors.linkToLead.useMutation({
+    onSuccess: () => {
+      refetchCompetitors();
+      setLinkCompetitorOpen(false);
+      setCompetitorSearch("");
+      setLinkingCompetitorId(null);
+      setCompProduct(""); setCompContractStart(""); setCompContractEnd("");
+      setCompSatisfaction("neutral"); setCompLikes(""); setCompDislikes("");
+      toast.success("Competitor linked to lead");
+    },
+    onError: () => toast.error("Failed to link competitor"),
+  });
+
+  const unlinkCompetitorMutation = trpc.competitors.unlinkFromLead.useMutation({
+    onSuccess: () => { refetchCompetitors(); toast.success("Competitor unlinked"); },
+    onError: () => toast.error("Failed to unlink competitor"),
   });
 
   const toggleFollowUpMutation = trpc.contactMoments.update.useMutation({
@@ -459,7 +487,7 @@ export default function LeadDetail() {
         {/* Tabs */}
         <Tabs defaultValue="overview">
           <TabsList className="border-b w-full justify-start rounded-none bg-transparent h-auto p-0 gap-0">
-            {["overview", "timeline", "persons", "documents", "enrichment"].map((tab) => (
+            {["overview", "timeline", "persons", "competitors", "documents", "enrichment"].map((tab) => (
               <TabsTrigger
                 key={tab}
                 value={tab}
@@ -817,6 +845,215 @@ export default function LeadDetail() {
                     >
                       {linkPersonMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                       Link Person
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+
+          {/* Competitors Tab */}
+          <TabsContent value="competitors" className="mt-4 space-y-4">
+            <Card className="border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Swords className="h-4 w-4" /> Competitors
+                </CardTitle>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setLinkCompetitorOpen(true)}>
+                  <Plus className="h-3.5 w-3.5" /> Link Competitor
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {(linkedCompetitors ?? []).length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Swords className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No competitors linked yet</p>
+                    <p className="text-xs mt-1">Track which competitors this lead is using or evaluating</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {(linkedCompetitors ?? []).map((row: any) => {
+                      const threatCfg: Record<string, { label: string; color: string; bg: string }> = {
+                        low: { label: "Low", color: "text-green-700", bg: "bg-green-100" },
+                        medium: { label: "Medium", color: "text-yellow-700", bg: "bg-yellow-100" },
+                        high: { label: "High", color: "text-red-700", bg: "bg-red-100" },
+                      };
+                      const cfg = threatCfg[row.competitor.threatLevel] ?? threatCfg.medium;
+                      const contractEnding = row.link.contractEndDate && new Date(row.link.contractEndDate) <= new Date(Date.now() + 90 * 86400000);
+                      return (
+                        <div key={row.link.id} className={`p-3 bg-muted/30 rounded-lg border ${contractEnding ? "border-amber-300" : ""}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  className="text-sm font-medium hover:text-primary hover:underline cursor-pointer"
+                                  onClick={() => setLocation(`/competitors/${row.competitor.id}`)}
+                                >
+                                  {row.competitor.name}
+                                </button>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.color}`}>
+                                  {cfg.label}
+                                </span>
+                                {row.link.satisfaction && (
+                                  <Badge variant="outline" className="text-xs capitalize">
+                                    {row.link.satisfaction.replace(/_/g, " ")}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-muted-foreground">
+                                {row.link.competitorProduct && (
+                                  <span>Product: <span className="text-foreground">{row.link.competitorProduct}</span></span>
+                                )}
+                                {row.link.contractStartDate && (
+                                  <span>Start: <span className="text-foreground">{formatDate(row.link.contractStartDate)}</span></span>
+                                )}
+                                {row.link.contractEndDate && (
+                                  <span className={contractEnding ? "text-amber-600 font-medium" : ""}>
+                                    End: <span className={contractEnding ? "" : "text-foreground"}>{formatDate(row.link.contractEndDate)}</span>
+                                    {contractEnding && " (ending soon)"}
+                                  </span>
+                                )}
+                                {row.link.contractValue != null && (
+                                  <span>Value: <span className="text-foreground">{row.link.contractCurrency ?? "USD"} {row.link.contractValue}</span></span>
+                                )}
+                              </div>
+                              {(row.link.likes || row.link.dislikes) && (
+                                <div className="flex flex-wrap gap-4 mt-1.5 text-xs">
+                                  {row.link.likes && (
+                                    <span className="text-green-600">Likes: {row.link.likes}</span>
+                                  )}
+                                  {row.link.dislikes && (
+                                    <span className="text-red-600">Dislikes: {row.link.dislikes}</span>
+                                  )}
+                                </div>
+                              )}
+                              {row.link.notes && (
+                                <p className="text-xs text-muted-foreground mt-1 italic">{row.link.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
+                                onClick={() => setLocation(`/competitors/${row.competitor.id}`)}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" /> View
+                              </Button>
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => unlinkCompetitorMutation.mutate({ competitorId: row.competitor.id, leadId })}
+                              >
+                                <UnlinkIcon className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Link Competitor Dialog */}
+            <Dialog open={linkCompetitorOpen} onOpenChange={setLinkCompetitorOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Swords className="h-4 w-4" /> Link a Competitor
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                  <div className="space-y-1.5">
+                    <Label>Search competitors</Label>
+                    <Input
+                      placeholder="Type a name..."
+                      value={competitorSearch}
+                      onChange={(e) => setCompetitorSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {(allCompetitors?.competitors ?? []).length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No competitors found</p>
+                    ) : (
+                      (allCompetitors?.competitors ?? []).map((c: any) => (
+                        <button
+                          key={c.id}
+                          className={`w-full text-left flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${
+                            linkingCompetitorId === c.id ? "bg-primary/10 border-primary" : "hover:bg-muted/50 border-transparent"
+                          }`}
+                          onClick={() => setLinkingCompetitorId(linkingCompetitorId === c.id ? null : c.id)}
+                        >
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                            {(c.name ?? "?").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium">{c.name}</div>
+                            {c.products && <div className="text-xs text-muted-foreground truncate">{c.products}</div>}
+                          </div>
+                          {linkingCompetitorId === c.id && <CheckCircle2 className="h-4 w-4 text-primary ml-auto shrink-0" />}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Product / Service used</Label>
+                    <Input value={compProduct} onChange={(e) => setCompProduct(e.target.value)} placeholder="e.g. Their CRM module" className="text-sm" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Contract Start</Label>
+                      <Input type="date" value={compContractStart} onChange={(e) => setCompContractStart(e.target.value)} className="text-sm" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Contract End</Label>
+                      <Input type="date" value={compContractEnd} onChange={(e) => setCompContractEnd(e.target.value)} className="text-sm" />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Satisfaction</Label>
+                    <Select value={compSatisfaction} onValueChange={setCompSatisfaction}>
+                      <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="happy">Happy</SelectItem>
+                        <SelectItem value="neutral">Neutral</SelectItem>
+                        <SelectItem value="unhappy">Unhappy</SelectItem>
+                        <SelectItem value="looking_to_switch">Looking to switch</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>What they like</Label>
+                    <Textarea value={compLikes} onChange={(e) => setCompLikes(e.target.value)} placeholder="What does the lead like about this competitor?" className="text-sm min-h-[50px]" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>What they dislike</Label>
+                    <Textarea value={compDislikes} onChange={(e) => setCompDislikes(e.target.value)} placeholder="Pain points, frustrations..." className="text-sm min-h-[50px]" />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => { setLinkCompetitorOpen(false); setLinkingCompetitorId(null); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={!linkingCompetitorId || linkCompetitorMutation.isPending}
+                      onClick={() => {
+                        if (linkingCompetitorId) {
+                          linkCompetitorMutation.mutate({
+                            competitorId: linkingCompetitorId,
+                            leadId,
+                            competitorProduct: compProduct || undefined,
+                            contractStartDate: compContractStart || undefined,
+                            contractEndDate: compContractEnd || undefined,
+                            satisfaction: compSatisfaction || undefined,
+                            likes: compLikes || undefined,
+                            dislikes: compDislikes || undefined,
+                          });
+                        }
+                      }}
+                    >
+                      {linkCompetitorMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Link Competitor
                     </Button>
                   </div>
                 </div>

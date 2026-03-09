@@ -21,7 +21,7 @@ import { extractEmailAddresses, matchEmailAddresses } from "./emailMatcher";
 import { enrichLeadFromWeb } from "./enrichmentEngine";
 import { storagePut } from "./storage";
 import { indexLead } from "./crmChat";
-import { indexDocument, computePriorityScore, updateAllPriorityScores } from "./documentRag";
+import { indexDocument, indexCompetitorDocument, computePriorityScore, updateAllPriorityScores } from "./documentRag";
 import { nanoid } from "nanoid";
 import { generateText } from "ai";
 import { getLLMProvider } from "./llmProvider";
@@ -406,6 +406,61 @@ export function registerIntegrationRoutes(app: Express) {
       });
     } catch (error) {
       console.error("[/api/upload-document] Error:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
+
+  /**
+   * POST /api/upload-competitor-document
+   */
+  app.post("/api/upload-competitor-document", upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+      const competitorId = parseInt(req.body.competitorId ?? "0");
+      const category = req.body.category ?? "other";
+      const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
+
+      const ext = req.file.originalname.split(".").pop() ?? "bin";
+      const fileKey = `competitors/${competitorId}/docs/${nanoid()}.${ext}`;
+      const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
+
+      const pool = await getRawPool();
+      if (!pool) throw new Error("No DB connection");
+
+      const { rows } = await pool.query(
+        `INSERT INTO competitor_documents ("competitorId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "uploadedBy", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING id`,
+        [competitorId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, userId ?? null]
+      );
+      const documentId = rows[0].id;
+
+      const buffer = req.file.buffer;
+      const mimeType = req.file.mimetype;
+      const fileName = req.file.originalname;
+      setTimeout(async () => {
+        try {
+          await indexCompetitorDocument(documentId, competitorId, buffer, mimeType, fileName);
+        } catch (e) {
+          console.error("[DocumentRAG] Competitor doc indexing error:", e);
+        }
+      }, 100);
+
+      res.json({
+        success: true,
+        documentId,
+        fileKey,
+        fileUrl: url,
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        category,
+        ragIndexing: true,
+      });
+    } catch (error) {
+      console.error("[/api/upload-competitor-document] Error:", error);
       res.status(500).json({ error: "Upload failed" });
     }
   });

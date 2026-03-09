@@ -69,10 +69,16 @@ export const contactMomentsRouter = router({
       if (input.data.subject !== undefined) updateData.subject = input.data.subject;
       if (input.data.notes !== undefined) updateData.notes = input.data.notes;
       if (input.data.outcome !== undefined) updateData.outcome = input.data.outcome;
-      if (input.data.occurredAt) updateData.occurredAt = new Date(input.data.occurredAt);
-      if (input.data.followUpAt) updateData.followUpAt = new Date(input.data.followUpAt);
+      if (input.data.occurredAt) {
+        const d = new Date(input.data.occurredAt);
+        if (!isNaN(d.getTime())) updateData.occurredAt = d;
+      }
+      if (input.data.followUpAt) {
+        const d = new Date(input.data.followUpAt);
+        if (!isNaN(d.getTime())) updateData.followUpAt = d;
+      }
       if (input.data.followUpDone !== undefined) updateData.followUpDone = input.data.followUpDone;
-      return updateContactMoment(input.id, updateData);
+      return await updateContactMoment(input.id, updateData);
     }),
 
   delete: protectedProcedure

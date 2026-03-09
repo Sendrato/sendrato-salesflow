@@ -100,6 +100,12 @@ export const emailIngestStatusEnum = pgEnum("email_ingest_status", [
   "error",
 ]);
 
+export const competitorThreatLevelEnum = pgEnum("competitor_threat_level", [
+  "low",
+  "medium",
+  "high",
+]);
+
 // ─── Users ───────────────────────────────────────────────────────────────────
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -224,6 +230,8 @@ export const documentChunks = pgTable("document_chunks", {
   id: serial("id").primaryKey(),
   documentId: integer("documentId").notNull(),
   leadId: integer("leadId").notNull(),
+  competitorDocumentId: integer("competitorDocumentId"),
+  competitorId: integer("competitorId"),
   chunkIndex: integer("chunkIndex").notNull(),
   textContent: text("textContent").notNull(),
   embedding: vector("embedding", { dimensions: 1024 }),
@@ -329,3 +337,67 @@ export const appSettings = pgTable("app_settings", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type AppSetting = typeof appSettings.$inferSelect;
+
+// ─── Competitors ─────────────────────────────────────────────────────────────
+export const competitors = pgTable("competitors", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  website: varchar("website", { length: 512 }),
+  description: text("description"),
+  products: text("products"),
+  regions: text("regions"),
+  pricing: text("pricing"),
+  businessModel: text("businessModel"),
+  threatLevel: competitorThreatLevelEnum("threatLevel").default("medium").notNull(),
+  strengths: text("strengths"),
+  weaknesses: text("weaknesses"),
+  notes: text("notes"),
+  tags: json("tags").$type<string[]>(),
+  enrichmentData: json("enrichmentData"),
+  enrichedAt: timestamp("enrichedAt"),
+  createdBy: integer("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type Competitor = typeof competitors.$inferSelect;
+export type InsertCompetitor = typeof competitors.$inferInsert;
+
+// ─── Competitor ↔ Lead Links ─────────────────────────────────────────────────
+export const competitorLeadLinks = pgTable("competitor_lead_links", {
+  id: serial("id").primaryKey(),
+  competitorId: integer("competitorId").notNull(),
+  leadId: integer("leadId").notNull(),
+  competitorProduct: varchar("competitorProduct", { length: 512 }),
+  contractStartDate: timestamp("contractStartDate"),
+  contractEndDate: timestamp("contractEndDate"),
+  contractValue: real("contractValue"),
+  contractCurrency: varchar("contractCurrency", { length: 8 }).default("USD"),
+  likes: text("likes"),
+  dislikes: text("dislikes"),
+  satisfaction: varchar("satisfaction", { length: 32 }),
+  intelSource: varchar("intelSource", { length: 255 }),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type CompetitorLeadLink = typeof competitorLeadLinks.$inferSelect;
+export type InsertCompetitorLeadLink = typeof competitorLeadLinks.$inferInsert;
+
+// ─── Competitor Documents ────────────────────────────────────────────────────
+export const competitorDocuments = pgTable("competitor_documents", {
+  id: serial("id").primaryKey(),
+  competitorId: integer("competitorId").notNull(),
+  fileName: varchar("fileName", { length: 512 }).notNull(),
+  fileKey: varchar("fileKey", { length: 1024 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  mimeType: varchar("mimeType", { length: 128 }),
+  fileSize: bigint("fileSize", { mode: "number" }),
+  category: documentCategoryEnum("category").default("other"),
+  uploadedBy: integer("uploadedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CompetitorDocument = typeof competitorDocuments.$inferSelect;
+export type InsertCompetitorDocument = typeof competitorDocuments.$inferInsert;

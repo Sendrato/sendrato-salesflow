@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -29,14 +29,22 @@ import EmailBody from "@/components/EmailBody";
 function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occurredAt: string | Date }; onUpdated: () => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
+  const submitting = useRef(false);
   const updateMutation = trpc.contactMoments.update.useMutation({
     onSuccess: () => {
+      submitting.current = false;
       onUpdated();
       setEditing(false);
       toast.success("Date updated");
     },
-    onError: () => toast.error("Failed to update date"),
+    onError: () => { submitting.current = false; toast.error("Failed to update date"); },
   });
+
+  const submit = () => {
+    if (submitting.current || !value) { setEditing(false); return; }
+    submitting.current = true;
+    updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
+  };
 
   if (editing) {
     return (
@@ -44,19 +52,10 @@ function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occur
         type="datetime-local"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        onBlur={() => {
-          if (value) {
-            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
-          } else {
-            setEditing(false);
-          }
-        }}
+        onBlur={submit}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && value) {
-            updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
-          } else if (e.key === "Escape") {
-            setEditing(false);
-          }
+          if (e.key === "Enter") submit();
+          else if (e.key === "Escape") setEditing(false);
         }}
         className="h-6 w-44 text-xs px-1"
         autoFocus
@@ -531,14 +530,8 @@ export default function PersonDetailPage() {
                   <div className="font-medium capitalize">{person.source ?? "Manual"}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Last Contacted</div>
-                  <div className="font-medium">
-                    {person.lastContactedAt ? formatRelativeTime(person.lastContactedAt) : "Never"}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-muted-foreground">Added</div>
-                  <div className="font-medium">{formatDate(person.createdAt)}</div>
+                  <div className="text-xs text-muted-foreground">Last Interaction</div>
+                  <div className="font-medium">{person.lastContactedAt ? formatDate(person.lastContactedAt) : "Never"}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Interactions</div>

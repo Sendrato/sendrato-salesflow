@@ -160,6 +160,68 @@ export async function indexDocument(
   return { chunksIndexed: chunks.length, textLength: text.length };
 }
 
+// ─── Index Competitor Document ─────────────────────────────────────────────────
+
+export async function indexCompetitorDocument(
+  competitorDocumentId: number,
+  competitorId: number,
+  buffer: Buffer,
+  mimeType: string,
+  fileName: string
+): Promise<{ chunksIndexed: number; textLength: number }> {
+  const pool = await getRawPool();
+  if (!pool) {
+    console.warn("[DocumentRAG] No DB, skipping competitor doc indexing");
+    return { chunksIndexed: 0, textLength: 0 };
+  }
+
+  await pool.query(
+    'DELETE FROM document_chunks WHERE "competitorDocumentId" = $1',
+    [competitorDocumentId]
+  );
+
+  const { text } = await extractTextFromBuffer(buffer, mimeType, fileName);
+  if (!text || text.trim().length === 0) {
+    console.warn(
+      `[DocumentRAG] No text extracted from competitor document ${competitorDocumentId}`
+    );
+    return { chunksIndexed: 0, textLength: 0 };
+  }
+
+  const chunks = chunkText(text);
+
+  let embeddings: number[][] = [];
+  try {
+    const embeddingModel = await getEmbeddingModel();
+    const result = await embedMany({
+      model: embeddingModel,
+      values: chunks,
+    });
+    embeddings = result.embeddings;
+  } catch (err) {
+    console.error(
+      "[DocumentRAG] Competitor doc embedding failed:",
+      err
+    );
+  }
+
+  for (let i = 0; i < chunks.length; i++) {
+    const embeddingValue = embeddings[i]
+      ? JSON.stringify(embeddings[i])
+      : null;
+    await pool.query(
+      `INSERT INTO document_chunks ("documentId", "leadId", "competitorDocumentId", "competitorId", "chunkIndex", "textContent", embedding, "createdAt")
+       VALUES (0, 0, $1, $2, $3, $4, $5::vector, NOW())`,
+      [competitorDocumentId, competitorId, i, chunks[i], embeddingValue]
+    );
+  }
+
+  console.log(
+    `[DocumentRAG] Indexed competitor doc ${competitorDocumentId}: ${chunks.length} chunks, ${text.length} chars`
+  );
+  return { chunksIndexed: chunks.length, textLength: text.length };
+}
+
 // ─── Search Document Chunks ───────────────────────────────────────────────────
 
 export interface DocumentChunkResult {

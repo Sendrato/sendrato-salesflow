@@ -258,14 +258,20 @@ export async function createContactMoment(data: InsertContactMoment) {
 export async function updateContactMoment(id: number, data: Partial<InsertContactMoment>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(contactMoments).set({ ...data, updatedAt: new Date() }).where(eq(contactMoments.id, id));
-  const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, id)).limit(1);
-  const updated = rows[0];
-  // Recalculate lastContactedAt on lead/person when occurredAt changes
-  if (data.occurredAt && updated) {
-    await recalcLastContactedAt(db, updated.leadId, updated.personId);
+  try {
+    const setData = { ...data, updatedAt: new Date() };
+    console.log("[ContactMoment] Updating id:", id, "with data keys:", Object.keys(setData));
+    await db.update(contactMoments).set(setData).where(eq(contactMoments.id, id));
+    const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, id)).limit(1);
+    const updated = rows[0];
+    if (data.occurredAt && updated) {
+      await recalcLastContactedAt(db, updated.leadId, updated.personId);
+    }
+    return updated;
+  } catch (err) {
+    console.error("[ContactMoment] Update failed for id:", id, "data:", JSON.stringify(data), "error:", err);
+    throw err;
   }
-  return updated;
 }
 
 async function recalcLastContactedAt(db: any, leadId: number, personId?: number | null) {

@@ -17,6 +17,8 @@ import SharedPresentation from "./pages/SharedPresentation";
 import PersonsPage from "./pages/Persons";
 import PersonDetailPage from "./pages/PersonDetail";
 import SettingsPage from "./pages/Settings";
+import CompetitorsPage from "./pages/Competitors";
+import CompetitorDetailPage from "./pages/CompetitorDetail";
 
 function Router() {
   return (
@@ -33,6 +35,8 @@ function Router() {
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/persons" component={PersonsPage} />
       <Route path="/persons/:id" component={PersonDetailPage} />
+      <Route path="/competitors" component={CompetitorsPage} />
+      <Route path="/competitors/:id" component={CompetitorDetailPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/share/:token" component={SharedPresentation} />
       <Route path="/404" component={NotFound} />

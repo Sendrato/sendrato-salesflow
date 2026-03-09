@@ -20,7 +20,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Building2, MessageSquare, BarChart3, Upload, Bot, FileText, Calendar, Settings } from "lucide-react";
+import { LayoutDashboard, LogOut, PanelLeft, Users, Building2, MessageSquare, BarChart3, Upload, Bot, FileText, Calendar, Settings, Swords } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { LoginForm } from "./LoginForm";
 import { useLocation } from "wouter";
@@ -31,6 +31,7 @@ const menuItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/" },
   { icon: Building2, label: "Leads", path: "/leads" },
   { icon: Users, label: "People", path: "/persons" },
+  { icon: Swords, label: "Competitors", path: "/competitors" },
   { icon: MessageSquare, label: "Activity", path: "/activity" },
   { icon: Calendar, label: "Calendar", path: "/calendar" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
