@@ -18,6 +18,7 @@ import { leadsRouter } from "./routers/leads";
 import { personsRouter } from "./routers/persons";
 import { competitorsRouter } from "./routers/competitors";
 import { webLinksRouter } from "./routers/webLinks";
+import { crmDocumentsRouter } from "./routers/crmDocuments";
 import { settingsRouter } from "./routers/settings";
 
 const BCRYPT_ROUNDS = 12;
@@ -108,6 +109,7 @@ export const appRouter = router({
   persons: personsRouter,
   competitors: competitorsRouter,
   webLinks: webLinksRouter,
+  crmDocuments: crmDocumentsRouter,
 
   // File upload for documents
   upload: router({

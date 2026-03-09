@@ -467,6 +467,45 @@ export function registerIntegrationRoutes(app: Express) {
   });
 
   /**
+   * POST /api/upload-crm-document
+   */
+  app.post("/api/upload-crm-document", upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+      const category = req.body.category ?? "other";
+      const description = req.body.description || null;
+      const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
+
+      const ext = req.file.originalname.split(".").pop() ?? "bin";
+      const fileKey = `crm-docs/${nanoid()}.${ext}`;
+      const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
+
+      const { createCrmDocument } = await import("./crmDocumentsDb");
+      const doc = await createCrmDocument({
+        fileName: req.file.originalname,
+        fileKey,
+        fileUrl: url,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        category: category as any,
+        description,
+        uploadedBy: userId ?? null,
+      });
+
+      res.json({
+        success: true,
+        document: doc,
+      });
+    } catch (error) {
+      console.error("[/api/upload-crm-document] Error:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
+
+  /**
    * POST /api/share-presentation
    */
   app.post("/api/share-presentation", async (req: Request, res: Response) => {

@@ -36,6 +36,7 @@ const menuItems = [
   { icon: Calendar, label: "Calendar", path: "/calendar" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: Bot, label: "AI Assistant", path: "/ai-chat" },
+  { icon: FileText, label: "Documents", path: "/documents" },
   { icon: Upload, label: "Import", path: "/import" },
   { icon: Settings, label: "Settings", path: "/settings" },
 ];

@@ -19,6 +19,7 @@ import PersonDetailPage from "./pages/PersonDetail";
 import SettingsPage from "./pages/Settings";
 import CompetitorsPage from "./pages/Competitors";
 import CompetitorDetailPage from "./pages/CompetitorDetail";
+import DocumentsPage from "./pages/Documents";
 
 function Router() {
   return (
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/persons/:id" component={PersonDetailPage} />
       <Route path="/competitors" component={CompetitorsPage} />
       <Route path="/competitors/:id" component={CompetitorDetailPage} />
+      <Route path="/documents" component={DocumentsPage} />
       <Route path="/settings" component={SettingsPage} />
       <Route path="/share/:token" component={SharedPresentation} />
       <Route path="/404" component={NotFound} />

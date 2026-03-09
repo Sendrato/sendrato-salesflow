@@ -433,3 +433,20 @@ export const webLinks = pgTable("web_links", {
 
 export type WebLink = typeof webLinks.$inferSelect;
 export type InsertWebLink = typeof webLinks.$inferInsert;
+
+// ─── CRM Documents (team document library) ──────────────────────────────────
+export const crmDocuments = pgTable("crm_documents", {
+  id: serial("id").primaryKey(),
+  fileName: varchar("fileName", { length: 512 }).notNull(),
+  fileKey: varchar("fileKey", { length: 1024 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  mimeType: varchar("mimeType", { length: 128 }),
+  fileSize: bigint("fileSize", { mode: "number" }),
+  category: documentCategoryEnum("category").default("other"),
+  description: text("description"),
+  uploadedBy: integer("uploadedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CrmDocument = typeof crmDocuments.$inferSelect;
+export type InsertCrmDocument = typeof crmDocuments.$inferInsert;
