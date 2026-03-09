@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
+import WebLinksCard from "@/components/WebLinksCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -292,6 +293,8 @@ export default function CompetitorDetailPage() {
                 <Field field="notes" editing={editing} editData={editData} setEditData={setEditData} value={competitor.notes} multiline />
               </CardContent>
             </Card>
+
+            <WebLinksCard entityType="competitor" entityId={competitorId} />
           </TabsContent>
 
           {/* Linked Leads Tab */}

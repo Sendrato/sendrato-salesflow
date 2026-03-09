@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS } from "@/lib/crm";
 import EmailBody from "@/components/EmailBody";
+import WebLinksCard from "@/components/WebLinksCard";
 
 function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occurredAt: string | Date }; onUpdated: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -539,6 +540,8 @@ export default function PersonDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            <WebLinksCard entityType="person" entityId={personId} />
           </TabsContent>
 
           {/* Timeline */}

@@ -401,3 +401,32 @@ export const competitorDocuments = pgTable("competitor_documents", {
 
 export type CompetitorDocument = typeof competitorDocuments.$inferSelect;
 export type InsertCompetitorDocument = typeof competitorDocuments.$inferInsert;
+
+// ─── Web Links (polymorphic) ─────────────────────────────────────────────────
+
+export const webLinkCategoryEnum = pgEnum("web_link_category", [
+  "website",
+  "article",
+  "news",
+  "social",
+  "documentation",
+  "review",
+  "video",
+  "other",
+]);
+
+export const webLinks = pgTable("web_links", {
+  id: serial("id").primaryKey(),
+  url: text("url").notNull(),
+  title: varchar("title", { length: 512 }),
+  description: text("description"),
+  category: webLinkCategoryEnum("category").default("other").notNull(),
+  leadId: integer("leadId"),
+  personId: integer("personId"),
+  competitorId: integer("competitorId"),
+  createdBy: integer("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WebLink = typeof webLinks.$inferSelect;
+export type InsertWebLink = typeof webLinks.$inferInsert;

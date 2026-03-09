@@ -189,6 +189,8 @@ export async function updateLead(id: number, data: Partial<InsertLead>) {
 export async function deleteLead(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  const { deleteWebLinksByLead } = await import("./webLinksDb");
+  await deleteWebLinksByLead(id);
   await db.delete(leads).where(eq(leads.id, id));
 }
 

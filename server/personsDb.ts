@@ -67,6 +67,8 @@ export async function updatePerson(id: number, data: Partial<InsertPerson>) {
 export async function deletePerson(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
+  const { deleteWebLinksByPerson } = await import("./webLinksDb");
+  await deleteWebLinksByPerson(id);
   await db.delete(personLeadLinks).where(eq(personLeadLinks.personId, id));
   await db.delete(persons).where(eq(persons.id, id));
 }

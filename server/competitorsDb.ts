@@ -115,6 +115,9 @@ export async function updateCompetitor(
 export async function deleteCompetitor(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
+  // Cascade: delete web links
+  const { deleteWebLinksByCompetitor } = await import("./webLinksDb");
+  await deleteWebLinksByCompetitor(id);
   // Cascade: delete lead links
   await db
     .delete(competitorLeadLinks)

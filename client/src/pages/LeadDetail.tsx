@@ -26,6 +26,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import EmailBody from "@/components/EmailBody";
 import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
+import WebLinksCard from "@/components/WebLinksCard";
 
 function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurredAt: string | Date }; leadId: number }) {
   const [editing, setEditing] = useState(false);
@@ -606,6 +607,8 @@ export default function LeadDetail() {
                 await updateLeadMutation.mutateAsync({ id: leadId, data: { leadAttributes: newAttrs } });
               }}
             />
+
+            <WebLinksCard entityType="lead" entityId={leadId} />
           </TabsContent>
 
           {/* Timeline Tab */}
