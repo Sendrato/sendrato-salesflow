@@ -377,6 +377,53 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     ],
   },
 
+  partner: {
+    label: "Partner",
+    description: "Potential partnerships, collaborations",
+    color: "bg-indigo-100 text-indigo-800",
+    fields: [
+      {
+        key: "partnerType",
+        label: "Partner Type",
+        type: "select",
+        options: [
+          "Technology",
+          "Distribution",
+          "Referral",
+          "Strategic Alliance",
+          "Co-marketing",
+          "Other",
+        ],
+        description: "Type of partnership",
+        icon: "Handshake",
+      },
+      {
+        key: "companySize",
+        label: "Company Size",
+        type: "select",
+        options: ["1-10", "11-50", "51-200", "201-1000", "1000+"],
+        description: "Number of employees",
+        icon: "Users",
+      },
+      {
+        key: "mutualBenefit",
+        label: "Mutual Benefit",
+        type: "textarea",
+        placeholder: "e.g. Shared customer base, complementary products",
+        description: "What both parties gain from the partnership",
+        icon: "ArrowLeftRight",
+      },
+      {
+        key: "partnerFit",
+        label: "Partner Fit",
+        type: "select",
+        options: ["POOR", "MODERATE", "GOOD", "EXCELLENT"],
+        description: "How well this partner aligns with our goals",
+        icon: "Target",
+      },
+    ],
+  },
+
   retail: {
     label: "Retail",
     description: "Retail chains, e-commerce, consumer brands",
