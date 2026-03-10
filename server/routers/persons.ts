@@ -6,6 +6,7 @@ import {
   createPerson,
   updatePerson,
   deletePerson,
+  mergePersons,
   getPersonLeadLinks,
   getLeadPersonLinks,
   linkPersonToLead,
@@ -95,6 +96,12 @@ export const personsRouter = router({
     .mutation(async ({ input }) => {
       await deletePerson(input.id);
       return { success: true };
+    }),
+
+  merge: protectedProcedure
+    .input(z.object({ keepId: z.number(), removeId: z.number() }))
+    .mutation(async ({ input }) => {
+      return mergePersons(input.keepId, input.removeId);
     }),
 
   // ─── Lead links ───────────────────────────────────────────────────────────

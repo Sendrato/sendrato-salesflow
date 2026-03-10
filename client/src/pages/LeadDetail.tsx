@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -14,7 +16,7 @@ import {
   ArrowLeft, Edit, Plus, Globe, Mail, Phone, Building2, Tag, Clock, FileText,
   Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
   Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
-  Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords
+  Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords, MoreVertical, Merge, Search
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
@@ -220,6 +222,9 @@ export default function LeadDetail() {
   const [compLikes, setCompLikes] = useState("");
   const [compDislikes, setCompDislikes] = useState("");
   const [uploadCategory, setUploadCategory] = useState<"proposal"|"contract"|"presentation"|"report"|"other">("other");
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
   const [shareTitle, setShareTitle] = useState("");
   const [shareRecordMoment, setShareRecordMoment] = useState(true);
@@ -291,6 +296,25 @@ export default function LeadDetail() {
   const deactivateShareMutation = trpc.documents.deactivateShare.useMutation({
     onSuccess: () => { refetchShares(); toast.success("Share link deactivated"); },
   });
+
+  const deleteLeadMutation = trpc.leads.delete.useMutation({
+    onSuccess: () => { toast.success("Lead deleted"); setLocation("/leads"); },
+    onError: () => toast.error("Failed to delete lead"),
+  });
+
+  const mergeLeadMutation = trpc.leads.merge.useMutation({
+    onSuccess: (result) => {
+      toast.success("Leads merged successfully");
+      setMergeOpen(false);
+      setLocation(`/leads/${result?.id ?? mergeTargetId}`);
+    },
+    onError: () => toast.error("Failed to merge leads"),
+  });
+
+  const { data: mergeSearchResults } = trpc.leads.list.useQuery(
+    { search: mergeSearch, limit: 10 },
+    { enabled: mergeOpen && mergeSearch.length >= 2 },
+  );
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -480,6 +504,98 @@ export default function LeadDetail() {
                       <DialogTitle>Log Interaction — {lead.companyName}</DialogTitle>
                     </DialogHeader>
                     <ContactMomentForm leadId={leadId} onSuccess={() => setLogOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="px-2">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setMergeOpen(true)} className="gap-2">
+                      <Merge className="h-4 w-4" />
+                      Merge into another Lead
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="gap-2 text-red-600 focus:text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                          Delete Lead
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete {lead.companyName}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete this lead and all related data including contact moments, documents, and links. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteLeadMutation.mutate({ id: leadId })}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            {deleteLeadMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Merge Dialog */}
+                <Dialog open={mergeOpen} onOpenChange={(o) => { setMergeOpen(o); if (!o) { setMergeSearch(""); setMergeTargetId(null); } }}>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Merge Lead</DialogTitle>
+                      <DialogDescription>
+                        Merge <strong>{lead.companyName}</strong> into another lead. All contact moments, documents, persons, and links will be moved to the target lead. This lead will be deleted.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Search for target lead..."
+                          value={mergeSearch}
+                          onChange={(e) => { setMergeSearch(e.target.value); setMergeTargetId(null); }}
+                          className="pl-9"
+                        />
+                      </div>
+                      {mergeSearch.length >= 2 && (
+                        <div className="border rounded-md max-h-48 overflow-y-auto divide-y">
+                          {(mergeSearchResults?.items ?? [])
+                            .filter((l) => l.id !== leadId)
+                            .map((l) => (
+                              <div
+                                key={l.id}
+                                className={`px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors ${mergeTargetId === l.id ? "bg-primary/10" : ""}`}
+                                onClick={() => setMergeTargetId(l.id)}
+                              >
+                                <div className="text-sm font-medium">{l.companyName}</div>
+                                {l.contactPerson && <div className="text-xs text-muted-foreground">{l.contactPerson}</div>}
+                              </div>
+                            ))}
+                          {(mergeSearchResults?.items ?? []).filter((l) => l.id !== leadId).length === 0 && (
+                            <div className="px-3 py-4 text-sm text-muted-foreground text-center">No leads found</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setMergeOpen(false)}>Cancel</Button>
+                      <Button
+                        onClick={() => mergeTargetId && mergeLeadMutation.mutate({ keepId: mergeTargetId, removeId: leadId })}
+                        disabled={!mergeTargetId || mergeLeadMutation.isPending}
+                      >
+                        {mergeLeadMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Merge className="h-4 w-4 mr-2" />}
+                        Merge
+                      </Button>
+                    </DialogFooter>
                   </DialogContent>
                 </Dialog>
               </div>

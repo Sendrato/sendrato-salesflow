@@ -7,10 +7,14 @@ import {
   leads,
   contactMoments,
   leadDocuments,
+  documentChunks,
+  shareablePresentations,
   leadEmbeddings,
   emailIngestLog,
   persons,
   personLeadLinks,
+  competitorLeadLinks,
+  webLinks,
   type Lead,
   type InsertLead,
   type InsertContactMoment,
@@ -214,7 +218,95 @@ export async function deleteLead(id: number) {
   if (!db) throw new Error("Database not available");
   const { deleteWebLinksByLead } = await import("./webLinksDb");
   await deleteWebLinksByLead(id);
+  await db.delete(contactMoments).where(eq(contactMoments.leadId, id));
+  await db.delete(documentChunks).where(eq(documentChunks.leadId, id));
+  await db.delete(leadDocuments).where(eq(leadDocuments.leadId, id));
+  await db.delete(shareablePresentations).where(eq(shareablePresentations.leadId, id));
+  await db.delete(leadEmbeddings).where(eq(leadEmbeddings.leadId, id));
+  await db.delete(personLeadLinks).where(eq(personLeadLinks.leadId, id));
+  await db.delete(competitorLeadLinks).where(eq(competitorLeadLinks.leadId, id));
+  await db.update(emailIngestLog).set({ matchedLeadId: null }).where(eq(emailIngestLog.matchedLeadId, id));
   await db.delete(leads).where(eq(leads.id, id));
+}
+
+export async function mergeLeads(keepId: number, removeId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const [keep, remove] = await Promise.all([getLeadById(keepId), getLeadById(removeId)]);
+  if (!keep || !remove) throw new Error("Lead not found");
+
+  // Move contact moments
+  await db.update(contactMoments).set({ leadId: keepId }).where(eq(contactMoments.leadId, removeId));
+
+  // Move documents & chunks
+  await db.update(documentChunks).set({ leadId: keepId }).where(eq(documentChunks.leadId, removeId));
+  await db.update(leadDocuments).set({ leadId: keepId }).where(eq(leadDocuments.leadId, removeId));
+  await db.update(shareablePresentations).set({ leadId: keepId }).where(eq(shareablePresentations.leadId, removeId));
+
+  // Delete embeddings for removed lead (will be regenerated)
+  await db.delete(leadEmbeddings).where(eq(leadEmbeddings.leadId, removeId));
+
+  // Move person links (skip duplicates)
+  const existingLinks = await db.select({ personId: personLeadLinks.personId }).from(personLeadLinks).where(eq(personLeadLinks.leadId, keepId));
+  const existingPersonIds = new Set(existingLinks.map((l) => l.personId));
+  const removeLinks = await db.select().from(personLeadLinks).where(eq(personLeadLinks.leadId, removeId));
+  for (const link of removeLinks) {
+    if (existingPersonIds.has(link.personId)) {
+      await db.delete(personLeadLinks).where(eq(personLeadLinks.id, link.id));
+    } else {
+      await db.update(personLeadLinks).set({ leadId: keepId }).where(eq(personLeadLinks.id, link.id));
+    }
+  }
+
+  // Move competitor links (skip duplicates)
+  const existingCompLinks = await db.select({ competitorId: competitorLeadLinks.competitorId }).from(competitorLeadLinks).where(eq(competitorLeadLinks.leadId, keepId));
+  const existingCompIds = new Set(existingCompLinks.map((l) => l.competitorId));
+  const removeCompLinks = await db.select().from(competitorLeadLinks).where(eq(competitorLeadLinks.leadId, removeId));
+  for (const link of removeCompLinks) {
+    if (existingCompIds.has(link.competitorId)) {
+      await db.delete(competitorLeadLinks).where(eq(competitorLeadLinks.id, link.id));
+    } else {
+      await db.update(competitorLeadLinks).set({ leadId: keepId }).where(eq(competitorLeadLinks.id, link.id));
+    }
+  }
+
+  // Move web links
+  await db.update(webLinks).set({ leadId: keepId }).where(eq(webLinks.leadId, removeId));
+
+  // Move email ingest log
+  await db.update(emailIngestLog).set({ matchedLeadId: keepId }).where(eq(emailIngestLog.matchedLeadId, removeId));
+
+  // Merge text fields (fill empty fields on keep from remove)
+  const textFields = ["notes", "painPoints", "futureOpportunities", "revenueModel", "risks", "currentPilot"] as const;
+  const updates: Record<string, unknown> = {};
+  for (const field of textFields) {
+    if (!keep[field] && remove[field]) {
+      updates[field] = remove[field];
+    }
+  }
+  // Also fill empty contact info
+  if (!keep.contactPerson && remove.contactPerson) updates.contactPerson = remove.contactPerson;
+  if (!keep.email && remove.email) updates.email = remove.email;
+  if (!keep.phone && remove.phone) updates.phone = remove.phone;
+  if (!keep.website && remove.website) updates.website = remove.website;
+  if (!keep.industry && remove.industry) updates.industry = remove.industry;
+  if (!keep.location && remove.location) updates.location = remove.location;
+  if (!keep.estimatedValue && remove.estimatedValue) updates.estimatedValue = remove.estimatedValue;
+
+  if (Object.keys(updates).length > 0) {
+    await db.update(leads).set({ ...updates, updatedAt: new Date() }).where(eq(leads.id, keepId));
+  }
+
+  // Delete the removed lead
+  const { deleteWebLinksByLead } = await import("./webLinksDb");
+  await deleteWebLinksByLead(removeId);
+  await db.delete(leads).where(eq(leads.id, removeId));
+
+  // Recalculate lastContactedAt
+  await recalcLastContactedAt(db, keepId);
+
+  return getLeadById(keepId);
 }
 
 export async function bulkInsertLeads(data: InsertLead[]) {

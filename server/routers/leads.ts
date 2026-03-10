@@ -6,6 +6,7 @@ import {
   createLead,
   updateLead,
   deleteLead,
+  mergeLeads,
   bulkInsertLeads,
   getLeadStats,
 } from "../db";
@@ -102,6 +103,12 @@ export const leadsRouter = router({
     .mutation(async ({ input }) => {
       await deleteLead(input.id);
       return { success: true };
+    }),
+
+  merge: protectedProcedure
+    .input(z.object({ keepId: z.number(), removeId: z.number() }))
+    .mutation(async ({ input }) => {
+      return mergeLeads(input.keepId, input.removeId);
     }),
 
   bulkCreate: protectedProcedure

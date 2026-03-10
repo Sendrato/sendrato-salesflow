@@ -15,12 +15,14 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft, Linkedin, Mail, Phone, Building2, Edit2, Save, X,
   MessageSquare, Plus, Link2, ExternalLink, Clock, Tag, User,
-  Calendar, CheckCircle2, AlertCircle, Loader2,
+  Calendar, CheckCircle2, AlertCircle, Loader2, MoreVertical, Merge, Trash2, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS } from "@/lib/crm";
@@ -310,6 +312,29 @@ export default function PersonDetailPage() {
     onSuccess: () => { refetchLinks(); toast.success("Unlinked"); },
   });
 
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergeSearch, setMergeSearch] = useState("");
+  const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
+
+  const deletePersonMutation = trpc.persons.delete.useMutation({
+    onSuccess: () => { toast.success("Person deleted"); navigate("/persons"); },
+    onError: () => toast.error("Failed to delete person"),
+  });
+
+  const mergePersonMutation = trpc.persons.merge.useMutation({
+    onSuccess: (result) => {
+      toast.success("Persons merged successfully");
+      setMergeOpen(false);
+      navigate(`/persons/${result?.id ?? mergeTargetId}`);
+    },
+    onError: () => toast.error("Failed to merge persons"),
+  });
+
+  const { data: mergeSearchResults } = trpc.persons.list.useQuery(
+    { search: mergeSearch, limit: 10 },
+    { enabled: mergeOpen && mergeSearch.length >= 2 },
+  );
+
   if (isLoading) {
     return (
       <DashboardLayout>
@@ -414,12 +439,106 @@ export default function PersonDetailPage() {
                 </Button>
               </>
             ) : (
-              <Button size="sm" variant="outline" onClick={startEdit} className="gap-1.5">
-                <Edit2 className="h-3.5 w-3.5" /> Edit
-              </Button>
+              <>
+                <Button size="sm" variant="outline" onClick={startEdit} className="gap-1.5">
+                  <Edit2 className="h-3.5 w-3.5" /> Edit
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="px-2">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setMergeOpen(true)} className="gap-2">
+                      <Merge className="h-4 w-4" />
+                      Merge into another Person
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="gap-2 text-red-600 focus:text-red-600">
+                          <Trash2 className="h-4 w-4" />
+                          Delete Person
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete {person.name}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently delete this person. Contact moments linked to this person will be preserved but unlinked. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deletePersonMutation.mutate({ id: personId })}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            {deletePersonMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             )}
           </div>
         </div>
+
+        {/* Merge Dialog */}
+        <Dialog open={mergeOpen} onOpenChange={(o) => { setMergeOpen(o); if (!o) { setMergeSearch(""); setMergeTargetId(null); } }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Merge Person</DialogTitle>
+              <DialogDescription>
+                Merge <strong>{person.name}</strong> into another person. All contact moments and lead links will be moved to the target person. This person will be deleted.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search for target person..."
+                  value={mergeSearch}
+                  onChange={(e) => { setMergeSearch(e.target.value); setMergeTargetId(null); }}
+                  className="pl-9"
+                />
+              </div>
+              {mergeSearch.length >= 2 && (
+                <div className="border rounded-md max-h-48 overflow-y-auto divide-y">
+                  {(mergeSearchResults?.persons ?? [])
+                    .filter((p) => p.id !== personId)
+                    .map((p) => (
+                      <div
+                        key={p.id}
+                        className={`px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors ${mergeTargetId === p.id ? "bg-primary/10" : ""}`}
+                        onClick={() => setMergeTargetId(p.id)}
+                      >
+                        <div className="text-sm font-medium">{p.name}</div>
+                        {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
+                      </div>
+                    ))}
+                  {(mergeSearchResults?.persons ?? []).filter((p) => p.id !== personId).length === 0 && (
+                    <div className="px-3 py-4 text-sm text-muted-foreground text-center">No persons found</div>
+                  )}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setMergeOpen(false)}>Cancel</Button>
+              <Button
+                onClick={() => mergeTargetId && mergePersonMutation.mutate({ keepId: mergeTargetId, removeId: personId })}
+                disabled={!mergeTargetId || mergePersonMutation.isPending}
+              >
+                {mergePersonMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Merge className="h-4 w-4 mr-2" />}
+                Merge
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Tabs defaultValue="overview">
           <TabsList className="h-9">

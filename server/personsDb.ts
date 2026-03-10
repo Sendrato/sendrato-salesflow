@@ -1,6 +1,6 @@
 import { eq, or, desc, and, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { persons, personLeadLinks, contactMoments, leads } from "../drizzle/schema";
+import { persons, personLeadLinks, contactMoments, leads, emailIngestLog, webLinks } from "../drizzle/schema";
 import type { InsertPerson, InsertPersonLeadLink } from "../drizzle/schema";
 
 // ─── Persons ──────────────────────────────────────────────────────────────────
@@ -69,8 +69,63 @@ export async function deletePerson(id: number) {
   if (!db) throw new Error("DB not available");
   const { deleteWebLinksByPerson } = await import("./webLinksDb");
   await deleteWebLinksByPerson(id);
+  // Nullify personId on contact moments (they still belong to leads)
+  await db.update(contactMoments).set({ personId: null }).where(eq(contactMoments.personId, id));
+  await db.update(emailIngestLog).set({ matchedPersonId: null }).where(eq(emailIngestLog.matchedPersonId, id));
   await db.delete(personLeadLinks).where(eq(personLeadLinks.personId, id));
   await db.delete(persons).where(eq(persons.id, id));
+}
+
+export async function mergePersons(keepId: number, removeId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  const [keep, remove] = await Promise.all([getPersonById(keepId), getPersonById(removeId)]);
+  if (!keep || !remove) throw new Error("Person not found");
+
+  // Move contact moments
+  await db.update(contactMoments).set({ personId: keepId }).where(eq(contactMoments.personId, removeId));
+
+  // Move lead links (skip duplicates)
+  const existingLinks = await db.select({ leadId: personLeadLinks.leadId }).from(personLeadLinks).where(eq(personLeadLinks.personId, keepId));
+  const existingLeadIds = new Set(existingLinks.map((l) => l.leadId));
+  const removeLinks = await db.select().from(personLeadLinks).where(eq(personLeadLinks.personId, removeId));
+  for (const link of removeLinks) {
+    if (existingLeadIds.has(link.leadId)) {
+      await db.delete(personLeadLinks).where(eq(personLeadLinks.id, link.id));
+    } else {
+      await db.update(personLeadLinks).set({ personId: keepId }).where(eq(personLeadLinks.id, link.id));
+    }
+  }
+
+  // Move web links
+  await db.update(webLinks).set({ personId: keepId }).where(eq(webLinks.personId, removeId));
+
+  // Move email ingest log
+  await db.update(emailIngestLog).set({ matchedPersonId: keepId }).where(eq(emailIngestLog.matchedPersonId, removeId));
+
+  // Merge text fields (fill empty fields on keep from remove)
+  const updates: Partial<InsertPerson> = {};
+  if (!keep.email && remove.email) updates.email = remove.email;
+  if (!keep.phone && remove.phone) updates.phone = remove.phone;
+  if (!keep.linkedInUrl && remove.linkedInUrl) updates.linkedInUrl = remove.linkedInUrl;
+  if (!keep.twitterUrl && remove.twitterUrl) updates.twitterUrl = remove.twitterUrl;
+  if (!keep.company && remove.company) updates.company = remove.company;
+  if (!keep.title && remove.title) updates.title = remove.title;
+  if (!keep.notes && remove.notes) updates.notes = remove.notes;
+  if (!keep.source && remove.source) updates.source = remove.source;
+
+  if (Object.keys(updates).length > 0) {
+    await db.update(persons).set({ ...updates, updatedAt: new Date() }).where(eq(persons.id, keepId));
+  }
+
+  // Delete the removed person
+  const { deleteWebLinksByPerson } = await import("./webLinksDb");
+  await deleteWebLinksByPerson(removeId);
+  await db.delete(personLeadLinks).where(eq(personLeadLinks.personId, removeId));
+  await db.delete(persons).where(eq(persons.id, removeId));
+
+  return getPersonById(keepId);
 }
 
 // ─── Person ↔ Lead Links ──────────────────────────────────────────────────────
