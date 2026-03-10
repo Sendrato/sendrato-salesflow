@@ -626,3 +626,94 @@ export async function findPersonByEmail(emailAddr: string) {
     .where(eq(personLeadLinks.personId, person.id));
   return { person, linkedLeads: links };
 }
+
+// ─── Unmatched Emails ─────────────────────────────────────────────────────────
+
+export async function getUnmatchedEmails() {
+  const db = await getDb();
+  if (!db) return { emails: [], count: 0 };
+  const rows = await db
+    .select({
+      id: emailIngestLog.id,
+      parsedFrom: emailIngestLog.parsedFrom,
+      parsedTo: emailIngestLog.parsedTo,
+      parsedSubject: emailIngestLog.parsedSubject,
+      source: emailIngestLog.source,
+      createdAt: emailIngestLog.createdAt,
+    })
+    .from(emailIngestLog)
+    .where(eq(emailIngestLog.status, "unmatched"))
+    .orderBy(desc(emailIngestLog.createdAt))
+    .limit(100);
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(emailIngestLog)
+    .where(eq(emailIngestLog.status, "unmatched"));
+  return { emails: rows, count: Number(countRow?.count ?? 0) };
+}
+
+export async function matchIngestEmail(
+  ingestId: number,
+  opts: { leadId?: number; personId?: number; userId: number }
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+
+  // Fetch the ingest log entry
+  const [entry] = await db
+    .select()
+    .from(emailIngestLog)
+    .where(eq(emailIngestLog.id, ingestId))
+    .limit(1);
+  if (!entry) throw new Error("Ingest log entry not found");
+
+  // Update ingest log status
+  await db
+    .update(emailIngestLog)
+    .set({
+      matchedLeadId: opts.leadId ?? null,
+      matchedPersonId: opts.personId ?? null,
+      status: "matched",
+    })
+    .where(eq(emailIngestLog.id, ingestId));
+
+  // Create a contact moment from the ingest data
+  const [moment] = await db
+    .insert(contactMoments)
+    .values({
+      leadId: opts.leadId ?? 0,
+      personId: opts.personId ?? null,
+      userId: opts.userId,
+      type: "email",
+      direction: "outbound",
+      subject: entry.parsedSubject ?? undefined,
+      notes: `From: ${entry.parsedFrom ?? "unknown"}\nTo: ${entry.parsedTo ?? "unknown"}`,
+      source: "manual_match",
+      outcome: "neutral",
+      occurredAt: entry.createdAt,
+    })
+    .returning({ id: contactMoments.id });
+
+  // Auto-transition lead status from "new" to "contacted"
+  if (opts.leadId && opts.leadId > 0) {
+    await db
+      .update(leads)
+      .set({
+        status: sql`CASE WHEN ${leads.status} = 'new' THEN 'contacted' ELSE ${leads.status} END`,
+        lastContactedAt: entry.createdAt,
+        updatedAt: new Date(),
+      })
+      .where(eq(leads.id, opts.leadId));
+  }
+
+  return { momentId: moment.id };
+}
+
+export async function dismissIngestEmail(ingestId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .update(emailIngestLog)
+    .set({ status: "matched" })
+    .where(eq(emailIngestLog.id, ingestId));
+}

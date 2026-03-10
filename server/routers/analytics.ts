@@ -1,6 +1,13 @@
 import { z } from "zod/v4";
-import { publicProcedure, router } from "../_core/trpc";
-import { getLeadStats, getContactMomentStats, getRecentContactMoments } from "../db";
+import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import {
+  getLeadStats,
+  getContactMomentStats,
+  getRecentContactMoments,
+  getUnmatchedEmails,
+  matchIngestEmail,
+  dismissIngestEmail,
+} from "../db";
 import { getDb } from "../db";
 import { leads, contactMoments, persons } from "../../drizzle/schema";
 import { sql, desc, eq, and, lt, gte, lte } from "drizzle-orm";
@@ -180,4 +187,33 @@ export const analyticsRouter = router({
       upcomingMeetingsCount: Number(upcomingMeetingsCount?.count ?? 0),
     };
   }),
+
+  // ─── Unmatched Emails ─────────────────────────────────────────────────────
+
+  unmatchedEmails: protectedProcedure.query(async () => {
+    return getUnmatchedEmails();
+  }),
+
+  matchEmail: protectedProcedure
+    .input(
+      z.object({
+        ingestId: z.number(),
+        leadId: z.number().optional(),
+        personId: z.number().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      return matchIngestEmail(input.ingestId, {
+        leadId: input.leadId,
+        personId: input.personId,
+        userId: ctx.user.id,
+      });
+    }),
+
+  dismissEmail: protectedProcedure
+    .input(z.object({ ingestId: z.number() }))
+    .mutation(async ({ input }) => {
+      await dismissIngestEmail(input.ingestId);
+      return { success: true };
+    }),
 });

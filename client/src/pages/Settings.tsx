@@ -11,6 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -31,6 +33,10 @@ import {
   Copy,
   Mail,
   RotateCcw,
+  MailWarning,
+  Search,
+  Link2,
+  X,
 } from "lucide-react";
 import { formatRelativeTime } from "@/lib/crm";
 
@@ -679,6 +685,249 @@ function ImapSettingsCard() {
   );
 }
 
+function UnmatchedEmailsCard() {
+  const { user } = useAuth();
+  const { data, isLoading } = trpc.analytics.unmatchedEmails.useQuery(undefined, {
+    enabled: user?.role === "admin",
+  });
+  const utils = trpc.useUtils();
+
+  const matchMutation = trpc.analytics.matchEmail.useMutation({
+    onSuccess: () => {
+      utils.analytics.unmatchedEmails.invalidate();
+      toast.success("Email matched successfully");
+      setMatchDialogOpen(false);
+      setMatchingEmail(null);
+    },
+  });
+
+  const dismissMutation = trpc.analytics.dismissEmail.useMutation({
+    onSuccess: () => {
+      utils.analytics.unmatchedEmails.invalidate();
+      toast.success("Email dismissed");
+    },
+  });
+
+  const [matchDialogOpen, setMatchDialogOpen] = useState(false);
+  const [matchingEmail, setMatchingEmail] = useState<{
+    id: number;
+    parsedFrom: string | null;
+    parsedSubject: string | null;
+  } | null>(null);
+  const [matchTab, setMatchTab] = useState<"lead" | "person">("lead");
+  const [matchSearch, setMatchSearch] = useState("");
+
+  const { data: leadResults } = trpc.leads.list.useQuery(
+    { search: matchSearch, limit: 10 },
+    { enabled: matchDialogOpen && matchTab === "lead" && matchSearch.length > 1 }
+  );
+  const { data: personResults } = trpc.persons.list.useQuery(
+    { search: matchSearch, limit: 10 },
+    { enabled: matchDialogOpen && matchTab === "person" && matchSearch.length > 1 }
+  );
+
+  if (user?.role !== "admin") return null;
+  if (!data || data.count === 0) return null;
+
+  function openMatchDialog(email: typeof matchingEmail) {
+    setMatchingEmail(email);
+    setMatchSearch("");
+    setMatchTab("lead");
+    setMatchDialogOpen(true);
+  }
+
+  return (
+    <>
+      <Card className="border border-orange-200 dark:border-orange-900">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MailWarning className="h-5 w-5 text-orange-500" />
+            <CardTitle>Unmatched Emails ({data.count})</CardTitle>
+          </div>
+          <CardDescription>
+            Incoming emails that could not be matched to a Lead or Person. Match them manually or dismiss.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>From</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Received</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data.emails.map((email) => (
+                <TableRow key={email.id}>
+                  <TableCell className="font-medium text-sm max-w-[200px] truncate">
+                    {email.parsedFrom || "—"}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
+                    {email.parsedSubject || "—"}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs capitalize">
+                      {email.source || "webhook"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatRelativeTime(email.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs"
+                      onClick={() =>
+                        openMatchDialog({
+                          id: email.id,
+                          parsedFrom: email.parsedFrom,
+                          parsedSubject: email.parsedSubject,
+                        })
+                      }
+                    >
+                      <Link2 className="h-3.5 w-3.5" />
+                      Match
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-xs text-muted-foreground"
+                      onClick={() => dismissMutation.mutate({ ingestId: email.id })}
+                      disabled={dismissMutation.isPending}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Dismiss
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Match Dialog */}
+      <Dialog open={matchDialogOpen} onOpenChange={setMatchDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Match Email</DialogTitle>
+          </DialogHeader>
+          {matchingEmail && (
+            <div className="space-y-1 text-sm text-muted-foreground border-b pb-3">
+              <p>
+                <span className="font-medium text-foreground">From:</span>{" "}
+                {matchingEmail.parsedFrom || "Unknown"}
+              </p>
+              <p>
+                <span className="font-medium text-foreground">Subject:</span>{" "}
+                {matchingEmail.parsedSubject || "No subject"}
+              </p>
+            </div>
+          )}
+          <Tabs value={matchTab} onValueChange={(v) => { setMatchTab(v as "lead" | "person"); setMatchSearch(""); }}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="lead">Match to Lead</TabsTrigger>
+              <TabsTrigger value="person">Match to Person</TabsTrigger>
+            </TabsList>
+            <TabsContent value="lead" className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search leads..."
+                  value={matchSearch}
+                  onChange={(e) => setMatchSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="max-h-60 overflow-y-auto divide-y rounded-md border">
+                {(leadResults?.items ?? []).length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    {matchSearch.length > 1 ? "No leads found" : "Type to search leads"}
+                  </div>
+                ) : (
+                  (leadResults?.items ?? []).map((lead) => (
+                    <div
+                      key={lead.id}
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer"
+                      onClick={() =>
+                        matchMutation.mutate({
+                          ingestId: matchingEmail!.id,
+                          leadId: lead.id,
+                        })
+                      }
+                    >
+                      <div>
+                        <div className="text-sm font-medium">{lead.companyName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {lead.email || lead.contactPerson || "—"}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {lead.status}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+            <TabsContent value="person" className="space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search persons..."
+                  value={matchSearch}
+                  onChange={(e) => setMatchSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="max-h-60 overflow-y-auto divide-y rounded-md border">
+                {(personResults?.persons ?? []).length === 0 ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    {matchSearch.length > 1 ? "No persons found" : "Type to search persons"}
+                  </div>
+                ) : (
+                  (personResults?.persons ?? []).map((person) => (
+                    <div
+                      key={person.id}
+                      className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer"
+                      onClick={() =>
+                        matchMutation.mutate({
+                          ingestId: matchingEmail!.id,
+                          personId: person.id,
+                        })
+                      }
+                    >
+                      <div>
+                        <div className="text-sm font-medium">{person.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {person.email || person.company || "—"}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {person.personType}
+                      </Badge>
+                    </div>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+          {matchMutation.isPending && (
+            <div className="flex items-center justify-center py-2">
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <span className="text-sm text-muted-foreground">Matching...</span>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function SettingsPage() {
   const { data: config, isLoading, refetch } = trpc.settings.getLLMConfig.useQuery();
   const updateMutation = trpc.settings.updateLLMConfig.useMutation();
@@ -1090,6 +1339,9 @@ export default function SettingsPage() {
 
         {/* IMAP Email Integration */}
         <ImapSettingsCard />
+
+        {/* Unmatched Emails (admin only) */}
+        <UnmatchedEmailsCard />
 
         {/* Change Password */}
         <ChangePasswordCard />

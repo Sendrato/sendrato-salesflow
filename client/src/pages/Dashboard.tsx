@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, TrendingUp, MessageSquare, Target, ArrowRight, Plus, Clock, CheckCircle2, AlertCircle, Video
+  Building2, TrendingUp, MessageSquare, Target, ArrowRight, Plus, Clock, CheckCircle2, AlertCircle, Video, MailWarning
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -27,6 +27,9 @@ export default function Dashboard() {
   const { data: contactFreq } = trpc.analytics.contactFrequency.useQuery({ days: 30 });
   const { data: followUpData } = trpc.analytics.followUps.useQuery(undefined, {
     refetchInterval: 60_000,
+  });
+  const { data: unmatchedData } = trpc.analytics.unmatchedEmails.useQuery(undefined, {
+    refetchInterval: 120_000,
   });
 
   const totalLeads = overview?.leadStats?.total ?? 0;
@@ -68,7 +71,7 @@ export default function Dashboard() {
         </div>
 
         {/* Follow-Up Alerts */}
-        {((followUpData?.overdueCount ?? 0) > 0 || (followUpData?.upcomingCount ?? 0) > 0 || (followUpData?.upcomingMeetingsCount ?? 0) > 0) && (
+        {((followUpData?.overdueCount ?? 0) > 0 || (followUpData?.upcomingCount ?? 0) > 0 || (followUpData?.upcomingMeetingsCount ?? 0) > 0 || (unmatchedData?.count ?? 0) > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {(followUpData?.overdueCount ?? 0) > 0 && (
               <Card className="border border-red-200 dark:border-red-900 shadow-sm bg-red-50/50 dark:bg-red-950/20">
@@ -163,6 +166,24 @@ export default function Dashboard() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            )}
+            {(unmatchedData?.count ?? 0) > 0 && (
+              <Card className="border border-orange-200 dark:border-orange-900 shadow-sm bg-orange-50/50 dark:bg-orange-950/20">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-orange-700 dark:text-orange-400">
+                    <MailWarning className="h-4 w-4" />
+                    Unmatched Emails ({unmatchedData!.count})
+                  </CardTitle>
+                  <Button variant="ghost" size="sm" onClick={() => setLocation("/settings")} className="gap-1 text-xs text-orange-600">
+                    Settings <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="px-6 py-3">
+                  <p className="text-xs text-muted-foreground">
+                    {unmatchedData!.count} incoming email{unmatchedData!.count === 1 ? "" : "s"} could not be matched to a Lead or Person. Go to Settings to match them manually.
+                  </p>
                 </CardContent>
               </Card>
             )}
