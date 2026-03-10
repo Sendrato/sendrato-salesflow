@@ -1,4 +1,4 @@
-import { and, desc, eq, like, or, sql, inArray } from "drizzle-orm";
+import { and, desc, eq, like, lte, or, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
@@ -304,6 +304,7 @@ export async function getRecentContactMoments(limit = 20) {
     .from(contactMoments)
     .leftJoin(leads, eq(contactMoments.leadId, leads.id))
     .leftJoin(persons, eq(contactMoments.personId, persons.id))
+    .where(lte(contactMoments.occurredAt, new Date()))
     .orderBy(desc(contactMoments.occurredAt))
     .limit(limit);
 }
