@@ -635,6 +635,7 @@ export async function getUnmatchedEmails() {
   const rows = await db
     .select({
       id: emailIngestLog.id,
+      rawPayload: emailIngestLog.rawPayload,
       parsedFrom: emailIngestLog.parsedFrom,
       parsedTo: emailIngestLog.parsedTo,
       parsedSubject: emailIngestLog.parsedSubject,

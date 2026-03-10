@@ -176,14 +176,28 @@ export default function Dashboard() {
                     <MailWarning className="h-4 w-4" />
                     Unmatched Emails ({unmatchedData!.count})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setLocation("/settings")} className="gap-1 text-xs text-orange-600">
-                    Settings <ArrowRight className="h-3 w-3" />
+                  <Button variant="ghost" size="sm" onClick={() => setLocation("/settings#unmatched-emails")} className="gap-1 text-xs text-orange-600">
+                    Match Emails <ArrowRight className="h-3 w-3" />
                   </Button>
                 </CardHeader>
-                <CardContent className="px-6 py-3">
-                  <p className="text-xs text-muted-foreground">
-                    {unmatchedData!.count} incoming email{unmatchedData!.count === 1 ? "" : "s"} could not be matched to a Lead or Person. Go to Settings to match them manually.
-                  </p>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-orange-100 dark:divide-orange-900/50">
+                    {(unmatchedData?.emails ?? []).slice(0, 5).map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between px-6 py-2.5 hover:bg-orange-100/50 dark:hover:bg-orange-950/30 cursor-pointer transition-colors"
+                        onClick={() => setLocation("/settings#unmatched-emails")}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium truncate">{item.parsedFrom || "Unknown sender"}</div>
+                          <div className="text-xs text-muted-foreground truncate">{item.parsedSubject || "No subject"}</div>
+                        </div>
+                        <span className="text-xs text-orange-600 dark:text-orange-400 shrink-0 ml-2">
+                          {formatRelativeTime(item.createdAt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
             )}

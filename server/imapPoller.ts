@@ -175,7 +175,14 @@ async function processFolder(
         } else {
           console.log(`[IMAP]   -> No match found for emails: [${emailAddresses.join(", ")}]`);
           await logEmailIngest({
-            rawPayload: `[IMAP] ${subject}`.slice(0, 10000),
+            rawPayload: JSON.stringify({
+              from,
+              to,
+              cc,
+              subject,
+              text: textBody.slice(0, 5000),
+              html: (htmlBody || "").slice(0, 10000),
+            }).slice(0, 10000),
             parsedFrom: emailAddresses[0] ?? from,
             parsedTo: to,
             parsedSubject: subject,

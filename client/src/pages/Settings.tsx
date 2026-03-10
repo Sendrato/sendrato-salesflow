@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -685,9 +685,28 @@ function ImapSettingsCard() {
   );
 }
 
+/** Parse rawPayload to extract email details (from, to, cc, bcc, text/html body) */
+function parseEmailPayload(rawPayload: string | null) {
+  if (!rawPayload) return null;
+  try {
+    const parsed = JSON.parse(rawPayload);
+    return {
+      from: parsed.from ?? parsed.sender ?? null,
+      to: parsed.to ?? parsed.recipient ?? null,
+      cc: parsed.cc ?? null,
+      bcc: parsed.bcc ?? null,
+      text: parsed.text ?? parsed.plain ?? null,
+      html: parsed.html ?? null,
+      subject: parsed.subject ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function UnmatchedEmailsCard() {
   const { user } = useAuth();
-  const { data, isLoading } = trpc.analytics.unmatchedEmails.useQuery(undefined, {
+  const { data } = trpc.analytics.unmatchedEmails.useQuery(undefined, {
     enabled: user?.role === "admin",
   });
   const utils = trpc.useUtils();
@@ -708,11 +727,14 @@ function UnmatchedEmailsCard() {
     },
   });
 
+  const [expandedId, setExpandedId] = useState<number | null>(null);
   const [matchDialogOpen, setMatchDialogOpen] = useState(false);
   const [matchingEmail, setMatchingEmail] = useState<{
     id: number;
     parsedFrom: string | null;
+    parsedTo: string | null;
     parsedSubject: string | null;
+    rawPayload: string | null;
   } | null>(null);
   const [matchTab, setMatchTab] = useState<"lead" | "person">("lead");
   const [matchSearch, setMatchSearch] = useState("");
@@ -738,75 +760,126 @@ function UnmatchedEmailsCard() {
 
   return (
     <>
-      <Card className="border border-orange-200 dark:border-orange-900">
+      <Card id="unmatched-emails" className="border border-orange-200 dark:border-orange-900">
         <CardHeader>
           <div className="flex items-center gap-2">
             <MailWarning className="h-5 w-5 text-orange-500" />
             <CardTitle>Unmatched Emails ({data.count})</CardTitle>
           </div>
           <CardDescription>
-            Incoming emails that could not be matched to a Lead or Person. Match them manually or dismiss.
+            Incoming emails that could not be matched to a Lead or Person. Click a row to view email content, then match or dismiss.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>From</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Received</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.emails.map((email) => (
-                <TableRow key={email.id}>
-                  <TableCell className="font-medium text-sm max-w-[200px] truncate">
-                    {email.parsedFrom || "—"}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[250px] truncate">
-                    {email.parsedSubject || "—"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="text-xs capitalize">
-                      {email.source || "webhook"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {formatRelativeTime(email.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs"
-                      onClick={() =>
-                        openMatchDialog({
-                          id: email.id,
-                          parsedFrom: email.parsedFrom,
-                          parsedSubject: email.parsedSubject,
-                        })
-                      }
-                    >
-                      <Link2 className="h-3.5 w-3.5" />
-                      Match
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5 text-xs text-muted-foreground"
-                      onClick={() => dismissMutation.mutate({ ingestId: email.id })}
-                      disabled={dismissMutation.isPending}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                      Dismiss
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+        <CardContent className="space-y-0">
+          <div className="divide-y rounded-md border">
+            {data.emails.map((email) => {
+              const isExpanded = expandedId === email.id;
+              const details = isExpanded ? parseEmailPayload(email.rawPayload) : null;
+              const bodyText = details?.text || null;
+
+              return (
+                <div key={email.id}>
+                  {/* Summary row */}
+                  <div
+                    className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30 cursor-pointer transition-colors"
+                    onClick={() => setExpandedId(isExpanded ? null : email.id)}
+                  >
+                    <div className="min-w-0 flex-1 grid grid-cols-[1fr_1.5fr_auto_auto] gap-3 items-center">
+                      <div className="text-sm font-medium truncate">
+                        {email.parsedFrom || "—"}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {email.parsedSubject || "—"}
+                      </div>
+                      <Badge variant="outline" className="text-xs capitalize shrink-0">
+                        {email.source || "webhook"}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {formatRelativeTime(email.createdAt)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMatchDialog({
+                            id: email.id,
+                            parsedFrom: email.parsedFrom,
+                            parsedTo: email.parsedTo,
+                            parsedSubject: email.parsedSubject,
+                            rawPayload: email.rawPayload,
+                          });
+                        }}
+                      >
+                        <Link2 className="h-3.5 w-3.5" />
+                        Match
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 text-xs text-muted-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dismissMutation.mutate({ ingestId: email.id });
+                        }}
+                        disabled={dismissMutation.isPending}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Expanded email detail */}
+                  {isExpanded && (
+                    <div className="px-4 pb-4 pt-1 bg-muted/20 border-t">
+                      <div className="rounded-lg border bg-background p-4 space-y-3 text-sm">
+                        <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+                          <span className="font-medium text-muted-foreground">From:</span>
+                          <span>{details?.from || email.parsedFrom || "—"}</span>
+                          <span className="font-medium text-muted-foreground">To:</span>
+                          <span>{details?.to || email.parsedTo || "—"}</span>
+                          {details?.cc && (
+                            <>
+                              <span className="font-medium text-muted-foreground">CC:</span>
+                              <span>{details.cc}</span>
+                            </>
+                          )}
+                          {details?.bcc && (
+                            <>
+                              <span className="font-medium text-muted-foreground">BCC:</span>
+                              <span>{details.bcc}</span>
+                            </>
+                          )}
+                          <span className="font-medium text-muted-foreground">Subject:</span>
+                          <span className="font-medium">{email.parsedSubject || "—"}</span>
+                        </div>
+                        {bodyText ? (
+                          <>
+                            <Separator />
+                            <div className="max-h-60 overflow-y-auto">
+                              <pre className="whitespace-pre-wrap text-xs text-muted-foreground font-sans leading-relaxed">
+                                {bodyText}
+                              </pre>
+                            </div>
+                          </>
+                        ) : !details ? (
+                          <>
+                            <Separator />
+                            <p className="text-xs text-muted-foreground italic">
+                              Email content not available for this entry.
+                            </p>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 
@@ -816,18 +889,31 @@ function UnmatchedEmailsCard() {
           <DialogHeader>
             <DialogTitle>Match Email</DialogTitle>
           </DialogHeader>
-          {matchingEmail && (
-            <div className="space-y-1 text-sm text-muted-foreground border-b pb-3">
-              <p>
-                <span className="font-medium text-foreground">From:</span>{" "}
-                {matchingEmail.parsedFrom || "Unknown"}
-              </p>
-              <p>
-                <span className="font-medium text-foreground">Subject:</span>{" "}
-                {matchingEmail.parsedSubject || "No subject"}
-              </p>
-            </div>
-          )}
+          {matchingEmail && (() => {
+            const parsed = parseEmailPayload(matchingEmail.rawPayload);
+            return (
+              <div className="space-y-1.5 text-sm text-muted-foreground border-b pb-3">
+                <p>
+                  <span className="font-medium text-foreground">From:</span>{" "}
+                  {parsed?.from || matchingEmail.parsedFrom || "Unknown"}
+                </p>
+                <p>
+                  <span className="font-medium text-foreground">To:</span>{" "}
+                  {parsed?.to || matchingEmail.parsedTo || "Unknown"}
+                </p>
+                {parsed?.cc && (
+                  <p>
+                    <span className="font-medium text-foreground">CC:</span>{" "}
+                    {parsed.cc}
+                  </p>
+                )}
+                <p>
+                  <span className="font-medium text-foreground">Subject:</span>{" "}
+                  {matchingEmail.parsedSubject || "No subject"}
+                </p>
+              </div>
+            );
+          })()}
           <Tabs value={matchTab} onValueChange={(v) => { setMatchTab(v as "lead" | "person"); setMatchSearch(""); }}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="lead">Match to Lead</TabsTrigger>
@@ -929,6 +1015,16 @@ function UnmatchedEmailsCard() {
 }
 
 export default function SettingsPage() {
+  // Scroll to hash anchor on mount (e.g. /settings#unmatched-emails)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash) {
+      setTimeout(() => {
+        document.querySelector(hash)?.scrollIntoView({ behavior: "smooth" });
+      }, 300);
+    }
+  }, []);
+
   const { data: config, isLoading, refetch } = trpc.settings.getLLMConfig.useQuery();
   const updateMutation = trpc.settings.updateLLMConfig.useMutation();
   const clearKeyMutation = trpc.settings.clearApiKey.useMutation();
