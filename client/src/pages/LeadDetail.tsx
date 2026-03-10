@@ -16,7 +16,8 @@ import {
   ArrowLeft, Edit, Plus, Globe, Mail, Phone, Building2, Tag, Clock, FileText,
   Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
   Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
-  Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords, MoreVertical, Merge, Search
+  Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords, MoreVertical, Merge, Search,
+  ChevronRight, Check, PauseCircle, XCircle,
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
@@ -602,6 +603,107 @@ export default function LeadDetail() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Pipeline Stage Visualization */}
+        {(() => {
+          const PIPELINE_STAGES: Array<{ key: string; label: string }> = [
+            { key: "new", label: "New" },
+            { key: "contacted", label: "Contacted" },
+            { key: "qualified", label: "Qualified" },
+            { key: "proposal", label: "Proposal" },
+            { key: "negotiation", label: "Negotiation" },
+            { key: "won", label: "Won" },
+          ];
+          const currentStatus = lead.status as string;
+          const currentIdx = PIPELINE_STAGES.findIndex((s) => s.key === currentStatus);
+          const isOffRamp = currentStatus === "lost" || currentStatus === "on_hold";
+
+          return (
+            <Card className="border shadow-sm">
+              <CardContent className="px-4 py-3">
+                <div className="flex items-center gap-0">
+                  {PIPELINE_STAGES.map((stage, idx) => {
+                    const isPast = !isOffRamp && currentIdx >= 0 && idx < currentIdx;
+                    const isCurrent = !isOffRamp && idx === currentIdx;
+                    const isFuture = isOffRamp || currentIdx < 0 || idx > currentIdx;
+                    const isClickable = !isCurrent;
+
+                    return (
+                      <div key={stage.key} className="flex items-center flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isClickable) {
+                              updateLeadMutation.mutate(
+                                { id: leadId, data: { status: stage.key as any } },
+                              );
+                            }
+                          }}
+                          disabled={!isClickable || updateLeadMutation.isPending}
+                          className={`
+                            relative flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-all w-full min-w-0
+                            ${isCurrent
+                              ? "bg-primary text-primary-foreground shadow-sm"
+                              : isPast
+                                ? "bg-primary/10 text-primary hover:bg-primary/20 cursor-pointer"
+                                : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                            }
+                            ${!isClickable ? "cursor-default" : ""}
+                          `}
+                          title={isCurrent ? `Current stage: ${stage.label}` : `Move to ${stage.label}`}
+                        >
+                          {isPast ? (
+                            <Check className="h-3 w-3 shrink-0" />
+                          ) : isCurrent ? (
+                            <div className="h-2 w-2 rounded-full bg-primary-foreground shrink-0 animate-pulse" />
+                          ) : null}
+                          <span className="truncate">{stage.label}</span>
+                        </button>
+                        {idx < PIPELINE_STAGES.length - 1 && (
+                          <ChevronRight className={`h-3.5 w-3.5 shrink-0 mx-0.5 ${
+                            isPast && !isOffRamp ? "text-primary/50" : "text-muted-foreground/30"
+                          }`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {/* Off-ramp indicators for Lost / On Hold */}
+                {isOffRamp && (
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                    {currentStatus === "lost" ? (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <XCircle className="h-3.5 w-3.5 text-red-500" />
+                        <span className="font-medium text-red-600 dark:text-red-400">Lost</span>
+                        <span className="text-muted-foreground">—</span>
+                        <button
+                          type="button"
+                          onClick={() => updateLeadMutation.mutate({ id: leadId, data: { status: "new" } })}
+                          className="text-primary hover:underline cursor-pointer"
+                        >
+                          Reopen as New
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <PauseCircle className="h-3.5 w-3.5 text-gray-500" />
+                        <span className="font-medium text-gray-600 dark:text-gray-400">On Hold</span>
+                        <span className="text-muted-foreground">—</span>
+                        <button
+                          type="button"
+                          onClick={() => updateLeadMutation.mutate({ id: leadId, data: { status: "new" } })}
+                          className="text-primary hover:underline cursor-pointer"
+                        >
+                          Reopen as New
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Tabs */}
         <Tabs defaultValue="overview">
