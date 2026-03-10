@@ -42,6 +42,7 @@ export const leadTypeEnum = pgEnum("lead_type", [
   "hospitality",
   "saas",
   "retail",
+  "partner",
 ]);
 
 export const contactMomentTypeEnum = pgEnum("contact_moment_type", [

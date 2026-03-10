@@ -305,6 +305,22 @@ export function registerIntegrationRoutes(app: Express) {
             const firstVal = Object.values(row).find((v) => v && typeof v === "string");
             if (firstVal) lead.companyName = String(firstVal);
           }
+          // Normalise priority to a valid enum value
+          if (lead.priority) {
+            const p = String(lead.priority).toLowerCase().trim();
+            const priorityMap: Record<string, string> = {
+              low: "low",
+              medium: "medium",
+              high: "high",
+              "tier 1": "high",
+              "tier 2": "medium",
+              "tier 3": "low",
+              "1": "high",
+              "2": "medium",
+              "3": "low",
+            };
+            lead.priority = priorityMap[p] ?? "medium";
+          }
           // Extract attr: prefixed fields into leadAttributes
           const attrs: Record<string, unknown> = {};
           const numericAttrs = ["visitorCount", "eventDurationDays", "venueCapacity"];
