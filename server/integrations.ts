@@ -25,6 +25,7 @@ import { indexDocument, indexCompetitorDocument, computePriorityScore, updateAll
 import { nanoid } from "nanoid";
 import { generateText } from "ai";
 import { getLLMProvider } from "./llmProvider";
+import { LEAD_TYPE_SCHEMAS } from "@shared/leadAttributeSchemas";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -219,6 +220,7 @@ export function registerIntegrationRoutes(app: Express) {
 
       const mappingRaw = req.body.mapping;
       const mapping: Record<string, string> = mappingRaw ? JSON.parse(mappingRaw) : {};
+      const reqLeadType: string = req.body.leadType ?? "default";
 
       const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
@@ -263,23 +265,7 @@ export function registerIntegrationRoutes(app: Express) {
         "brand tone": "brandTone",
         "survey status": "surveyStatus",
         "decision maker": "contactPerson",
-        // Event attributes
         "event name": "companyName",
-        "est. visitors": "attr:visitorCount",
-        visitors: "attr:visitorCount",
-        "estimated visitors": "attr:visitorCount",
-        "duration (days)": "attr:eventDurationDays",
-        "duration days": "attr:eventDurationDays",
-        "typical dates": "attr:typicalDates",
-        region: "attr:region",
-        "hotel need score": "attr:hotelNeedScore",
-        "revenue engine fit": "attr:revenueEngineFit",
-        "venue capacity": "attr:venueCapacity",
-        "event category": "attr:eventCategory",
-        "ticket price range": "attr:ticketPriceRange",
-        "key contact / organiser": "attr:organizerName",
-        organiser: "attr:organizerName",
-        organizer: "attr:organizerName",
       };
 
       const effectiveMapping = { ...defaultMapping, ...mapping };
@@ -323,12 +309,17 @@ export function registerIntegrationRoutes(app: Express) {
           }
           // Extract attr: prefixed fields into leadAttributes
           const attrs: Record<string, unknown> = {};
-          const numericAttrs = ["visitorCount", "eventDurationDays", "venueCapacity"];
+          const typeSchema = LEAD_TYPE_SCHEMAS[reqLeadType];
+          const numericAttrKeys = new Set(
+            typeSchema?.fields
+              .filter((f) => f.type === "number")
+              .map((f) => f.key) ?? []
+          );
           for (const key of Object.keys(lead)) {
             if (key.startsWith("attr:")) {
               const attrKey = key.slice(5);
               let val: unknown = lead[key];
-              if (numericAttrs.includes(attrKey)) {
+              if (numericAttrKeys.has(attrKey)) {
                 const num = Number(String(val).replace(/,/g, ""));
                 if (!isNaN(num)) val = num;
               }
@@ -337,8 +328,10 @@ export function registerIntegrationRoutes(app: Express) {
             }
           }
           if (Object.keys(attrs).length > 0) {
-            lead.leadType = "event";
+            lead.leadType = reqLeadType;
             lead.leadAttributes = attrs;
+          } else if (reqLeadType !== "default") {
+            lead.leadType = reqLeadType;
           }
           return lead;
         })

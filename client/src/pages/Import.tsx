@@ -7,10 +7,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, ArrowRight, X } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
+import { LEAD_TYPE_SCHEMAS, getLeadTypeOptions } from "@shared/leadAttributeSchemas";
 
-const CRM_FIELDS = [
+const BASE_CRM_FIELDS = [
   { value: "skip", label: "— Skip —" },
   { value: "companyName", label: "Company Name *" },
   { value: "website", label: "Website" },
@@ -30,20 +31,9 @@ const CRM_FIELDS = [
   { value: "risks", label: "Risks" },
   { value: "source", label: "Source" },
   { value: "estimatedValue", label: "Estimated Value" },
-  // Event attributes (stored in leadAttributes JSON)
-  { value: "attr:visitorCount", label: "Est. Visitors (Event)" },
-  { value: "attr:eventDurationDays", label: "Duration Days (Event)" },
-  { value: "attr:typicalDates", label: "Typical Dates (Event)" },
-  { value: "attr:region", label: "Region (Event)" },
-  { value: "attr:hotelNeedScore", label: "Hotel Need Score (Event)" },
-  { value: "attr:revenueEngineFit", label: "Revenue Engine Fit (Event)" },
-  { value: "attr:venueCapacity", label: "Venue Capacity (Event)" },
-  { value: "attr:eventCategory", label: "Event Category (Event)" },
-  { value: "attr:ticketPriceRange", label: "Ticket Price Range (Event)" },
-  { value: "attr:organizerName", label: "Organizer (Event)" },
 ];
 
-const AUTO_DETECT: Record<string, string> = {
+const BASE_AUTO_DETECT: Record<string, string> = {
   "company name": "companyName", "company": "companyName", "company_name": "companyName",
   "event name": "companyName",
   "website": "website", "url": "website",
@@ -54,20 +44,9 @@ const AUTO_DETECT: Record<string, string> = {
   "industry": "industry", "location": "location", "country": "country",
   "pain points": "painPoints", "opportunities": "futureOpportunities",
   "revenue model": "revenueModel", "risks": "risks",
-  // Event attributes
-  "est. visitors": "attr:visitorCount", "visitors": "attr:visitorCount",
-  "estimated visitors": "attr:visitorCount",
-  "duration (days)": "attr:eventDurationDays", "duration days": "attr:eventDurationDays",
-  "typical dates": "attr:typicalDates",
-  "region": "attr:region",
-  "hotel need score": "attr:hotelNeedScore",
-  "revenue engine fit": "attr:revenueEngineFit",
-  "venue capacity": "attr:venueCapacity",
-  "event category": "attr:eventCategory",
-  "ticket price range": "attr:ticketPriceRange",
-  "key contact / organiser": "attr:organizerName",
-  "organiser": "attr:organizerName", "organizer": "attr:organizerName",
 };
+
+const leadTypeOptions = getLeadTypeOptions();
 
 type PreviewData = {
   columns: string[];
@@ -89,7 +68,30 @@ export default function Import() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [leadType, setLeadType] = useState("default");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const schema = LEAD_TYPE_SCHEMAS[leadType];
+
+  const crmFields = useMemo(() => {
+    if (!schema?.fields.length) return BASE_CRM_FIELDS;
+    const attrFields = schema.fields.map((f) => ({
+      value: `attr:${f.key}`,
+      label: `${f.label} (${schema.label})`,
+    }));
+    return [...BASE_CRM_FIELDS, ...attrFields];
+  }, [leadType, schema]);
+
+  const autoDetect = useMemo(() => {
+    if (!schema?.fields.length) return BASE_AUTO_DETECT;
+    const attrDetect: Record<string, string> = {};
+    for (const f of schema.fields) {
+      attrDetect[f.label.toLowerCase()] = `attr:${f.key}`;
+      // Also add the key itself as a detection option
+      attrDetect[f.key.toLowerCase()] = `attr:${f.key}`;
+    }
+    return { ...BASE_AUTO_DETECT, ...attrDetect };
+  }, [leadType, schema]);
 
   const handleFile = useCallback(async (f: File) => {
     setFile(f);
@@ -106,7 +108,7 @@ export default function Import() {
       const autoMapping: Record<string, string> = {};
       for (const col of data.columns) {
         const normalized = col.toLowerCase().trim();
-        autoMapping[col] = AUTO_DETECT[normalized] ?? "skip";
+        autoMapping[col] = autoDetect[normalized] ?? "skip";
       }
       setMapping(autoMapping);
     } catch {
@@ -114,7 +116,7 @@ export default function Import() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [autoDetect]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -123,12 +125,40 @@ export default function Import() {
     if (f) handleFile(f);
   }, [handleFile]);
 
+  const handleLeadTypeChange = (newType: string) => {
+    setLeadType(newType);
+    // Re-run auto-detect with new schema
+    if (preview) {
+      const newSchema = LEAD_TYPE_SCHEMAS[newType];
+      const newAutoDetect: Record<string, string> = { ...BASE_AUTO_DETECT };
+      if (newSchema?.fields.length) {
+        for (const f of newSchema.fields) {
+          newAutoDetect[f.label.toLowerCase()] = `attr:${f.key}`;
+          newAutoDetect[f.key.toLowerCase()] = `attr:${f.key}`;
+        }
+      }
+      const autoMapping: Record<string, string> = {};
+      for (const col of preview.columns) {
+        const normalized = col.toLowerCase().trim();
+        // Keep existing non-attr mappings, re-detect attr mappings
+        const existing = mapping[col];
+        if (existing && !existing.startsWith("attr:")) {
+          autoMapping[col] = existing;
+        } else {
+          autoMapping[col] = newAutoDetect[normalized] ?? "skip";
+        }
+      }
+      setMapping(autoMapping);
+    }
+  };
+
   const handleImport = async () => {
     if (!file) return;
     setLoading(true);
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("leadType", leadType);
       // Build mapping excluding "skip"
       const effectiveMapping: Record<string, string> = {};
       for (const [col, field] of Object.entries(mapping)) {
@@ -152,6 +182,7 @@ export default function Import() {
     setPreview(null);
     setMapping({});
     setResult(null);
+    setLeadType("default");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -235,10 +266,28 @@ export default function Import() {
                       {file?.name} · {preview.totalRows} rows detected
                     </p>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={reset} className="gap-1">
-                    <X className="h-4 w-4" />
-                    Clear
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground">Lead Type:</div>
+                    <Select value={leadType} onValueChange={handleLeadTypeChange}>
+                      <SelectTrigger className="h-8 w-[180px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {leadTypeOptions.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                            <div>
+                              <span className="font-medium">{opt.label}</span>
+                              <span className="text-muted-foreground ml-1.5">{opt.description}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button variant="ghost" size="sm" onClick={reset} className="gap-1">
+                      <X className="h-4 w-4" />
+                      Clear
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -258,7 +307,7 @@ export default function Import() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {CRM_FIELDS.map((f) => (
+                                  {crmFields.map((f) => (
                                     <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
                                   ))}
                                 </SelectContent>
@@ -295,6 +344,9 @@ export default function Import() {
                     <div className="text-xs text-muted-foreground mt-0.5">
                       {Object.values(mapping).filter((v) => v !== "skip").length} columns mapped ·{" "}
                       {preview.totalRows} rows to process
+                      {leadType !== "default" && (
+                        <> · Lead type: <span className="font-medium">{schema?.label}</span></>
+                      )}
                     </div>
                     {!Object.values(mapping).includes("companyName") && (
                       <div className="flex items-center gap-1.5 mt-2 text-xs text-yellow-600">
