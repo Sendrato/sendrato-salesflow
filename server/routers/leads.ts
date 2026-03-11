@@ -45,7 +45,7 @@ const leadInputSchema = z.object({
   notes: z.string().optional(),
   tags: z.array(z.string()).optional(),
   nextFollowUpAt: z.string().optional(),
-  leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail"]).optional().default("default"),
+  leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail", "partner"]).optional().default("default"),
   leadAttributes: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -58,6 +58,7 @@ export const leadsRouter = router({
         priority: z.string().optional(),
         source: z.string().optional(),
         country: z.string().optional(),
+        leadType: z.string().optional(),
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       })

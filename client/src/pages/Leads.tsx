@@ -16,9 +16,11 @@ import { useLocation } from "wouter";
 import {
   STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, ALL_STATUSES, ALL_PRIORITIES, formatRelativeTime, getInitials
 } from "@/lib/crm";
+import { getLeadTypeOptions } from "@shared/leadAttributeSchemas";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const PAGE_SIZE = 20;
+const leadTypeOptions = getLeadTypeOptions();
 
 export default function Leads() {
   const [, setLocation] = useLocation();
@@ -26,6 +28,7 @@ export default function Leads() {
   const [status, setStatus] = useState<string>("all");
   const [priority, setPriority] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
+  const [leadType, setLeadType] = useState<string>("all");
   const [page, setPage] = useState(0);
 
   const { data, isLoading } = trpc.leads.list.useQuery({
@@ -33,6 +36,7 @@ export default function Leads() {
     status: status === "all" ? undefined : status,
     priority: priority === "all" ? undefined : priority,
     country: country === "all" ? undefined : country,
+    leadType: leadType === "all" ? undefined : leadType,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -100,6 +104,17 @@ export default function Leads() {
                   <SelectItem value="all">All Priorities</SelectItem>
                   {ALL_PRIORITIES.map((p) => (
                     <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={leadType} onValueChange={(v) => { setLeadType(v); setPage(0); }}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="All Lead Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Lead Types</SelectItem>
+                  {leadTypeOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

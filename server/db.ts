@@ -154,6 +154,7 @@ export async function getLeads(opts: {
   priority?: string;
   source?: string;
   country?: string;
+  leadType?: string;
   assignedTo?: number;
   limit?: number;
   offset?: number;
@@ -178,6 +179,7 @@ export async function getLeads(opts: {
   if (opts.priority) conditions.push(eq(leads.priority, opts.priority as Lead["priority"]));
   if (opts.source) conditions.push(eq(leads.source, opts.source));
   if (opts.country) conditions.push(eq(leads.country, opts.country));
+  if (opts.leadType) conditions.push(eq(leads.leadType, opts.leadType as Lead["leadType"]));
   if (opts.assignedTo) conditions.push(eq(leads.assignedTo, opts.assignedTo));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
