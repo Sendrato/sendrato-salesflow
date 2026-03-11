@@ -579,6 +579,7 @@ export function registerIntegrationRoutes(app: Express) {
       const pool = await getRawPool();
       if (!pool) { res.status(503).send("Service unavailable"); return; }
 
+      // Try lead document first, then CRM document
       const { rows } = await pool.query(
         `SELECT sp.*, ld."fileUrl", ld."fileName", ld."mimeType", l."companyName"
          FROM shareable_presentations sp
@@ -587,7 +588,18 @@ export function registerIntegrationRoutes(app: Express) {
          WHERE sp.token = $1 AND sp."isActive" = TRUE`,
         [token]
       );
-      const share = rows[0];
+      let share = rows[0];
+
+      if (!share) {
+        const { rows: crmRows } = await pool.query(
+          `SELECT sp.*, cd."fileUrl", cd."fileName", cd."mimeType", NULL as "companyName"
+           FROM shareable_presentations sp
+           JOIN crm_documents cd ON cd.id = sp."crmDocumentId"
+           WHERE sp.token = $1 AND sp."isActive" = TRUE`,
+          [token]
+        );
+        share = crmRows[0];
+      }
 
       if (!share) {
         res.status(404).send("<h1>Presentation not found or link has expired.</h1>");
@@ -666,6 +678,45 @@ export function registerIntegrationRoutes(app: Express) {
     } catch (error) {
       console.error("[/share/:token] Error:", error);
       res.status(500).send("<h1>An error occurred.</h1>");
+    }
+  });
+
+  /**
+   * POST /api/share-crm-document
+   */
+  app.post("/api/share-crm-document", async (req: Request, res: Response) => {
+    try {
+      const { documentId, title, userId } = req.body;
+      if (!documentId) {
+        res.status(400).json({ error: "documentId is required" });
+        return;
+      }
+
+      const pool = await getRawPool();
+      if (!pool) throw new Error("No DB connection");
+
+      const { rows: docRows } = await pool.query(
+        'SELECT * FROM crm_documents WHERE id = $1',
+        [documentId]
+      );
+      const doc = docRows[0];
+      if (!doc) {
+        res.status(404).json({ error: "Document not found" });
+        return;
+      }
+
+      const token = nanoid(32);
+      await pool.query(
+        `INSERT INTO shareable_presentations ("crmDocumentId", token, title, "createdBy", "createdAt", "isActive")
+         VALUES ($1, $2, $3, $4, NOW(), TRUE)`,
+        [documentId, token, title ?? doc.fileName, userId ?? null]
+      );
+
+      const shareUrl = `${req.protocol}://${req.get("host")}/share/${token}`;
+      res.json({ success: true, token, shareUrl });
+    } catch (error) {
+      console.error("[/api/share-crm-document] Error:", error);
+      res.status(500).json({ error: "Failed to create share link" });
     }
   });
 

@@ -12,6 +12,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   FileText,
   FileSpreadsheet,
   FileCode,
@@ -21,6 +28,11 @@ import {
   Trash2,
   ExternalLink,
   Download,
+  Share2,
+  Copy,
+  Eye,
+  Link,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
@@ -89,18 +101,37 @@ export default function DocumentsPage() {
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  // Share dialog state
+  const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
+  const [shareTitle, setShareTitle] = useState("");
+  const [sharing, setSharing] = useState(false);
+  const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+
   const { data: documents = [], isLoading } = trpc.crmDocuments.list.useQuery({
     search: search || undefined,
     category: category !== "all" ? category : undefined,
   });
 
+  const { data: shares, refetch: refetchShares } =
+    trpc.crmDocuments.listShares.useQuery();
+
   const deleteMutation = trpc.crmDocuments.delete.useMutation({
     onSuccess: () => {
       utils.crmDocuments.list.invalidate();
+      refetchShares();
       toast.success("Document deleted");
     },
     onError: () => toast.error("Failed to delete document"),
   });
+
+  const deactivateShareMutation = trpc.crmDocuments.deactivateShare.useMutation(
+    {
+      onSuccess: () => {
+        refetchShares();
+        toast.success("Share link deactivated");
+      },
+    }
+  );
 
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,6 +168,34 @@ export default function DocumentsPage() {
     },
     [uploadCategory, description, user, utils]
   );
+
+  const handleShare = async () => {
+    if (!shareDialogDoc) return;
+    setSharing(true);
+    try {
+      const res = await fetch("/api/share-crm-document", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documentId: shareDialogDoc.id,
+          title: shareTitle || shareDialogDoc.fileName,
+          userId: user?.id,
+        }),
+      });
+      if (res.ok) {
+        const { shareUrl } = await res.json();
+        setSharedUrl(shareUrl);
+        refetchShares();
+        toast.success("Share link created!");
+      } else {
+        toast.error("Failed to create share link");
+      }
+    } catch {
+      toast.error("Failed to create share link");
+    } finally {
+      setSharing(false);
+    }
+  };
 
   return (
     <DashboardLayout>
@@ -332,6 +391,19 @@ export default function DocumentsPage() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
+                            title="Share"
+                            onClick={() => {
+                              setShareDialogDoc(doc);
+                              setShareTitle(doc.fileName);
+                              setSharedUrl(null);
+                            }}
+                          >
+                            <Share2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
                             title="Open in new tab"
                             asChild
                           >
@@ -374,7 +446,177 @@ export default function DocumentsPage() {
             </table>
           </div>
         )}
+
+        {/* Active Share Links */}
+        {(shares ?? []).length > 0 && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="px-4 py-3 bg-muted/40 border-b">
+              <h3 className="text-sm font-semibold">Active Share Links</h3>
+            </div>
+            <div className="divide-y">
+              {(shares ?? []).map((share: any) => (
+                <div
+                  key={share.id}
+                  className="flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium truncate">
+                      {share.title ?? share.fileName}
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Eye className="h-3 w-3" /> {share.viewCount ?? 0}{" "}
+                        views
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {share.fileName}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 gap-1 text-xs"
+                      onClick={() => {
+                        const url = `${window.location.origin}/share/${share.token}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success("Link copied!");
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" /> Copy
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 gap-1 text-xs"
+                      asChild
+                    >
+                      <a
+                        href={`/share/${share.token}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Preview
+                      </a>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() =>
+                        deactivateShareMutation.mutate({
+                          token: share.token,
+                        })
+                      }
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Share Dialog */}
+      <Dialog
+        open={!!shareDialogDoc}
+        onOpenChange={(o) => {
+          if (!o) {
+            setShareDialogDoc(null);
+            setSharedUrl(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Share2 className="h-4 w-4" /> Share Document
+            </DialogTitle>
+          </DialogHeader>
+          {sharedUrl ? (
+            <div className="space-y-4">
+              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200/50">
+                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400 mb-2">
+                  Share link created!
+                </p>
+                <div className="flex gap-2">
+                  <Input value={sharedUrl} readOnly className="text-xs" />
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(sharedUrl);
+                      toast.success("Copied!");
+                    }}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="flex-1"
+                >
+                  <a
+                    href={sharedUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> Preview
+                  </a>
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => {
+                    setShareDialogDoc(null);
+                    setSharedUrl(null);
+                  }}
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Link name (shown to viewer)</Label>
+                <Input
+                  value={shareTitle}
+                  onChange={(e) => setShareTitle(e.target.value)}
+                  placeholder={shareDialogDoc?.fileName}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShareDialogDoc(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 gap-2"
+                  onClick={handleShare}
+                  disabled={sharing}
+                >
+                  {sharing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Link className="h-4 w-4" />
+                  )}
+                  Generate Link
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

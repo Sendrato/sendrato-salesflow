@@ -246,8 +246,9 @@ export type InsertDocumentChunk = typeof documentChunks.$inferInsert;
 // ─── Shareable Presentations ──────────────────────────────────────────────────
 export const shareablePresentations = pgTable("shareable_presentations", {
   id: serial("id").primaryKey(),
-  documentId: integer("documentId").notNull(),
-  leadId: integer("leadId").notNull(),
+  documentId: integer("documentId"),
+  leadId: integer("leadId"),
+  crmDocumentId: integer("crmDocumentId"),
   token: varchar("token", { length: 64 }).notNull().unique(),
   title: varchar("title", { length: 512 }),
   passwordHash: varchar("passwordHash", { length: 255 }),
