@@ -460,6 +460,55 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
       },
     ],
   },
+
+  event_promotor: {
+    label: "Event Promotor",
+    description: "Organisation that organises multiple events",
+    color: "bg-orange-100 text-orange-800",
+    fields: [
+      {
+        key: "totalEventsManaged",
+        label: "Total Events Managed",
+        type: "number",
+        unit: "events",
+        placeholder: "e.g. 12",
+        description: "Number of events managed by this promotor",
+        icon: "CalendarRange",
+      },
+      {
+        key: "primaryRegion",
+        label: "Primary Region",
+        type: "text",
+        placeholder: "e.g. UK, Netherlands",
+        description: "Main geographic operating region",
+        icon: "MapPin",
+      },
+      {
+        key: "promotorCategory",
+        label: "Promotor Category",
+        type: "select",
+        options: [
+          "Multi-genre",
+          "Agricultural",
+          "Music & Arts",
+          "Sports",
+          "Trade & Exhibition",
+          "Food & Drink",
+          "Other",
+        ],
+        description: "Primary category of events managed",
+        icon: "Tag",
+      },
+      {
+        key: "revenueEngineFit",
+        label: "Revenue Engine Fit",
+        type: "select",
+        options: ["POOR", "MODERATE", "GOOD", "EXCELLENT"],
+        description: "How well this promotor fits our revenue model",
+        icon: "TrendingUp",
+      },
+    ],
+  },
 };
 
 /**
@@ -480,6 +529,14 @@ export function getLeadTypeOptions() {
     description: schema.description,
     color: schema.color,
   }));
+}
+
+/**
+ * Get the event-level attribute fields for sub-events under an Event Promotor.
+ * Reuses the same fields as the "Event" lead type.
+ */
+export function getPromotorEventFields(): AttributeField[] {
+  return LEAD_TYPE_SCHEMAS.event.fields;
 }
 
 /**

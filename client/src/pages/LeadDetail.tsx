@@ -17,7 +17,7 @@ import {
   Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
   Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
   Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords, MoreVertical, Merge, Search,
-  ChevronRight, Check, PauseCircle, XCircle,
+  ChevronRight, Check, PauseCircle, XCircle, CalendarRange, MapPin, Pencil,
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
@@ -32,6 +32,7 @@ import RichNotes from "@/components/RichNotes";
 import { Markdown } from "@/components/Markdown";
 import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 import WebLinksCard from "@/components/WebLinksCard";
+import { getPromotorEventFields } from "@shared/leadAttributeSchemas";
 
 function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurredAt: string | Date }; leadId: number }) {
   const [editing, setEditing] = useState(false);
@@ -234,6 +235,13 @@ export default function LeadDetail() {
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Promotor Events state
+  const [addEventOpen, setAddEventOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [eventName, setEventName] = useState("");
+  const [eventAttributes, setEventAttributes] = useState<Record<string, unknown>>({});
+  const [eventNotes, setEventNotes] = useState("");
+
   const { data: lead, isLoading, refetch } = trpc.leads.get.useQuery({ id: leadId });
   const { data: moments } = trpc.contactMoments.list.useQuery({ leadId });
   const { data: documents } = trpc.documents.list.useQuery({ leadId });
@@ -242,6 +250,11 @@ export default function LeadDetail() {
   const { data: allPersons } = trpc.persons.list.useQuery({ search: personSearch, limit: 20 });
   const { data: linkedCompetitors, refetch: refetchCompetitors } = trpc.competitors.getCompetitorsForLead.useQuery({ leadId });
   const { data: allCompetitors } = trpc.competitors.list.useQuery({ search: competitorSearch, limit: 20 });
+  const isEventPromotor = (lead as any)?.leadType === "event_promotor";
+  const { data: promotorEventsList, refetch: refetchPromotorEvents } = trpc.promotorEvents.list.useQuery(
+    { leadId },
+    { enabled: isEventPromotor }
+  );
   const utils = trpc.useUtils();
 
   const linkPersonMutation = trpc.persons.linkToLead.useMutation({
@@ -276,6 +289,33 @@ export default function LeadDetail() {
   const unlinkCompetitorMutation = trpc.competitors.unlinkFromLead.useMutation({
     onSuccess: () => { refetchCompetitors(); toast.success("Competitor unlinked"); },
     onError: () => toast.error("Failed to unlink competitor"),
+  });
+
+  const resetEventForm = () => { setEventName(""); setEventAttributes({}); setEventNotes(""); };
+
+  const createEventMutation = trpc.promotorEvents.create.useMutation({
+    onSuccess: () => {
+      refetchPromotorEvents();
+      setAddEventOpen(false);
+      resetEventForm();
+      toast.success("Event added");
+    },
+    onError: () => toast.error("Failed to add event"),
+  });
+
+  const updateEventMutation = trpc.promotorEvents.update.useMutation({
+    onSuccess: () => {
+      refetchPromotorEvents();
+      setEditingEvent(null);
+      resetEventForm();
+      toast.success("Event updated");
+    },
+    onError: () => toast.error("Failed to update event"),
+  });
+
+  const deleteEventMutation = trpc.promotorEvents.delete.useMutation({
+    onSuccess: () => { refetchPromotorEvents(); toast.success("Event deleted"); },
+    onError: () => toast.error("Failed to delete event"),
   });
 
   const toggleFollowUpMutation = trpc.contactMoments.update.useMutation({
@@ -708,7 +748,15 @@ export default function LeadDetail() {
         {/* Tabs */}
         <Tabs defaultValue="overview">
           <TabsList className="border-b w-full justify-start rounded-none bg-transparent h-auto p-0 gap-0">
-            {["overview", "timeline", "persons", "competitors", "documents", "enrichment"].map((tab) => (
+            {[
+              "overview",
+              "timeline",
+              "persons",
+              ...(isEventPromotor ? ["events"] : []),
+              "competitors",
+              "documents",
+              "enrichment",
+            ].map((tab) => (
               <TabsTrigger
                 key={tab}
                 value={tab}
@@ -1080,6 +1128,196 @@ export default function LeadDetail() {
               </DialogContent>
             </Dialog>
           </TabsContent>
+
+          {/* Events Tab (Event Promotor only) */}
+          {isEventPromotor && (
+          <TabsContent value="events" className="mt-4 space-y-4">
+            <Card className="border shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <CalendarRange className="h-4 w-4" /> Events
+                  {(promotorEventsList ?? []).length > 0 && (
+                    <Badge variant="secondary" className="text-xs">{(promotorEventsList ?? []).length}</Badge>
+                  )}
+                </CardTitle>
+                <Button size="sm" variant="outline" className="gap-1.5" onClick={() => { resetEventForm(); setAddEventOpen(true); }}>
+                  <Plus className="h-3.5 w-3.5" /> Add Event
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {(promotorEventsList ?? []).length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <CalendarRange className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-sm">No events added yet</p>
+                    <p className="text-xs mt-1">Add individual events managed by this promotor</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {(promotorEventsList ?? []).map((evt: any) => {
+                      const attrs = (evt.eventAttributes ?? {}) as Record<string, unknown>;
+                      return (
+                        <div key={evt.id} className="p-3 bg-muted/30 rounded-lg border">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium">{evt.eventName}</span>
+                                {!!attrs.eventCategory && (
+                                  <Badge variant="outline" className="text-xs">{String(attrs.eventCategory)}</Badge>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-muted-foreground">
+                                {!!attrs.visitorCount && (
+                                  <span><Users className="inline h-3 w-3 mr-0.5" />{String(attrs.visitorCount)} visitors</span>
+                                )}
+                                {!!attrs.eventDurationDays && (
+                                  <span><Calendar className="inline h-3 w-3 mr-0.5" />{String(attrs.eventDurationDays)} days</span>
+                                )}
+                                {!!attrs.typicalDates && (
+                                  <span>{String(attrs.typicalDates)}</span>
+                                )}
+                                {!!attrs.region && (
+                                  <span><MapPin className="inline h-3 w-3 mr-0.5" />{String(attrs.region)}</span>
+                                )}
+                                {!!attrs.hotelNeedScore && (
+                                  <span>Hotel Need: <span className="text-foreground">{String(attrs.hotelNeedScore)}</span></span>
+                                )}
+                                {!!attrs.revenueEngineFit && (
+                                  <span>Fit: <span className="text-foreground">{String(attrs.revenueEngineFit)}</span></span>
+                                )}
+                              </div>
+                              {evt.notes && (
+                                <p className="text-xs text-muted-foreground mt-1 italic">{evt.notes}</p>
+                              )}
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
+                                onClick={() => {
+                                  setEditingEvent(evt);
+                                  setEventName(evt.eventName);
+                                  setEventAttributes((evt.eventAttributes ?? {}) as Record<string, unknown>);
+                                  setEventNotes(evt.notes ?? "");
+                                }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" /> Edit
+                              </Button>
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                                onClick={() => deleteEventMutation.mutate({ id: evt.id })}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Add / Edit Event Dialog */}
+            <Dialog open={addEventOpen || !!editingEvent} onOpenChange={(open) => { if (!open) { setAddEventOpen(false); setEditingEvent(null); resetEventForm(); } }}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <CalendarRange className="h-4 w-4" /> {editingEvent ? "Edit Event" : "Add Event"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                  <div className="space-y-1.5">
+                    <Label>Event Name *</Label>
+                    <Input
+                      placeholder="e.g. Royal Welsh Show"
+                      value={eventName}
+                      onChange={(e) => setEventName(e.target.value)}
+                    />
+                  </div>
+
+                  {getPromotorEventFields().map((field) => (
+                    <div key={field.key} className="space-y-1.5">
+                      <Label>{field.label}{field.unit ? ` (${field.unit})` : ""}</Label>
+                      {field.type === "select" ? (
+                        <Select
+                          value={String(eventAttributes[field.key] ?? "")}
+                          onValueChange={(v) => setEventAttributes((prev) => ({ ...prev, [field.key]: v }))}
+                        >
+                          <SelectTrigger className="text-sm"><SelectValue placeholder={field.placeholder || `Select ${field.label}`} /></SelectTrigger>
+                          <SelectContent>
+                            {(field.options ?? []).map((opt) => (
+                              <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : field.type === "textarea" ? (
+                        <Textarea
+                          placeholder={field.placeholder}
+                          value={String(eventAttributes[field.key] ?? "")}
+                          onChange={(e) => setEventAttributes((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                          className="text-sm min-h-[50px]"
+                        />
+                      ) : (
+                        <Input
+                          type={field.type === "number" ? "number" : "text"}
+                          placeholder={field.placeholder}
+                          value={String(eventAttributes[field.key] ?? "")}
+                          onChange={(e) => setEventAttributes((prev) => ({
+                            ...prev,
+                            [field.key]: field.type === "number" ? (e.target.value ? Number(e.target.value) : "") : e.target.value,
+                          }))}
+                          className="text-sm"
+                        />
+                      )}
+                    </div>
+                  ))}
+
+                  <div className="space-y-1.5">
+                    <Label>Notes</Label>
+                    <Textarea
+                      placeholder="Additional notes about this event..."
+                      value={eventNotes}
+                      onChange={(e) => setEventNotes(e.target.value)}
+                      className="text-sm min-h-[50px]"
+                    />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="flex-1" onClick={() => { setAddEventOpen(false); setEditingEvent(null); resetEventForm(); }}>
+                      Cancel
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      disabled={!eventName.trim() || createEventMutation.isPending || updateEventMutation.isPending}
+                      onClick={() => {
+                        const cleanAttrs = Object.fromEntries(
+                          Object.entries(eventAttributes).filter(([, v]) => v !== "" && v !== undefined)
+                        );
+                        if (editingEvent) {
+                          updateEventMutation.mutate({
+                            id: editingEvent.id,
+                            data: { eventName, eventAttributes: cleanAttrs, notes: eventNotes || undefined },
+                          });
+                        } else {
+                          createEventMutation.mutate({
+                            leadId,
+                            eventName,
+                            eventAttributes: cleanAttrs,
+                            notes: eventNotes || undefined,
+                          });
+                        }
+                      }}
+                    >
+                      {(createEventMutation.isPending || updateEventMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      {editingEvent ? "Save Changes" : "Add Event"}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+          )}
 
           {/* Competitors Tab */}
           <TabsContent value="competitors" className="mt-4 space-y-4">

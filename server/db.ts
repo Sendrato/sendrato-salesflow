@@ -15,6 +15,7 @@ import {
   personLeadLinks,
   competitorLeadLinks,
   webLinks,
+  promotorEvents,
   type Lead,
   type InsertLead,
   type InsertContactMoment,
@@ -219,7 +220,9 @@ export async function deleteLead(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const { deleteWebLinksByLead } = await import("./webLinksDb");
+  const { deletePromotorEventsByLead } = await import("./promotorEventsDb");
   await deleteWebLinksByLead(id);
+  await deletePromotorEventsByLead(id);
   await db.delete(contactMoments).where(eq(contactMoments.leadId, id));
   await db.delete(documentChunks).where(eq(documentChunks.leadId, id));
   await db.delete(leadDocuments).where(eq(leadDocuments.leadId, id));
@@ -272,6 +275,9 @@ export async function mergeLeads(keepId: number, removeId: number) {
       await db.update(competitorLeadLinks).set({ leadId: keepId }).where(eq(competitorLeadLinks.id, link.id));
     }
   }
+
+  // Move promotor events
+  await db.update(promotorEvents).set({ leadId: keepId }).where(eq(promotorEvents.leadId, removeId));
 
   // Move web links
   await db.update(webLinks).set({ leadId: keepId }).where(eq(webLinks.leadId, removeId));

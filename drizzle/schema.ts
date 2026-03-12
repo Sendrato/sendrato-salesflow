@@ -43,6 +43,7 @@ export const leadTypeEnum = pgEnum("lead_type", [
   "saas",
   "retail",
   "partner",
+  "event_promotor",
 ]);
 
 export const contactMomentTypeEnum = pgEnum("contact_moment_type", [
@@ -386,6 +387,21 @@ export const competitorLeadLinks = pgTable("competitor_lead_links", {
 
 export type CompetitorLeadLink = typeof competitorLeadLinks.$inferSelect;
 export type InsertCompetitorLeadLink = typeof competitorLeadLinks.$inferInsert;
+
+// ─── Promotor Events (sub-events for Event Promotor leads) ─────────────────
+export const promotorEvents = pgTable("promotor_events", {
+  id: serial("id").primaryKey(),
+  leadId: integer("leadId").notNull(),
+  eventName: varchar("eventName", { length: 255 }).notNull(),
+  eventAttributes: json("eventAttributes").$type<Record<string, unknown>>(),
+  notes: text("notes"),
+  createdBy: integer("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type PromotorEvent = typeof promotorEvents.$inferSelect;
+export type InsertPromotorEvent = typeof promotorEvents.$inferInsert;
 
 // ─── Competitor Documents ────────────────────────────────────────────────────
 export const competitorDocuments = pgTable("competitor_documents", {
