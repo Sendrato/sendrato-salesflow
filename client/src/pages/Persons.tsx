@@ -10,6 +10,11 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -20,7 +25,7 @@ import {
 } from "@/components/ui/table";
 import {
   Users, Search, Plus, Linkedin, Mail, Phone, Building2,
-  ExternalLink, Tag, Clock, Link2, UserPlus,
+  ExternalLink, Tag, Clock, Link2, UserPlus, Trash2, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
@@ -317,6 +322,8 @@ export default function PersonsPage() {
   const [search, setSearch] = useState("");
   const [personType, setPersonType] = useState("all");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const { data, isLoading, refetch } = trpc.persons.list.useQuery({
     search: debouncedSearch || undefined,
@@ -326,6 +333,43 @@ export default function PersonsPage() {
 
   const persons = data?.persons ?? [];
   const total = data?.total ?? 0;
+
+  const bulkDeleteMutation = trpc.persons.bulkDelete.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.deleted} person${result.deleted > 1 ? "s" : ""} deleted`);
+      setSelectedIds(new Set());
+      refetch();
+    },
+    onError: () => toast.error("Failed to delete persons"),
+  });
+
+  const allSelected = persons.length > 0 && persons.every((p) => selectedIds.has(p.id));
+  const someSelected = selectedIds.size > 0;
+
+  function toggleSelect(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        persons.forEach((p) => next.delete(p.id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        persons.forEach((p) => next.add(p.id));
+        return next;
+      });
+    }
+  }
 
   function handleSearchChange(val: string) {
     setSearch(val);
@@ -389,6 +433,29 @@ export default function PersonsPage() {
           </Select>
         </div>
 
+        {/* Selection bar */}
+        {someSelected && (
+          <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </Button>
+          </div>
+        )}
+
         {/* Table */}
         <Card className="border shadow-sm">
           <CardContent className="p-0">
@@ -406,6 +473,13 @@ export default function PersonsPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30">
+                    <TableHead className="w-[40px]">
+                      <Checkbox
+                        checked={allSelected && persons.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="Select all"
+                      />
+                    </TableHead>
                     <TableHead className="text-xs font-semibold">Person</TableHead>
                     <TableHead className="text-xs font-semibold">Type</TableHead>
                     <TableHead className="text-xs font-semibold">Company</TableHead>
@@ -419,9 +493,16 @@ export default function PersonsPage() {
                   {persons.map((person) => (
                     <TableRow
                       key={person.id}
-                      className="cursor-pointer hover:bg-muted/40 transition-colors"
+                      className={`cursor-pointer hover:bg-muted/40 transition-colors ${selectedIds.has(person.id) ? "bg-primary/5" : ""}`}
                       onClick={() => navigate(`/persons/${person.id}`)}
                     >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(person.id)}
+                          onCheckedChange={() => toggleSelect(person.id)}
+                          aria-label={`Select ${person.name}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2.5">
                           <Avatar className="h-8 w-8">
@@ -506,6 +587,32 @@ export default function PersonsPage() {
             Showing {persons.length} of {total} people
           </p>
         )}
+
+        {/* Delete confirmation */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {selectedIds.size} person{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the selected person{selectedIds.size > 1 ? "s" : ""} and all associated data (lead links, contact moments, etc.). This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={bulkDeleteMutation.isPending}
+                onClick={() => {
+                  bulkDeleteMutation.mutate({ ids: Array.from(selectedIds) });
+                  setDeleteConfirmOpen(false);
+                }}
+              >
+                {bulkDeleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

@@ -10,9 +10,15 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { toast } from "sonner";
 import {
   STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, ALL_STATUSES, ALL_PRIORITIES, formatRelativeTime, getInitials
 } from "@/lib/crm";
@@ -30,8 +36,10 @@ export default function Leads() {
   const [country, setCountry] = useState<string>("all");
   const [leadType, setLeadType] = useState<string>("all");
   const [page, setPage] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
-  const { data, isLoading } = trpc.leads.list.useQuery({
+  const { data, isLoading, refetch } = trpc.leads.list.useQuery({
     search: search || undefined,
     status: status === "all" ? undefined : status,
     priority: priority === "all" ? undefined : priority,
@@ -50,6 +58,43 @@ export default function Leads() {
   const leads = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  const bulkDeleteMutation = trpc.leads.bulkDelete.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.deleted} lead${result.deleted > 1 ? "s" : ""} deleted`);
+      setSelectedIds(new Set());
+      refetch();
+    },
+    onError: () => toast.error("Failed to delete leads"),
+  });
+
+  const allOnPageSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
+  const someSelected = selectedIds.size > 0;
+
+  function toggleSelect(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    if (allOnPageSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        leads.forEach((l) => next.delete(l.id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        leads.forEach((l) => next.add(l.id));
+        return next;
+      });
+    }
+  }
 
   return (
     <DashboardLayout>
@@ -135,12 +180,42 @@ export default function Leads() {
           </CardContent>
         </Card>
 
+        {/* Selection bar */}
+        {someSelected && (
+          <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </Button>
+          </div>
+        )}
+
         {/* Table */}
         <Card className="border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/30">
+                  <TableHead className="w-[40px]">
+                    <Checkbox
+                      checked={allOnPageSelected && leads.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Select all"
+                    />
+                  </TableHead>
                   <TableHead className="w-[280px]">Company</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Status</TableHead>
@@ -158,7 +233,7 @@ export default function Leads() {
                 {isLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 9 }).map((_, j) => (
+                      {Array.from({ length: 10 }).map((_, j) => (
                         <TableCell key={j}>
                           <div className="h-4 bg-muted rounded animate-pulse" />
                         </TableCell>
@@ -167,7 +242,7 @@ export default function Leads() {
                   ))
                 ) : leads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-16 text-muted-foreground">
+                    <TableCell colSpan={10} className="text-center py-16 text-muted-foreground">
                       <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
                       <p>No leads found</p>
                       {search && <p className="text-sm mt-1">Try adjusting your search</p>}
@@ -177,9 +252,16 @@ export default function Leads() {
                   leads.map((lead) => (
                     <TableRow
                       key={lead.id}
-                      className="cursor-pointer hover:bg-muted/30 transition-colors"
+                      className={`cursor-pointer hover:bg-muted/30 transition-colors ${selectedIds.has(lead.id) ? "bg-primary/5" : ""}`}
                       onClick={() => setLocation(`/leads/${lead.id}`)}
                     >
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedIds.has(lead.id)}
+                          onCheckedChange={() => toggleSelect(lead.id)}
+                          aria-label={`Select ${lead.companyName}`}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-8 w-8 shrink-0">
@@ -290,6 +372,31 @@ export default function Leads() {
             </div>
           )}
         </Card>
+        {/* Delete confirmation */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete {selectedIds.size} lead{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the selected lead{selectedIds.size > 1 ? "s" : ""} and all associated data (contact moments, documents, persons links, competitor links, etc.). This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={bulkDeleteMutation.isPending}
+                onClick={() => {
+                  bulkDeleteMutation.mutate({ ids: Array.from(selectedIds) });
+                  setDeleteConfirmOpen(false);
+                }}
+              >
+                {bulkDeleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

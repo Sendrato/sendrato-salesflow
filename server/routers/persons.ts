@@ -98,6 +98,15 @@ export const personsRouter = router({
       return { success: true };
     }),
 
+  bulkDelete: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()).min(1) }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await deletePerson(id);
+      }
+      return { success: true, deleted: input.ids.length };
+    }),
+
   merge: protectedProcedure
     .input(z.object({ keepId: z.number(), removeId: z.number() }))
     .mutation(async ({ input }) => {
