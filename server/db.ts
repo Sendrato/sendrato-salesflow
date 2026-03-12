@@ -93,6 +93,20 @@ export async function getDb() {
           } catch (e) {
             console.warn("[DB] leadSize backfill failed:", e);
           }
+          // Trim trailing/leading whitespace from key text fields
+          try {
+            const trimFields = ["companyName", "country", "location", "industry", "contactPerson", "email", "source", "label"];
+            for (const col of trimFields) {
+              const res = await _pool.query(
+                `UPDATE leads SET "${col}" = TRIM("${col}") WHERE "${col}" IS NOT NULL AND "${col}" != TRIM("${col}")`
+              );
+              if (res.rowCount && res.rowCount > 0) {
+                console.log(`[DB] Trimmed whitespace in leads.${col} for ${res.rowCount} rows`);
+              }
+            }
+          } catch (e) {
+            console.warn("[DB] Whitespace trim failed:", e);
+          }
         } catch (e) {
           console.warn("[DB] Schema patch failed:", e);
         }
@@ -287,27 +301,41 @@ export async function getLeadById(id: number) {
   return result[0];
 }
 
+/** Trim whitespace from all string fields in a lead record */
+function trimLeadStrings<T extends Record<string, unknown>>(data: T): T {
+  const result = { ...data };
+  for (const key of Object.keys(result)) {
+    const val = result[key];
+    if (typeof val === "string") {
+      (result as any)[key] = val.trim();
+    }
+  }
+  return result;
+}
+
 export async function createLead(data: InsertLead) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  const trimmed = trimLeadStrings(data);
   // Auto-compute leadSize from attributes
-  const size = getLeadSize(data.leadType ?? "default", data.leadAttributes ?? null);
-  const [inserted] = await db.insert(leads).values({ ...data, leadSize: size }).returning({ id: leads.id });
+  const size = getLeadSize(trimmed.leadType ?? "default", trimmed.leadAttributes ?? null);
+  const [inserted] = await db.insert(leads).values({ ...trimmed, leadSize: size }).returning({ id: leads.id });
   return getLeadById(inserted.id);
 }
 
 export async function updateLead(id: number, data: Partial<InsertLead>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  const trimmed = trimLeadStrings(data);
   // Re-compute leadSize if attributes or type changed
-  let leadSize = data.leadSize;
-  if (data.leadAttributes !== undefined || data.leadType !== undefined) {
+  let leadSize = trimmed.leadSize;
+  if (trimmed.leadAttributes !== undefined || trimmed.leadType !== undefined) {
     const existing = await getLeadById(id);
-    const lt = data.leadType ?? existing?.leadType ?? "default";
-    const attrs = data.leadAttributes ?? existing?.leadAttributes ?? null;
+    const lt = trimmed.leadType ?? existing?.leadType ?? "default";
+    const attrs = trimmed.leadAttributes ?? existing?.leadAttributes ?? null;
     leadSize = getLeadSize(lt, attrs);
   }
-  await db.update(leads).set({ ...data, leadSize, updatedAt: new Date() }).where(eq(leads.id, id));
+  await db.update(leads).set({ ...trimmed, leadSize, updatedAt: new Date() }).where(eq(leads.id, id));
   return getLeadById(id);
 }
 
@@ -418,8 +446,9 @@ export async function bulkInsertLeads(data: InsertLead[]) {
   if (data.length === 0) return [];
   const results = [];
   for (const lead of data) {
-    const size = getLeadSize(lead.leadType ?? "default", lead.leadAttributes ?? null);
-    const [inserted] = await db.insert(leads).values({ ...lead, leadSize: size }).returning({ id: leads.id });
+    const trimmed = trimLeadStrings(lead);
+    const size = getLeadSize(trimmed.leadType ?? "default", trimmed.leadAttributes ?? null);
+    const [inserted] = await db.insert(leads).values({ ...trimmed, leadSize: size }).returning({ id: leads.id });
     results.push(inserted.id);
   }
   return results;

@@ -66,10 +66,10 @@ export default function Leads() {
   // Fetch all leads (without filters) to extract distinct countries for the filter dropdown
   const { data: allLeadsData } = trpc.leads.list.useQuery({ limit: 1000 });
   const countries = Array.from(
-    new Set((allLeadsData?.items ?? []).map((l) => l.country).filter(Boolean) as string[])
+    new Set((allLeadsData?.items ?? []).map((l) => l.country?.trim()).filter(Boolean) as string[])
   ).sort();
   const labels = Array.from(
-    new Set((allLeadsData?.items ?? []).map((l) => (l as any).label).filter(Boolean) as string[])
+    new Set((allLeadsData?.items ?? []).map((l) => ((l as any).label as string | null)?.trim()).filter(Boolean) as string[])
   ).sort();
 
   const leads = data?.items ?? [];
