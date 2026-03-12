@@ -46,7 +46,7 @@ const leadInputSchema = z.object({
   tags: z.array(z.string()).optional(),
   label: z.string().optional(),
   nextFollowUpAt: z.string().optional(),
-  leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail", "partner", "event_promotor"]).optional().default("default"),
+  leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail", "partner", "venue", "event_promotor"]).optional().default("default"),
   leadAttributes: z.record(z.string(), z.unknown()).optional(),
 });
 

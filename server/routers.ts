@@ -120,6 +120,27 @@ export const appRouter = router({
 
         return { tempPassword, email: user.email };
       }),
+
+    updateUser: adminProcedure
+      .input(z.object({ userId: z.number(), name: z.string().min(1) }))
+      .mutation(async ({ input }) => {
+        const user = await db.getUserById(input.userId);
+        if (!user) throw new Error("User not found");
+        await db.updateUserName(input.userId, input.name);
+        return { success: true };
+      }),
+
+    deleteUser: adminProcedure
+      .input(z.object({ userId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        if (input.userId === ctx.user.id) {
+          throw new Error("Cannot delete your own account");
+        }
+        const user = await db.getUserById(input.userId);
+        if (!user) throw new Error("User not found");
+        await db.deleteUser(input.userId);
+        return { success: true };
+      }),
   }),
 
   leads: leadsRouter,

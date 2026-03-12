@@ -38,6 +38,7 @@ export async function getDb() {
         try {
           const enumAdditions = [
             { type: "lead_type", value: "event_promotor" },
+            { type: "lead_type", value: "venue" },
           ];
           for (const { type, value } of enumAdditions) {
             const check = await _pool.query(
@@ -185,6 +186,18 @@ export async function getUserById(userId: number) {
   if (!db) return undefined;
   const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   return result[0];
+}
+
+export async function updateUserName(userId: number, name: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ name, updatedAt: new Date() }).where(eq(users.id, userId));
+}
+
+export async function deleteUser(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(users).where(eq(users.id, userId));
 }
 
 // ─── Leads ────────────────────────────────────────────────────────────────────

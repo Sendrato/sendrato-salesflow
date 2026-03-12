@@ -37,7 +37,13 @@ import {
   Search,
   Link2,
   X,
+  Pencil,
+  Trash2,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatRelativeTime } from "@/lib/crm";
 
 const PROVIDERS = [
@@ -158,7 +164,27 @@ function UserManagementCard() {
       utils.auth.listUsers.invalidate();
     },
   });
+  const updateUserMutation = trpc.auth.updateUser.useMutation({
+    onSuccess: () => {
+      utils.auth.listUsers.invalidate();
+      setEditingUserId(null);
+      setEditingName("");
+      toast.success("User updated");
+    },
+    onError: () => toast.error("Failed to update user"),
+  });
+  const deleteUserMutation = trpc.auth.deleteUser.useMutation({
+    onSuccess: () => {
+      utils.auth.listUsers.invalidate();
+      setDeleteUserId(null);
+      toast.success("User deleted");
+    },
+    onError: (err) => toast.error(err.message ?? "Failed to delete user"),
+  });
   const [reinviteResult, setReinviteResult] = useState<{ email: string | null; tempPassword: string } | null>(null);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
 
   if (user?.role !== "admin") return null;
 
@@ -175,6 +201,7 @@ function UserManagementCard() {
 
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const deleteTarget = (userList ?? []).find((u) => u.id === deleteUserId);
 
   return (
     <Card>
@@ -207,7 +234,44 @@ function UserManagementCard() {
                 const isActive = u.lastSignedIn && new Date(u.lastSignedIn) > thirtyDaysAgo;
                 return (
                   <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.name || "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      {editingUserId === u.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <Input
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && editingName.trim()) {
+                                updateUserMutation.mutate({ userId: u.id, name: editingName.trim() });
+                              }
+                              if (e.key === "Escape") setEditingUserId(null);
+                            }}
+                            className="h-7 w-40 text-sm"
+                            autoFocus
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            disabled={!editingName.trim() || updateUserMutation.isPending}
+                            onClick={() => updateUserMutation.mutate({ userId: u.id, name: editingName.trim() })}
+                          >
+                            {updateUserMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingUserId(null)}>
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span
+                          className="cursor-pointer hover:text-primary transition-colors"
+                          onClick={() => { setEditingUserId(u.id); setEditingName(u.name || ""); }}
+                          title="Click to edit name"
+                        >
+                          {u.name || "—"}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{u.email}</TableCell>
                     <TableCell>
                       <Badge variant={u.role === "admin" ? "default" : "outline"} className="text-xs capitalize">
@@ -226,20 +290,41 @@ function UserManagementCard() {
                       {formatRelativeTime(u.lastSignedIn)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1.5 text-xs"
-                        onClick={() => handleReinvite(u.id)}
-                        disabled={reinviteMutation.isPending}
-                      >
-                        {reinviteMutation.isPending ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <RotateCcw className="h-3.5 w-3.5" />
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => { setEditingUserId(u.id); setEditingName(u.name || ""); }}
+                          title="Edit name"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5 text-xs"
+                          onClick={() => handleReinvite(u.id)}
+                          disabled={reinviteMutation.isPending}
+                        >
+                          {reinviteMutation.isPending ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          )}
+                          Re-invite
+                        </Button>
+                        {u.id !== user?.id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5 text-xs text-destructive hover:text-destructive"
+                            onClick={() => setDeleteUserId(u.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         )}
-                        Re-invite
-                      </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -275,6 +360,29 @@ function UserManagementCard() {
             </AlertDescription>
           </Alert>
         )}
+        <AlertDialog open={!!deleteUserId} onOpenChange={(open) => { if (!open) setDeleteUserId(null); }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete user {deleteTarget?.name || deleteTarget?.email}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove this user account. Any leads or persons assigned to them will keep the assignment reference but the user will no longer exist. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteUserMutation.isPending}
+                onClick={() => {
+                  if (deleteUserId) deleteUserMutation.mutate({ userId: deleteUserId });
+                }}
+              >
+                {deleteUserMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </CardContent>
     </Card>
   );

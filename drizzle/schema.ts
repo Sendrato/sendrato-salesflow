@@ -43,6 +43,7 @@ export const leadTypeEnum = pgEnum("lead_type", [
   "saas",
   "retail",
   "partner",
+  "venue",
   "event_promotor",
 ]);
 
