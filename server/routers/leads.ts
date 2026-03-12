@@ -62,6 +62,8 @@ export const leadsRouter = router({
         leadType: z.string().optional(),
         label: z.string().optional(),
         assignedTo: z.number().optional(),
+        sizeMin: z.number().optional(),
+        sizeMax: z.number().optional(),
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       })

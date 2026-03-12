@@ -1,4 +1,4 @@
-import { and, desc, eq, like, lte, or, sql, inArray } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
@@ -22,6 +22,7 @@ import {
   type InsertLeadDocument,
   type InsertLeadEmbedding,
 } from "../drizzle/schema";
+import { getLeadSize } from "../shared/leadAttributeSchemas";
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: pg.Pool | null = null;
 
@@ -65,6 +66,32 @@ export async function getDb() {
           if (personsColCheck.rows.length === 0) {
             await _pool.query(`ALTER TABLE persons ADD COLUMN "assignedTo" integer`);
             console.log("[DB] Added 'assignedTo' column to persons");
+          }
+          // Ensure leads.leadSize column exists + backfill from leadAttributes
+          const leadSizeCheck = await _pool.query(
+            `SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'leadSize'`
+          );
+          if (leadSizeCheck.rows.length === 0) {
+            await _pool.query(`ALTER TABLE leads ADD COLUMN "leadSize" integer`);
+            console.log("[DB] Added 'leadSize' column to leads");
+            // Backfill leadSize from leadAttributes JSON
+            try {
+              const { getLeadSize } = await import("../shared/leadAttributeSchemas");
+              const allLeads = await _pool.query(
+                `SELECT id, "leadType", "leadAttributes" FROM leads WHERE "leadAttributes" IS NOT NULL`
+              );
+              let backfilled = 0;
+              for (const row of allLeads.rows) {
+                const size = getLeadSize(row.leadType || "default", row.leadAttributes);
+                if (size !== null) {
+                  await _pool.query(`UPDATE leads SET "leadSize" = $1 WHERE id = $2`, [size, row.id]);
+                  backfilled++;
+                }
+              }
+              if (backfilled > 0) console.log(`[DB] Backfilled leadSize for ${backfilled} leads`);
+            } catch (e) {
+              console.warn("[DB] leadSize backfill failed:", e);
+            }
           }
         } catch (e) {
           console.warn("[DB] Schema patch failed:", e);
@@ -210,6 +237,8 @@ export async function getLeads(opts: {
   leadType?: string;
   label?: string;
   assignedTo?: number;
+  sizeMin?: number;
+  sizeMax?: number;
   limit?: number;
   offset?: number;
 }) {
@@ -236,6 +265,8 @@ export async function getLeads(opts: {
   if (opts.leadType) conditions.push(eq(leads.leadType, opts.leadType as Lead["leadType"]));
   if (opts.label) conditions.push(eq(leads.label, opts.label));
   if (opts.assignedTo) conditions.push(eq(leads.assignedTo, opts.assignedTo));
+  if (opts.sizeMin !== undefined) conditions.push(gte(leads.leadSize, opts.sizeMin));
+  if (opts.sizeMax !== undefined) conditions.push(lte(leads.leadSize, opts.sizeMax));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const limit = opts.limit ?? 50;
@@ -259,14 +290,24 @@ export async function getLeadById(id: number) {
 export async function createLead(data: InsertLead) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const [inserted] = await db.insert(leads).values(data).returning({ id: leads.id });
+  // Auto-compute leadSize from attributes
+  const size = getLeadSize(data.leadType ?? "default", data.leadAttributes ?? null);
+  const [inserted] = await db.insert(leads).values({ ...data, leadSize: size }).returning({ id: leads.id });
   return getLeadById(inserted.id);
 }
 
 export async function updateLead(id: number, data: Partial<InsertLead>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(leads).set({ ...data, updatedAt: new Date() }).where(eq(leads.id, id));
+  // Re-compute leadSize if attributes or type changed
+  let leadSize = data.leadSize;
+  if (data.leadAttributes !== undefined || data.leadType !== undefined) {
+    const existing = await getLeadById(id);
+    const lt = data.leadType ?? existing?.leadType ?? "default";
+    const attrs = data.leadAttributes ?? existing?.leadAttributes ?? null;
+    leadSize = getLeadSize(lt, attrs);
+  }
+  await db.update(leads).set({ ...data, leadSize, updatedAt: new Date() }).where(eq(leads.id, id));
   return getLeadById(id);
 }
 
@@ -377,7 +418,8 @@ export async function bulkInsertLeads(data: InsertLead[]) {
   if (data.length === 0) return [];
   const results = [];
   for (const lead of data) {
-    const [inserted] = await db.insert(leads).values(lead).returning({ id: leads.id });
+    const size = getLeadSize(lead.leadType ?? "default", lead.leadAttributes ?? null);
+    const [inserted] = await db.insert(leads).values({ ...lead, leadSize: size }).returning({ id: leads.id });
     results.push(inserted.id);
   }
   return results;

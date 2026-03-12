@@ -23,7 +23,7 @@ import { toast } from "sonner";
 import {
   STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, ALL_STATUSES, ALL_PRIORITIES, formatRelativeTime, getInitials
 } from "@/lib/crm";
-import { getLeadTypeOptions } from "@shared/leadAttributeSchemas";
+import { getLeadTypeOptions, LEAD_TYPE_SCHEMAS } from "@shared/leadAttributeSchemas";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const PAGE_SIZE = 20;
@@ -44,6 +44,7 @@ export default function Leads() {
   const [bulkLabelOpen, setBulkLabelOpen] = useState(false);
   const [bulkLabelValue, setBulkLabelValue] = useState("");
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [sizeFilter, setSizeFilter] = useState<string>("all");
 
   const { data: userList } = trpc.auth.listUsers.useQuery();
   const users = userList ?? [];
@@ -56,6 +57,8 @@ export default function Leads() {
     leadType: leadType === "all" ? undefined : leadType,
     label: label === "all" ? undefined : label,
     assignedTo: assignedToFilter === "all" ? undefined : Number(assignedToFilter),
+    sizeMin: sizeFilter === "small" ? undefined : sizeFilter === "medium" ? 100 : sizeFilter === "large" ? 1000 : sizeFilter === "xl" ? 10000 : undefined,
+    sizeMax: sizeFilter === "small" ? 99 : sizeFilter === "medium" ? 999 : sizeFilter === "large" ? 9999 : undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -233,6 +236,18 @@ export default function Leads() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={sizeFilter} onValueChange={(v) => { setSizeFilter(v); setPage(0); }}>
+                <SelectTrigger className="w-full sm:w-[140px]">
+                  <SelectValue placeholder="All Sizes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sizes</SelectItem>
+                  <SelectItem value="small">Small (&lt; 100)</SelectItem>
+                  <SelectItem value="medium">Medium (100-1K)</SelectItem>
+                  <SelectItem value="large">Large (1K-10K)</SelectItem>
+                  <SelectItem value="xl">XL (10K+)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -358,6 +373,7 @@ export default function Leads() {
                   <TableHead className="w-[90px]">
                     <span className="flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> Score</span>
                   </TableHead>
+                  <TableHead>Size</TableHead>
                   <TableHead>Label</TableHead>
                   <TableHead>Owner</TableHead>
                   <TableHead>Country</TableHead>
@@ -370,7 +386,7 @@ export default function Leads() {
                 {isLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 12 }).map((_, j) => (
+                      {Array.from({ length: 13 }).map((_, j) => (
                         <TableCell key={j}>
                           <div className="h-4 bg-muted rounded animate-pulse" />
                         </TableCell>
@@ -379,7 +395,7 @@ export default function Leads() {
                   ))
                 ) : leads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="text-center py-16 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-16 text-muted-foreground">
                       <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
                       <p>No leads found</p>
                       {search && <p className="text-sm mt-1">Try adjusting your search</p>}
@@ -447,6 +463,20 @@ export default function Leads() {
                               />
                             </div>
                             <span className="text-xs font-medium tabular-nums">{(lead as any).priorityScore}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(lead as any).leadSize != null ? (
+                          <div className="text-xs font-medium tabular-nums">
+                            {(lead as any).leadSize >= 1000
+                              ? `${((lead as any).leadSize / 1000).toFixed((lead as any).leadSize >= 10000 ? 0 : 1)}K`
+                              : (lead as any).leadSize}
+                            <span className="text-muted-foreground ml-1">
+                              {LEAD_TYPE_SCHEMAS[lead.leadType]?.sizeUnit ?? ""}
+                            </span>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>

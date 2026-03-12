@@ -30,6 +30,8 @@ export interface LeadTypeSchema {
   description: string;
   color: string; // tailwind color class for badge
   fields: AttributeField[];
+  sizeKey?: string; // attribute key that represents the "size" of this lead type
+  sizeUnit?: string; // display unit for the size value
 }
 
 export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
@@ -44,6 +46,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "Event",
     description: "Agricultural shows, state fairs, exhibitions",
     color: "bg-amber-100 text-amber-800",
+    sizeKey: "visitorCount",
+    sizeUnit: "visitors",
     fields: [
       {
         key: "visitorCount",
@@ -146,6 +150,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "Festival",
     description: "Music festivals, cultural festivals",
     color: "bg-purple-100 text-purple-800",
+    sizeKey: "visitorCount",
+    sizeUnit: "visitors",
     fields: [
       {
         key: "visitorCount",
@@ -220,6 +226,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "Conference",
     description: "Industry conferences, trade events, summits",
     color: "bg-blue-100 text-blue-800",
+    sizeKey: "attendeeCount",
+    sizeUnit: "attendees",
     fields: [
       {
         key: "attendeeCount",
@@ -280,6 +288,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "Hospitality",
     description: "Hotels, venues, catering companies",
     color: "bg-green-100 text-green-800",
+    sizeKey: "roomCount",
+    sizeUnit: "rooms",
     fields: [
       {
         key: "propertyCount",
@@ -326,6 +336,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "SaaS",
     description: "Software-as-a-service companies",
     color: "bg-cyan-100 text-cyan-800",
+    sizeKey: "userCount",
+    sizeUnit: "users",
     fields: [
       {
         key: "mrr",
@@ -428,6 +440,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "Retail",
     description: "Retail chains, e-commerce, consumer brands",
     color: "bg-rose-100 text-rose-800",
+    sizeKey: "storeCount",
+    sizeUnit: "stores",
     fields: [
       {
         key: "storeCount",
@@ -465,6 +479,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "Venue",
     description: "Concert halls, arenas, exhibition centres, stadiums",
     color: "bg-teal-100 text-teal-800",
+    sizeKey: "venueCapacity",
+    sizeUnit: "people",
     fields: [
       {
         key: "venueCapacity",
@@ -568,6 +584,8 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
     label: "Event Promotor",
     description: "Organisation that organises multiple events",
     color: "bg-orange-100 text-orange-800",
+    sizeKey: "totalEventsManaged",
+    sizeUnit: "events",
     fields: [
       {
         key: "totalEventsManaged",
@@ -640,6 +658,22 @@ export function getLeadTypeOptions() {
  */
 export function getPromotorEventFields(): AttributeField[] {
   return LEAD_TYPE_SCHEMAS.event.fields;
+}
+
+/**
+ * Extract the numeric "size" of a lead based on its type-specific size key.
+ * Returns null if the lead type has no size key or the value is missing/non-numeric.
+ */
+export function getLeadSize(
+  leadType: string,
+  attrs: Record<string, unknown> | null | undefined
+): number | null {
+  const schema = getLeadTypeSchema(leadType);
+  if (!schema.sizeKey || !attrs) return null;
+  const raw = attrs[schema.sizeKey];
+  if (raw === undefined || raw === null || raw === "") return null;
+  const num = typeof raw === "number" ? raw : Number(raw);
+  return isNaN(num) ? null : Math.round(num);
 }
 
 /**

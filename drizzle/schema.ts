@@ -173,6 +173,8 @@ export const leads = pgTable("leads", {
   label: varchar("label", { length: 128 }),
   // Priority score (0-100, computed from activity + recency + opportunity)
   priorityScore: integer("priorityScore").default(0),
+  // Denormalized size metric extracted from leadAttributes (e.g. visitor count, capacity)
+  leadSize: integer("leadSize"),
   // Timestamps
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
