@@ -25,12 +25,12 @@ const leadInputSchema = z.object({
   contactTitle: z.string().optional(),
   email: z.string().optional(),
   phone: z.string().optional(),
-  status: leadStatusEnum.optional().default("new"),
-  priority: leadPriorityEnum.optional().default("medium"),
+  status: leadStatusEnum.optional(),
+  priority: leadPriorityEnum.optional(),
   source: z.string().optional(),
   assignedTo: z.number().optional(),
   estimatedValue: z.number().optional(),
-  currency: z.string().optional().default("USD"),
+  currency: z.string().optional(),
   socialMedia: z.string().optional(),
   ticketingSystem: z.string().optional(),
   paymentMethods: z.string().optional(),
@@ -46,7 +46,7 @@ const leadInputSchema = z.object({
   tags: z.array(z.string()).optional(),
   label: z.string().optional(),
   nextFollowUpAt: z.string().optional(),
-  leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail", "partner", "venue", "event_promotor"]).optional().default("default"),
+  leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail", "partner", "venue", "event_promotor"]).optional(),
   leadAttributes: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -86,6 +86,10 @@ export const leadsRouter = router({
       const { nextFollowUpAt, ...rest } = input;
       const lead = await createLead({
         ...rest,
+        status: rest.status ?? "new",
+        priority: rest.priority ?? "medium",
+        currency: rest.currency ?? "USD",
+        leadType: (rest.leadType ?? "default") as any,
         createdBy: ctx.user.id,
         source: rest.source ?? "manual",
         nextFollowUpAt: nextFollowUpAt ? new Date(nextFollowUpAt) : undefined,
@@ -152,6 +156,10 @@ export const leadsRouter = router({
           const { nextFollowUpAt, ...rest } = l;
           return {
             ...rest,
+            status: rest.status ?? "new",
+            priority: rest.priority ?? "medium",
+            currency: rest.currency ?? "USD",
+            leadType: (rest.leadType ?? "default") as any,
             createdBy: ctx.user.id,
             source: rest.source ?? "import",
             nextFollowUpAt: nextFollowUpAt ? new Date(nextFollowUpAt) : undefined,

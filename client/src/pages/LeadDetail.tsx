@@ -35,6 +35,11 @@ import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 import WebLinksCard from "@/components/WebLinksCard";
 import { getPromotorEventFields } from "@shared/leadAttributeSchemas";
 
+/** Convert plain newlines to markdown line breaks (two trailing spaces) */
+function mdBreaks(text: string): string {
+  return text.replace(/\n/g, "  \n");
+}
+
 function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurredAt: string | Date }; leadId: number }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
@@ -921,7 +926,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Pain Points</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.painPoints}</Markdown></div>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{mdBreaks(lead.painPoints)}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
@@ -933,7 +938,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Opportunities</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.futureOpportunities}</Markdown></div>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{mdBreaks(lead.futureOpportunities)}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
@@ -945,7 +950,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revenue Model</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.revenueModel}</Markdown></div>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{mdBreaks(lead.revenueModel)}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
@@ -957,7 +962,7 @@ export default function LeadDetail() {
                     <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Notes</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{lead.notes}</Markdown></div>
+                    <div className="text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert"><Markdown>{mdBreaks(lead.notes)}</Markdown></div>
                   </CardContent>
                 </Card>
               )}
