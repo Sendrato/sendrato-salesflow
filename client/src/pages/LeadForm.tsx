@@ -32,6 +32,7 @@ type FormData = {
   revenueModel: string;
   risks: string;
   nextFollowUpAt: string;
+  assignedTo: string;
 };
 
 const EMPTY_FORM: FormData = {
@@ -39,7 +40,7 @@ const EMPTY_FORM: FormData = {
   contactPerson: "", contactTitle: "", email: "", phone: "",
   status: "new", priority: "medium", source: "manual",
   estimatedValue: "", notes: "", painPoints: "", futureOpportunities: "",
-  revenueModel: "", risks: "", nextFollowUpAt: "",
+  revenueModel: "", risks: "", nextFollowUpAt: "", assignedTo: "",
 };
 
 export default function LeadForm() {
@@ -50,6 +51,8 @@ export default function LeadForm() {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
 
   const { data: existing } = trpc.leads.get.useQuery({ id: leadId! }, { enabled: isEdit });
+  const { data: userList } = trpc.auth.listUsers.useQuery();
+  const users = userList ?? [];
 
   useEffect(() => {
     if (existing) {
@@ -73,6 +76,7 @@ export default function LeadForm() {
         revenueModel: existing.revenueModel ?? "",
         risks: existing.risks ?? "",
         nextFollowUpAt: existing.nextFollowUpAt ? new Date(existing.nextFollowUpAt).toISOString().slice(0, 10) : "",
+        assignedTo: existing.assignedTo ? String(existing.assignedTo) : "",
       });
     }
   }, [existing]);
@@ -126,6 +130,7 @@ export default function LeadForm() {
       revenueModel: form.revenueModel || undefined,
       risks: form.risks || undefined,
       nextFollowUpAt: form.nextFollowUpAt || undefined,
+      assignedTo: form.assignedTo ? parseInt(form.assignedTo) : undefined,
     };
 
     if (isEdit && leadId) {
@@ -249,6 +254,18 @@ export default function LeadForm() {
               <div className="space-y-1.5">
                 <Label>Next Follow-up</Label>
                 <Input type="date" value={form.nextFollowUpAt} onChange={set("nextFollowUpAt")} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Assigned To</Label>
+                <Select value={form.assignedTo || "none"} onValueChange={(v) => setForm((f) => ({ ...f, assignedTo: v === "none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Unassigned" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Unassigned</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>{u.name || u.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>

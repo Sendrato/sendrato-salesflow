@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag } from "lucide-react";
+import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag, UserCircle } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -37,11 +37,16 @@ export default function Leads() {
   const [country, setCountry] = useState<string>("all");
   const [leadType, setLeadType] = useState<string>("all");
   const [label, setLabel] = useState<string>("all");
+  const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bulkLabelOpen, setBulkLabelOpen] = useState(false);
   const [bulkLabelValue, setBulkLabelValue] = useState("");
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+
+  const { data: userList } = trpc.auth.listUsers.useQuery();
+  const users = userList ?? [];
 
   const { data, isLoading, refetch } = trpc.leads.list.useQuery({
     search: search || undefined,
@@ -50,6 +55,7 @@ export default function Leads() {
     country: country === "all" ? undefined : country,
     leadType: leadType === "all" ? undefined : leadType,
     label: label === "all" ? undefined : label,
+    assignedTo: assignedToFilter === "all" ? undefined : Number(assignedToFilter),
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -74,6 +80,16 @@ export default function Leads() {
       refetch();
     },
     onError: () => toast.error("Failed to delete leads"),
+  });
+
+  const bulkAssignMutation = trpc.leads.bulkUpdateAssignedTo.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.updated} lead${result.updated > 1 ? "s" : ""} reassigned`);
+      setSelectedIds(new Set());
+      setBulkAssignOpen(false);
+      refetch();
+    },
+    onError: () => toast.error("Failed to reassign leads"),
   });
 
   const bulkLabelMutation = trpc.leads.bulkUpdateLabel.useMutation({
@@ -206,6 +222,17 @@ export default function Leads() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={assignedToFilter} onValueChange={(v) => { setAssignedToFilter(v); setPage(0); }}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="All Owners" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Owners</SelectItem>
+                  {users.map((u) => (
+                    <SelectItem key={u.id} value={String(u.id)}>{u.name || u.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -253,6 +280,45 @@ export default function Leads() {
                 </div>
               </PopoverContent>
             </Popover>
+            <Popover open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <UserCircle className="h-3.5 w-3.5" />
+                  Assign
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-3" align="start">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Assign owner</div>
+                  {users.map((u) => (
+                    <Button
+                      key={u.id}
+                      variant="ghost"
+                      size="sm"
+                      className="w-full justify-start gap-2 text-sm"
+                      disabled={bulkAssignMutation.isPending}
+                      onClick={() => bulkAssignMutation.mutate({ ids: Array.from(selectedIds), assignedTo: u.id })}
+                    >
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
+                          {getInitials(u.name || u.email || "?")}
+                        </AvatarFallback>
+                      </Avatar>
+                      {u.name || u.email}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start text-sm text-muted-foreground"
+                    disabled={bulkAssignMutation.isPending}
+                    onClick={() => bulkAssignMutation.mutate({ ids: Array.from(selectedIds), assignedTo: null })}
+                  >
+                    Unassign
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               variant="destructive"
               size="sm"
@@ -292,6 +358,8 @@ export default function Leads() {
                   <TableHead className="w-[90px]">
                     <span className="flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> Score</span>
                   </TableHead>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Owner</TableHead>
                   <TableHead>Country</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Last Contact</TableHead>
@@ -302,7 +370,7 @@ export default function Leads() {
                 {isLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 10 }).map((_, j) => (
+                      {Array.from({ length: 12 }).map((_, j) => (
                         <TableCell key={j}>
                           <div className="h-4 bg-muted rounded animate-pulse" />
                         </TableCell>
@@ -311,7 +379,7 @@ export default function Leads() {
                   ))
                 ) : leads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-16 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-16 text-muted-foreground">
                       <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
                       <p>No leads found</p>
                       {search && <p className="text-sm mt-1">Try adjusting your search</p>}
@@ -339,12 +407,7 @@ export default function Leads() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-medium text-sm truncate max-w-[180px]">{lead.companyName}</span>
-                              {(lead as any).label && (
-                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 shrink-0">{(lead as any).label}</Badge>
-                              )}
-                            </div>
+                            <div className="font-medium text-sm truncate max-w-[180px]">{lead.companyName}</div>
                             {lead.website && (
                               <div className="text-xs text-muted-foreground truncate max-w-[180px]">{lead.website}</div>
                             )}
@@ -388,6 +451,30 @@ export default function Leads() {
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
                         )}
+                      </TableCell>
+                      <TableCell>
+                        {(lead as any).label ? (
+                          <Badge variant="secondary" className="text-xs">{(lead as any).label}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const owner = lead.assignedTo ? users.find((u) => u.id === lead.assignedTo) : null;
+                          return owner ? (
+                            <div className="flex items-center gap-1.5">
+                              <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
+                                  {getInitials(owner.name || owner.email || "?")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs truncate max-w-[80px]">{owner.name || owner.email}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-muted-foreground">{lead.country ?? "—"}</span>

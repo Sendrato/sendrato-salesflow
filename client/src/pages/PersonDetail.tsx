@@ -21,9 +21,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
   ArrowLeft, Linkedin, Mail, Phone, Building2, Edit2, Save, X,
-  MessageSquare, Plus, Link2, ExternalLink, Clock, Tag, User,
+  MessageSquare, Plus, Link2, ExternalLink, Clock, Tag, User, UserCircle,
   Calendar, CheckCircle2, AlertCircle, Loader2, MoreVertical, Merge, Trash2, Search,
 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS } from "@/lib/crm";
 import EmailBody from "@/components/EmailBody";
@@ -294,6 +295,9 @@ export default function PersonDetailPage() {
   const { data: person, isLoading, refetch } = trpc.persons.get.useQuery({ id: personId });
   const { data: moments, refetch: refetchMoments } = trpc.persons.getContactMoments.useQuery({ personId });
   const { data: leadLinks, refetch: refetchLinks } = trpc.persons.getLeadLinks.useQuery({ personId });
+  const { data: userList } = trpc.auth.listUsers.useQuery();
+  const users = userList ?? [];
+  const assignedUser = (person as any)?.assignedTo ? users.find((u) => u.id === (person as any).assignedTo) : null;
 
   const updateMutation = trpc.persons.update.useMutation({
     onSuccess: () => { refetch(); setEditing(false); toast.success("Saved"); },
@@ -424,6 +428,50 @@ export default function PersonDetailPage() {
                     {person.company}
                   </span>
                 )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-xs hover:text-primary transition-colors cursor-pointer"
+                      title="Click to assign owner"
+                    >
+                      <UserCircle className="h-3 w-3" />
+                      {assignedUser ? (
+                        <span className="font-medium">{assignedUser.name || assignedUser.email}</span>
+                      ) : (
+                        <span className="text-muted-foreground">Assign owner</span>
+                      )}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-2" align="start">
+                    {users.map((u) => (
+                      <Button
+                        key={u.id}
+                        variant={(person as any).assignedTo === u.id ? "secondary" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start gap-2 text-sm"
+                        onClick={() => updateMutation.mutate({ id: personId, data: { assignedTo: u.id } })}
+                      >
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
+                            {getInitials(u.name || u.email || "?")}
+                          </AvatarFallback>
+                        </Avatar>
+                        {u.name || u.email}
+                      </Button>
+                    ))}
+                    {(person as any).assignedTo && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-sm text-muted-foreground mt-1"
+                        onClick={() => updateMutation.mutate({ id: personId, data: { assignedTo: null as any } })}
+                      >
+                        Unassign
+                      </Button>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
           </div>

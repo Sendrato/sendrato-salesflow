@@ -102,7 +102,7 @@ export const appRouter = router({
         return { tempPassword };
       }),
 
-    listUsers: adminProcedure.query(async () => {
+    listUsers: protectedProcedure.query(async () => {
       return db.listUsers();
     }),
 

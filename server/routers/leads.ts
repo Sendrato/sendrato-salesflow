@@ -61,6 +61,7 @@ export const leadsRouter = router({
         country: z.string().optional(),
         leadType: z.string().optional(),
         label: z.string().optional(),
+        assignedTo: z.number().optional(),
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       })
@@ -122,6 +123,15 @@ export const leadsRouter = router({
     .mutation(async ({ input }) => {
       for (const id of input.ids) {
         await updateLead(id, { label: input.label || null });
+      }
+      return { success: true, updated: input.ids.length };
+    }),
+
+  bulkUpdateAssignedTo: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()).min(1), assignedTo: z.number().nullable() }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await updateLead(id, { assignedTo: input.assignedTo });
       }
       return { success: true, updated: input.ids.length };
     }),

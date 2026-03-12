@@ -296,6 +296,7 @@ export const persons = pgTable("persons", {
   enrichedAt: timestamp("enrichedAt"),
   lastContactedAt: timestamp("lastContactedAt"),
   nextFollowUpAt: timestamp("nextFollowUpAt"),
+  assignedTo: integer("assignedTo"),
   createdBy: integer("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),

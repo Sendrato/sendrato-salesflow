@@ -8,12 +8,13 @@ import type { InsertPerson, InsertPersonLeadLink } from "../drizzle/schema";
 export async function getPersons(opts: {
   search?: string;
   personType?: string;
+  assignedTo?: number;
   limit?: number;
   offset?: number;
 }) {
   const db = await getDb();
   if (!db) return [];
-  const { search, personType, limit = 50, offset = 0 } = opts;
+  const { search, personType, assignedTo, limit = 50, offset = 0 } = opts;
 
   const conditions = [];
   if (search) {
@@ -30,6 +31,9 @@ export async function getPersons(opts: {
   }
   if (personType) {
     conditions.push(eq(persons.personType, personType as any));
+  }
+  if (assignedTo) {
+    conditions.push(eq(persons.assignedTo, assignedTo));
   }
 
   const rows = await db
@@ -248,10 +252,10 @@ export function buildPersonText(p: typeof persons.$inferSelect): string {
 
 // ─── Person count helper ───────────────────────────────────────────────────────
 
-export async function getPersonsCount(opts: { search?: string; personType?: string }) {
+export async function getPersonsCount(opts: { search?: string; personType?: string; assignedTo?: number }) {
   const db = await getDb();
   if (!db) return 0;
-  const { search, personType } = opts;
+  const { search, personType, assignedTo } = opts;
   const conditions = [];
   if (search) {
     const term = `%${search.toLowerCase()}%`;
@@ -265,6 +269,7 @@ export async function getPersonsCount(opts: { search?: string; personType?: stri
     );
   }
   if (personType) conditions.push(eq(persons.personType, personType as any));
+  if (assignedTo) conditions.push(eq(persons.assignedTo, assignedTo));
   const [row] = await db
     .select({ count: sql<number>`count(*)` })
     .from(persons)

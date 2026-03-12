@@ -321,13 +321,18 @@ export default function PersonsPage() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [personType, setPersonType] = useState("all");
+  const [assignedToFilter, setAssignedToFilter] = useState("all");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
+  const { data: userList } = trpc.auth.listUsers.useQuery();
+  const users = userList ?? [];
+
   const { data, isLoading, refetch } = trpc.persons.list.useQuery({
     search: debouncedSearch || undefined,
     personType: personType !== "all" ? personType : undefined,
+    assignedTo: assignedToFilter !== "all" ? Number(assignedToFilter) : undefined,
     limit: 100,
   });
 
@@ -431,6 +436,17 @@ export default function PersonsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
+            <SelectTrigger className="w-[160px] h-9 text-sm">
+              <SelectValue placeholder="All Owners" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Owners</SelectItem>
+              {users.map((u) => (
+                <SelectItem key={u.id} value={String(u.id)}>{u.name || u.email}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Selection bar */}
@@ -484,6 +500,7 @@ export default function PersonsPage() {
                     <TableHead className="text-xs font-semibold">Type</TableHead>
                     <TableHead className="text-xs font-semibold">Company</TableHead>
                     <TableHead className="text-xs font-semibold">Contact</TableHead>
+                    <TableHead className="text-xs font-semibold">Owner</TableHead>
                     <TableHead className="text-xs font-semibold">Last Contact</TableHead>
                     <TableHead className="text-xs font-semibold">Source</TableHead>
                     <TableHead />
@@ -558,6 +575,23 @@ export default function PersonsPage() {
                             </a>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {(() => {
+                          const owner = (person as any).assignedTo ? users.find((u) => u.id === (person as any).assignedTo) : null;
+                          return owner ? (
+                            <div className="flex items-center gap-1.5">
+                              <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
+                                  {getInitials(owner.name || owner.email || "?")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs truncate max-w-[80px]">{owner.name || owner.email}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-muted-foreground">

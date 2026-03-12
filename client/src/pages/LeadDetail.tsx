@@ -12,12 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ArrowLeft, Edit, Plus, Globe, Mail, Phone, Building2, Tag, Clock, FileText,
   Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
   Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
   Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords, MoreVertical, Merge, Search,
-  ChevronRight, Check, PauseCircle, XCircle, CalendarRange, MapPin, Pencil,
+  ChevronRight, Check, PauseCircle, XCircle, CalendarRange, MapPin, Pencil, UserCircle,
 } from "lucide-react";
 import { useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
@@ -257,6 +258,9 @@ export default function LeadDetail() {
   const existingLabels = Array.from(
     new Set((allLeadsForLabels?.items ?? []).map((l) => (l as any).label).filter(Boolean) as string[])
   ).sort();
+  const { data: userList } = trpc.auth.listUsers.useQuery();
+  const users = userList ?? [];
+  const assignedUser = lead?.assignedTo ? users.find((u) => u.id === lead.assignedTo) : null;
   const isEventPromotor = (lead as any)?.leadType === "event_promotor";
   const { data: promotorEventsList, refetch: refetchPromotorEvents } = trpc.promotorEvents.list.useQuery(
     { leadId },
@@ -551,6 +555,51 @@ export default function LeadDetail() {
                         )}
                       </button>
                     )}
+                    {/* Owner / Assigned To */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 text-xs hover:text-primary transition-colors cursor-pointer"
+                          title="Click to assign owner"
+                        >
+                          <UserCircle className="h-3 w-3" />
+                          {assignedUser ? (
+                            <span className="font-medium">{assignedUser.name || assignedUser.email}</span>
+                          ) : (
+                            <span className="text-muted-foreground">Assign owner</span>
+                          )}
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48 p-2" align="start">
+                        {users.map((u) => (
+                          <Button
+                            key={u.id}
+                            variant={lead.assignedTo === u.id ? "secondary" : "ghost"}
+                            size="sm"
+                            className="w-full justify-start gap-2 text-sm"
+                            onClick={() => updateLeadMutation.mutate({ id: leadId, data: { assignedTo: u.id } })}
+                          >
+                            <Avatar className="h-5 w-5">
+                              <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
+                                {getInitials(u.name || u.email || "?")}
+                              </AvatarFallback>
+                            </Avatar>
+                            {u.name || u.email}
+                          </Button>
+                        ))}
+                        {lead.assignedTo && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full justify-start text-sm text-muted-foreground mt-1"
+                            onClick={() => updateLeadMutation.mutate({ id: leadId, data: { assignedTo: null as any } })}
+                          >
+                            Unassign
+                          </Button>
+                        )}
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
                     {lead.website && (

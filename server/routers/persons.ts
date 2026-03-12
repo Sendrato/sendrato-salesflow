@@ -40,6 +40,7 @@ const personInputSchema = z.object({
   source: z.string().optional(),
   twitterUrl: z.string().optional(),
   nextFollowUpAt: z.string().optional(),
+  assignedTo: z.number().optional(),
 });
 
 export const personsRouter = router({
@@ -48,6 +49,7 @@ export const personsRouter = router({
       z.object({
         search: z.string().optional(),
         personType: z.string().optional(),
+        assignedTo: z.number().optional(),
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       })

@@ -57,6 +57,14 @@ export async function getDb() {
             await _pool.query(`ALTER TABLE leads ADD COLUMN "label" varchar(128)`);
             console.log("[DB] Added 'label' column to leads");
           }
+          // Ensure persons.assignedTo column exists
+          const personsColCheck = await _pool.query(
+            `SELECT 1 FROM information_schema.columns WHERE table_name = 'persons' AND column_name = 'assignedTo'`
+          );
+          if (personsColCheck.rows.length === 0) {
+            await _pool.query(`ALTER TABLE persons ADD COLUMN "assignedTo" integer`);
+            console.log("[DB] Added 'assignedTo' column to persons");
+          }
         } catch (e) {
           console.warn("[DB] Schema patch failed:", e);
         }
