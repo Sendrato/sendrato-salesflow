@@ -67,31 +67,31 @@ export async function getDb() {
             await _pool.query(`ALTER TABLE persons ADD COLUMN "assignedTo" integer`);
             console.log("[DB] Added 'assignedTo' column to persons");
           }
-          // Ensure leads.leadSize column exists + backfill from leadAttributes
+          // Ensure leads.leadSize column exists
           const leadSizeCheck = await _pool.query(
             `SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'leadSize'`
           );
           if (leadSizeCheck.rows.length === 0) {
             await _pool.query(`ALTER TABLE leads ADD COLUMN "leadSize" integer`);
             console.log("[DB] Added 'leadSize' column to leads");
-            // Backfill leadSize from leadAttributes JSON
-            try {
-              const { getLeadSize } = await import("../shared/leadAttributeSchemas");
-              const allLeads = await _pool.query(
-                `SELECT id, "leadType", "leadAttributes" FROM leads WHERE "leadAttributes" IS NOT NULL`
-              );
-              let backfilled = 0;
-              for (const row of allLeads.rows) {
-                const size = getLeadSize(row.leadType || "default", row.leadAttributes);
-                if (size !== null) {
-                  await _pool.query(`UPDATE leads SET "leadSize" = $1 WHERE id = $2`, [size, row.id]);
-                  backfilled++;
-                }
+          }
+          // Always backfill leadSize for leads that have attributes but no size yet
+          try {
+            const { getLeadSize: calcSize } = await import("../shared/leadAttributeSchemas");
+            const missingSize = await _pool.query(
+              `SELECT id, "leadType", "leadAttributes" FROM leads WHERE "leadAttributes" IS NOT NULL AND "leadSize" IS NULL`
+            );
+            let backfilled = 0;
+            for (const row of missingSize.rows) {
+              const size = calcSize(row.leadType || "default", row.leadAttributes);
+              if (size !== null) {
+                await _pool.query(`UPDATE leads SET "leadSize" = $1 WHERE id = $2`, [size, row.id]);
+                backfilled++;
               }
-              if (backfilled > 0) console.log(`[DB] Backfilled leadSize for ${backfilled} leads`);
-            } catch (e) {
-              console.warn("[DB] leadSize backfill failed:", e);
             }
+            if (backfilled > 0) console.log(`[DB] Backfilled leadSize for ${backfilled} leads`);
+          } catch (e) {
+            console.warn("[DB] leadSize backfill failed:", e);
           }
         } catch (e) {
           console.warn("[DB] Schema patch failed:", e);
