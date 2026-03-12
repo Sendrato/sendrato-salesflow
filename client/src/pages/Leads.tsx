@@ -15,7 +15,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag } from "lucide-react";
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
@@ -35,9 +36,12 @@ export default function Leads() {
   const [priority, setPriority] = useState<string>("all");
   const [country, setCountry] = useState<string>("all");
   const [leadType, setLeadType] = useState<string>("all");
+  const [label, setLabel] = useState<string>("all");
   const [page, setPage] = useState(0);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [bulkLabelOpen, setBulkLabelOpen] = useState(false);
+  const [bulkLabelValue, setBulkLabelValue] = useState("");
 
   const { data, isLoading, refetch } = trpc.leads.list.useQuery({
     search: search || undefined,
@@ -45,6 +49,7 @@ export default function Leads() {
     priority: priority === "all" ? undefined : priority,
     country: country === "all" ? undefined : country,
     leadType: leadType === "all" ? undefined : leadType,
+    label: label === "all" ? undefined : label,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -53,6 +58,9 @@ export default function Leads() {
   const { data: allLeadsData } = trpc.leads.list.useQuery({ limit: 1000 });
   const countries = Array.from(
     new Set((allLeadsData?.items ?? []).map((l) => l.country).filter(Boolean) as string[])
+  ).sort();
+  const labels = Array.from(
+    new Set((allLeadsData?.items ?? []).map((l) => (l as any).label).filter(Boolean) as string[])
   ).sort();
 
   const leads = data?.items ?? [];
@@ -66,6 +74,17 @@ export default function Leads() {
       refetch();
     },
     onError: () => toast.error("Failed to delete leads"),
+  });
+
+  const bulkLabelMutation = trpc.leads.bulkUpdateLabel.useMutation({
+    onSuccess: (result) => {
+      toast.success(`${result.updated} lead${result.updated > 1 ? "s" : ""} updated`);
+      setSelectedIds(new Set());
+      setBulkLabelOpen(false);
+      setBulkLabelValue("");
+      refetch();
+    },
+    onError: () => toast.error("Failed to update labels"),
   });
 
   const allOnPageSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
@@ -176,14 +195,66 @@ export default function Leads() {
                   </SelectContent>
                 </Select>
               )}
+              {labels.length > 0 && (
+                <Select value={label} onValueChange={(v) => { setLabel(v); setPage(0); }}>
+                  <SelectTrigger className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="All Labels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Labels</SelectItem>
+                    {labels.map((l) => (
+                      <SelectItem key={l} value={l}>{l}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Selection bar */}
         {someSelected && (
-          <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="flex items-center gap-3 px-4 py-2 bg-muted border rounded-lg">
             <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <Popover open={bulkLabelOpen} onOpenChange={setBulkLabelOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  <Tag className="h-3.5 w-3.5" />
+                  Set Label
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 p-3" align="start">
+                <div className="space-y-2">
+                  <div className="text-sm font-medium">Assign label to {selectedIds.size} lead{selectedIds.size > 1 ? "s" : ""}</div>
+                  <Input
+                    value={bulkLabelValue}
+                    onChange={(e) => setBulkLabelValue(e.target.value)}
+                    placeholder="Type label or leave empty to clear"
+                    className="text-sm"
+                    list="bulk-label-suggestions"
+                    autoFocus
+                  />
+                  <datalist id="bulk-label-suggestions">
+                    {labels.map((l) => (
+                      <option key={l} value={l} />
+                    ))}
+                  </datalist>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="ghost" size="sm" onClick={() => setBulkLabelOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={bulkLabelMutation.isPending}
+                      onClick={() => bulkLabelMutation.mutate({ ids: Array.from(selectedIds), label: bulkLabelValue.trim() })}
+                    >
+                      {bulkLabelMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button
               variant="destructive"
               size="sm"
@@ -270,7 +341,12 @@ export default function Leads() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <div className="font-medium text-sm truncate max-w-[180px]">{lead.companyName}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-medium text-sm truncate max-w-[180px]">{lead.companyName}</span>
+                              {(lead as any).label && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 shrink-0">{(lead as any).label}</Badge>
+                              )}
+                            </div>
                             {lead.website && (
                               <div className="text-xs text-muted-foreground truncate max-w-[180px]">{lead.website}</div>
                             )}

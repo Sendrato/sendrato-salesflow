@@ -6,7 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, ArrowRight, X } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 import { useState, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
 import { LEAD_TYPE_SCHEMAS, getLeadTypeOptions } from "@shared/leadAttributeSchemas";
@@ -69,7 +71,14 @@ export default function Import() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [leadType, setLeadType] = useState("default");
+  const [importLabel, setImportLabel] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch existing labels for suggestions
+  const { data: allLeadsData } = trpc.leads.list.useQuery({ limit: 1000 });
+  const existingLabels = Array.from(
+    new Set((allLeadsData?.items ?? []).map((l) => (l as any).label).filter(Boolean) as string[])
+  ).sort();
 
   const schema = LEAD_TYPE_SCHEMAS[leadType];
 
@@ -159,6 +168,7 @@ export default function Import() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("leadType", leadType);
+      if (importLabel.trim()) formData.append("label", importLabel.trim());
       // Build mapping excluding "skip"
       const effectiveMapping: Record<string, string> = {};
       for (const [col, field] of Object.entries(mapping)) {
@@ -183,6 +193,7 @@ export default function Import() {
     setMapping({});
     setResult(null);
     setLeadType("default");
+    setImportLabel("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -283,6 +294,19 @@ export default function Import() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <div className="text-xs text-muted-foreground">Label:</div>
+                    <Input
+                      value={importLabel}
+                      onChange={(e) => setImportLabel(e.target.value)}
+                      placeholder="Optional label..."
+                      className="h-8 w-[160px] text-xs"
+                      list="import-label-suggestions"
+                    />
+                    <datalist id="import-label-suggestions">
+                      {existingLabels.map((l) => (
+                        <option key={l} value={l} />
+                      ))}
+                    </datalist>
                     <Button variant="ghost" size="sm" onClick={reset} className="gap-1">
                       <X className="h-4 w-4" />
                       Clear
@@ -346,6 +370,9 @@ export default function Import() {
                       {preview.totalRows} rows to process
                       {leadType !== "default" && (
                         <> · Lead type: <span className="font-medium">{schema?.label}</span></>
+                      )}
+                      {importLabel.trim() && (
+                        <> · Label: <span className="font-medium">{importLabel.trim()}</span></>
                       )}
                     </div>
                     {!Object.values(mapping).includes("companyName") && (

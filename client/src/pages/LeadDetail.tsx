@@ -242,6 +242,9 @@ export default function LeadDetail() {
   const [eventAttributes, setEventAttributes] = useState<Record<string, unknown>>({});
   const [eventNotes, setEventNotes] = useState("");
 
+  const [labelEditing, setLabelEditing] = useState(false);
+  const [labelValue, setLabelValue] = useState("");
+
   const { data: lead, isLoading, refetch } = trpc.leads.get.useQuery({ id: leadId });
   const { data: moments } = trpc.contactMoments.list.useQuery({ leadId });
   const { data: documents } = trpc.documents.list.useQuery({ leadId });
@@ -250,6 +253,10 @@ export default function LeadDetail() {
   const { data: allPersons } = trpc.persons.list.useQuery({ search: personSearch, limit: 20 });
   const { data: linkedCompetitors, refetch: refetchCompetitors } = trpc.competitors.getCompetitorsForLead.useQuery({ leadId });
   const { data: allCompetitors } = trpc.competitors.list.useQuery({ search: competitorSearch, limit: 20 });
+  const { data: allLeadsForLabels } = trpc.leads.list.useQuery({ limit: 1000 });
+  const existingLabels = Array.from(
+    new Set((allLeadsForLabels?.items ?? []).map((l) => (l as any).label).filter(Boolean) as string[])
+  ).sort();
   const isEventPromotor = (lead as any)?.leadType === "event_promotor";
   const { data: promotorEventsList, refetch: refetchPromotorEvents } = trpc.promotorEvents.list.useQuery(
     { leadId },
@@ -500,6 +507,49 @@ export default function LeadDetail() {
                     )}
                     {lead.source && (
                       <span className="text-xs text-muted-foreground">via {lead.source}</span>
+                    )}
+                    {/* Label / Group */}
+                    {labelEditing ? (
+                      <div className="relative" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                          value={labelValue}
+                          onChange={(e) => setLabelValue(e.target.value)}
+                          onBlur={() => {
+                            const trimmed = labelValue.trim();
+                            updateLeadMutation.mutate(
+                              { id: leadId, data: { label: trimmed || undefined } },
+                              { onSettled: () => setLabelEditing(false) }
+                            );
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                            if (e.key === "Escape") setLabelEditing(false);
+                          }}
+                          placeholder="Type label..."
+                          className="h-6 w-32 text-xs px-2"
+                          autoFocus
+                          list="label-suggestions"
+                        />
+                        <datalist id="label-suggestions">
+                          {existingLabels.map((l) => (
+                            <option key={l} value={l} />
+                          ))}
+                        </datalist>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => { setLabelValue((lead as any).label ?? ""); setLabelEditing(true); }}
+                        className="flex items-center gap-1 text-xs hover:text-primary transition-colors cursor-pointer"
+                        title="Click to set label"
+                      >
+                        <Tag className="h-3 w-3" />
+                        {(lead as any).label ? (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{(lead as any).label}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">Add label</span>
+                        )}
+                      </button>
                     )}
                   </div>
                   <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">

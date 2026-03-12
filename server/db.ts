@@ -49,8 +49,16 @@ export async function getDb() {
               console.log(`[DB] Added '${value}' to enum '${type}'`);
             }
           }
+          // Ensure new columns exist
+          const colCheck = await _pool.query(
+            `SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'label'`
+          );
+          if (colCheck.rows.length === 0) {
+            await _pool.query(`ALTER TABLE leads ADD COLUMN "label" varchar(128)`);
+            console.log("[DB] Added 'label' column to leads");
+          }
         } catch (e) {
-          console.warn("[DB] Enum patch failed:", e);
+          console.warn("[DB] Schema patch failed:", e);
         }
       }
     } catch (error) {
@@ -179,6 +187,7 @@ export async function getLeads(opts: {
   source?: string;
   country?: string;
   leadType?: string;
+  label?: string;
   assignedTo?: number;
   limit?: number;
   offset?: number;
@@ -204,6 +213,7 @@ export async function getLeads(opts: {
   if (opts.source) conditions.push(eq(leads.source, opts.source));
   if (opts.country) conditions.push(eq(leads.country, opts.country));
   if (opts.leadType) conditions.push(eq(leads.leadType, opts.leadType as Lead["leadType"]));
+  if (opts.label) conditions.push(eq(leads.label, opts.label));
   if (opts.assignedTo) conditions.push(eq(leads.assignedTo, opts.assignedTo));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;

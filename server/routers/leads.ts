@@ -44,6 +44,7 @@ const leadInputSchema = z.object({
   surveyStatus: z.string().optional(),
   notes: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  label: z.string().optional(),
   nextFollowUpAt: z.string().optional(),
   leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail", "partner", "event_promotor"]).optional().default("default"),
   leadAttributes: z.record(z.string(), z.unknown()).optional(),
@@ -59,6 +60,7 @@ export const leadsRouter = router({
         source: z.string().optional(),
         country: z.string().optional(),
         leadType: z.string().optional(),
+        label: z.string().optional(),
         limit: z.number().optional().default(50),
         offset: z.number().optional().default(0),
       })
@@ -113,6 +115,15 @@ export const leadsRouter = router({
         await deleteLead(id);
       }
       return { success: true, deleted: input.ids.length };
+    }),
+
+  bulkUpdateLabel: protectedProcedure
+    .input(z.object({ ids: z.array(z.number()).min(1), label: z.string() }))
+    .mutation(async ({ input }) => {
+      for (const id of input.ids) {
+        await updateLead(id, { label: input.label || null });
+      }
+      return { success: true, updated: input.ids.length };
     }),
 
   merge: protectedProcedure

@@ -221,6 +221,7 @@ export function registerIntegrationRoutes(app: Express) {
       const mappingRaw = req.body.mapping;
       const mapping: Record<string, string> = mappingRaw ? JSON.parse(mappingRaw) : {};
       const reqLeadType: string = req.body.leadType ?? "default";
+      const reqLabel: string | undefined = req.body.label || undefined;
 
       const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
@@ -332,6 +333,9 @@ export function registerIntegrationRoutes(app: Express) {
             lead.leadAttributes = attrs;
           } else if (reqLeadType !== "default") {
             lead.leadType = reqLeadType;
+          }
+          if (reqLabel) {
+            lead.label = reqLabel;
           }
           return lead;
         })

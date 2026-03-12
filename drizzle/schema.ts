@@ -168,6 +168,8 @@ export const leads = pgTable("leads", {
   enrichedAt: timestamp("enrichedAt"),
   // Tags stored as JSON array of strings
   tags: json("tags").$type<string[]>(),
+  // Single label/group for categorization
+  label: varchar("label", { length: 128 }),
   // Priority score (0-100, computed from activity + recency + opportunity)
   priorityScore: integer("priorityScore").default(0),
   // Timestamps
