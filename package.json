@@ -10,7 +10,7 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
-    "db:push": "tsx server/db-migrate-enums.ts && drizzle-kit generate && drizzle-kit migrate"
+    "db:push": "npx tsx server/db-migrate-enums.ts && drizzle-kit generate && drizzle-kit migrate"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
