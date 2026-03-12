@@ -144,25 +144,13 @@ Return a JSON object with these fields:
 }
 
 export function registerCrmChatRoutes(app: Express) {
-  // In-memory chat history store (keyed by chatId)
-  const chatHistories = new Map<string, any[]>();
-
   // CRM AI Chat endpoint with RAG
   app.post("/api/crm-chat", async (req, res) => {
     try {
-      const { message, chatId, messages: legacyMessages } = req.body;
+      const { messages: uiMessages, chatId } = req.body;
 
-      let uiMessages: any[];
-      if (message) {
-        const historyKey = chatId ?? "default";
-        const history = chatHistories.get(historyKey) ?? [];
-        history.push(message);
-        chatHistories.set(historyKey, history);
-        uiMessages = history;
-      } else if (legacyMessages && Array.isArray(legacyMessages)) {
-        uiMessages = legacyMessages;
-      } else {
-        res.status(400).json({ error: "message or messages array is required" });
+      if (!uiMessages || !Array.isArray(uiMessages) || uiMessages.length === 0) {
+        res.status(400).json({ error: "messages array is required" });
         return;
       }
 
@@ -372,7 +360,6 @@ Guidelines:
       // Convert UIMessages to model messages for the LLM
       const modelMessages = await convertToModelMessages(uiMessages);
 
-      const historyKey = chatId ?? "default";
       const stream = createUIMessageStream({
         execute: async ({ writer }) => {
           writer.write({ type: "start", messageId: generateId() });
@@ -388,16 +375,6 @@ Guidelines:
 
           result.consumeStream();
           writer.merge(result.toUIMessageStream({ sendStart: false }));
-        },
-        onFinish: async ({ messages: finalMessages }) => {
-          const assistantMsg = finalMessages[finalMessages.length - 1];
-          if (assistantMsg?.role === "assistant") {
-            const history = chatHistories.get(historyKey) ?? [];
-            if (!history.find((m: any) => m.id === assistantMsg.id)) {
-              history.push(assistantMsg);
-              chatHistories.set(historyKey, history);
-            }
-          }
         },
       });
 

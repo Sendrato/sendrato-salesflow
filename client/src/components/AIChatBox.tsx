@@ -354,21 +354,10 @@ export function AIChatBox({
     // Note: This makes it "controlled" - we sync via setMessages on changes
     messages: initialMessages,
 
-    // Transport configuration - how messages are sent to the server
+    // Transport configuration - sends all messages to the server
     transport: new DefaultChatTransport({
       api,
-      // Customize the request body sent to your server
-      prepareSendMessagesRequest({ messages, id }) {
-        // Send only the latest message + metadata
-        // Server should load full history from DB using chatId
-        return {
-          body: {
-            message: messages[messages.length - 1],
-            chatId: chatId || id,
-            userId,
-          },
-        };
-      },
+      body: { chatId, userId },
     }),
 
     // Called when streaming completes
