@@ -82,6 +82,7 @@ interface LeadAttributeEditorProps {
   attributes: Record<string, unknown>;
   onLeadTypeChange?: (newType: string) => void;
   onAttributesChange?: (newAttributes: Record<string, unknown>) => void;
+  onSave?: (newType: string, newAttributes: Record<string, unknown>) => void;
   readOnly?: boolean;
   compact?: boolean; // for list view
 }
@@ -218,6 +219,7 @@ export function LeadAttributeEditor({
   attributes,
   onLeadTypeChange,
   onAttributesChange,
+  onSave,
   readOnly = false,
   compact = false,
 }: LeadAttributeEditorProps) {
@@ -234,8 +236,12 @@ export function LeadAttributeEditor({
   );
 
   function handleSave() {
-    onLeadTypeChange?.(localType);
-    onAttributesChange?.(localAttrs);
+    if (onSave) {
+      onSave(localType, localAttrs);
+    } else {
+      onLeadTypeChange?.(localType);
+      onAttributesChange?.(localAttrs);
+    }
     setIsEditing(false);
   }
 

@@ -3,14 +3,18 @@
  * Drizzle-kit cannot reliably ALTER TYPE ... ADD VALUE for existing enums,
  * so we run these manually before drizzle-kit generate/migrate.
  */
-import "dotenv/config";
+import { config } from "dotenv";
+import { resolve } from "path";
 import pg from "pg";
+
+// Load .env from the project root (same as drizzle-kit does)
+config({ path: resolve(process.cwd(), ".env") });
 
 async function main() {
   const url = process.env.DATABASE_URL;
   if (!url) {
-    console.error("DATABASE_URL is required");
-    process.exit(1);
+    console.warn("DATABASE_URL not found, skipping enum migration");
+    return;
   }
 
   const pool = new pg.Pool({ connectionString: url });

@@ -868,11 +868,11 @@ export default function LeadDetail() {
             <LeadAttributeEditor
               leadType={(lead as any).leadType ?? 'default'}
               attributes={((lead as any).leadAttributes ?? {}) as Record<string, unknown>}
-              onLeadTypeChange={async (newType) => {
-                await updateLeadMutation.mutateAsync({ id: leadId, data: { leadType: newType as any } });
-              }}
-              onAttributesChange={async (newAttrs) => {
-                await updateLeadMutation.mutateAsync({ id: leadId, data: { leadAttributes: newAttrs } });
+              onSave={async (newType, newAttrs) => {
+                await updateLeadMutation.mutateAsync({
+                  id: leadId,
+                  data: { leadType: newType as any, leadAttributes: newAttrs },
+                });
               }}
             />
 

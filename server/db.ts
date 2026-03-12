@@ -25,11 +25,34 @@ import {
 let _db: ReturnType<typeof drizzle> | null = null;
 let _pool: pg.Pool | null = null;
 
+let _enumsPatched = false;
+
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
       _pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
       _db = drizzle(_pool);
+      // Ensure enum values exist (drizzle-kit cannot ALTER TYPE ADD VALUE)
+      if (!_enumsPatched) {
+        _enumsPatched = true;
+        try {
+          const enumAdditions = [
+            { type: "lead_type", value: "event_promotor" },
+          ];
+          for (const { type, value } of enumAdditions) {
+            const check = await _pool.query(
+              `SELECT 1 FROM pg_enum WHERE enumlabel = $1 AND enumtypid = (SELECT oid FROM pg_type WHERE typname = $2)`,
+              [value, type]
+            );
+            if (check.rows.length === 0) {
+              await _pool.query(`ALTER TYPE "${type}" ADD VALUE '${value}'`);
+              console.log(`[DB] Added '${value}' to enum '${type}'`);
+            }
+          }
+        } catch (e) {
+          console.warn("[DB] Enum patch failed:", e);
+        }
+      }
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
