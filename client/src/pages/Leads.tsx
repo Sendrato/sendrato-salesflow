@@ -367,7 +367,7 @@ export default function Leads() {
                     />
                   </TableHead>
                   <TableHead className="w-[280px]">Company</TableHead>
-                  <TableHead>Contact</TableHead>
+                  <TableHead>Owner</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead className="w-[90px]">
@@ -431,8 +431,21 @@ export default function Leads() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">{lead.contactPerson ?? "—"}</div>
-                        <div className="text-xs text-muted-foreground">{lead.email ?? ""}</div>
+                        {(() => {
+                          const owner = lead.assignedTo ? users.find((u) => u.id === lead.assignedTo) : null;
+                          return owner ? (
+                            <div className="flex items-center gap-1.5">
+                              <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
+                                  {getInitials(owner.name || owner.email || "?")}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs truncate max-w-[80px]">{owner.name || owner.email}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Badge
