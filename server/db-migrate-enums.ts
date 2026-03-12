@@ -3,6 +3,7 @@
  * Drizzle-kit cannot reliably ALTER TYPE ... ADD VALUE for existing enums,
  * so we run these manually before drizzle-kit generate/migrate.
  */
+import "dotenv/config";
 import pg from "pg";
 
 async function main() {
