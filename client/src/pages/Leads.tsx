@@ -375,7 +375,7 @@ export default function Leads() {
                   </TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Label</TableHead>
-                  <TableHead>Owner</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Country</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Last Contact</TableHead>
@@ -490,21 +490,13 @@ export default function Leads() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {(() => {
-                          const owner = lead.assignedTo ? users.find((u) => u.id === lead.assignedTo) : null;
-                          return owner ? (
-                            <div className="flex items-center gap-1.5">
-                              <Avatar className="h-5 w-5">
-                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
-                                  {getInitials(owner.name || owner.email || "?")}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs truncate max-w-[80px]">{owner.name || owner.email}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          );
-                        })()}
+                        {LEAD_TYPE_SCHEMAS[lead.leadType] ? (
+                          <Badge variant="outline" className={`text-xs border ${LEAD_TYPE_SCHEMAS[lead.leadType].color}`}>
+                            {LEAD_TYPE_SCHEMAS[lead.leadType].label}
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-muted-foreground">{lead.country ?? "—"}</span>
