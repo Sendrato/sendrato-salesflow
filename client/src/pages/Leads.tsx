@@ -195,19 +195,17 @@ export default function Leads() {
                   </SelectContent>
                 </Select>
               )}
-              {labels.length > 0 && (
-                <Select value={label} onValueChange={(v) => { setLabel(v); setPage(0); }}>
-                  <SelectTrigger className="w-full sm:w-[160px]">
-                    <SelectValue placeholder="All Labels" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Labels</SelectItem>
-                    {labels.map((l) => (
-                      <SelectItem key={l} value={l}>{l}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              <Select value={label} onValueChange={(v) => { setLabel(v); setPage(0); }}>
+                <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="All Labels" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Labels</SelectItem>
+                  {labels.map((l) => (
+                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </CardContent>
         </Card>
