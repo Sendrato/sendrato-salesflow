@@ -826,6 +826,7 @@ function UnmatchedEmailsCard() {
       setMatchDialogOpen(false);
       setMatchingEmail(null);
     },
+    onError: () => toast.error("Failed to match email"),
   });
 
   const dismissMutation = trpc.analytics.dismissEmail.useMutation({

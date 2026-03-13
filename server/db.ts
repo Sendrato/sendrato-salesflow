@@ -820,6 +820,9 @@ export async function matchIngestEmail(
     })
     .where(eq(emailIngestLog.id, ingestId));
 
+  // Ensure proper Date object for timestamp columns (Drizzle requires .toISOString())
+  const occurredDate = entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt);
+
   // Create a contact moment from the ingest data
   const [moment] = await db
     .insert(contactMoments)
@@ -828,12 +831,12 @@ export async function matchIngestEmail(
       personId: opts.personId ?? null,
       userId: opts.userId,
       type: "email",
-      direction: "outbound",
+      direction: "inbound",
       subject: entry.parsedSubject ?? undefined,
       notes: `From: ${entry.parsedFrom ?? "unknown"}\nTo: ${entry.parsedTo ?? "unknown"}`,
       source: "manual_match",
       outcome: "neutral",
-      occurredAt: entry.createdAt,
+      occurredAt: occurredDate,
     })
     .returning({ id: contactMoments.id });
 
@@ -843,7 +846,7 @@ export async function matchIngestEmail(
       .update(leads)
       .set({
         status: sql`CASE WHEN ${leads.status} = 'new' THEN 'contacted' ELSE ${leads.status} END`,
-        lastContactedAt: entry.createdAt,
+        lastContactedAt: occurredDate,
         updatedAt: new Date(),
       })
       .where(eq(leads.id, opts.leadId));
