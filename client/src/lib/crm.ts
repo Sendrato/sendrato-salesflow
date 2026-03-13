@@ -73,6 +73,43 @@ export function formatDate(date: Date | string | null | undefined): string {
   });
 }
 
+export function formatDateTime(date: Date | string | null | undefined): string {
+  if (!date) return "—";
+  const d = new Date(date);
+  const dateStr = d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const hours = d.getHours();
+  const minutes = d.getMinutes();
+  if (hours === 0 && minutes === 0) return dateStr;
+  const timeStr = d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${dateStr} · ${timeStr}`;
+}
+
+export function buildGoogleCalendarUrl(params: {
+  title: string;
+  start: Date;
+  durationMinutes?: number;
+  details?: string;
+}): string {
+  const { title, start, durationMinutes = 60, details } = params;
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+  const fmt = (d: Date) =>
+    d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const url = new URL("https://calendar.google.com/calendar/render");
+  url.searchParams.set("action", "TEMPLATE");
+  url.searchParams.set("text", title);
+  url.searchParams.set("dates", `${fmt(start)}/${fmt(end)}`);
+  if (details) url.searchParams.set("details", details);
+  return url.toString();
+}
+
 export function formatRelativeTime(date: Date | string | null | undefined): string {
   if (!date) return "Never";
   const d = new Date(date);

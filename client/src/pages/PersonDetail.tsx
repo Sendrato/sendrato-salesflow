@@ -22,11 +22,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import {
   ArrowLeft, Linkedin, Mail, Phone, Building2, Edit2, Save, X,
   MessageSquare, Plus, Link2, ExternalLink, Clock, Tag, User, UserCircle,
-  Calendar, CheckCircle2, AlertCircle, Loader2, MoreVertical, Merge, Trash2, Search,
+  Calendar, CalendarPlus, CheckCircle2, AlertCircle, Loader2, MoreVertical, Merge, Trash2, Search,
 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { formatDate, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS } from "@/lib/crm";
+import { formatDate, formatDateTime, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS, buildGoogleCalendarUrl } from "@/lib/crm";
 import EmailBody from "@/components/EmailBody";
 import RichNotes from "@/components/RichNotes";
 import WebLinksCard from "@/components/WebLinksCard";
@@ -76,9 +76,9 @@ function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occur
         setEditing(true);
       }}
       className="text-xs text-muted-foreground hover:text-primary hover:underline cursor-pointer"
-      title="Click to edit date"
+      title="Click to edit date & time"
     >
-      {formatDate(moment.occurredAt)}
+      {formatDateTime(moment.occurredAt)}
     </button>
   );
 }
@@ -751,6 +751,23 @@ export default function PersonDetailPage() {
                             </div>
                             <div className="flex items-center gap-1">
                               <EditableMomentDate moment={m} onUpdated={refetchMoments} />
+                              {m.type === "meeting" && (
+                                <Button
+                                  variant="ghost" size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                                  title="Export to Google Calendar"
+                                  onClick={() => {
+                                    const url = buildGoogleCalendarUrl({
+                                      title: m.subject || `Meeting with ${person?.name ?? "Contact"}`,
+                                      start: new Date(m.occurredAt),
+                                      details: m.notes || undefined,
+                                    });
+                                    window.open(url, "_blank");
+                                  }}
+                                >
+                                  <CalendarPlus className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
                               <Button
                                 variant="ghost" size="sm"
                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"

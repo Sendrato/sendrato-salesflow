@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   ArrowLeft, Edit, Plus, Globe, Mail, Phone, Building2, Tag, Clock, FileText,
-  Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar,
+  Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar, CalendarPlus,
   Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
   Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords, MoreVertical, Merge, Search,
   ChevronRight, Check, PauseCircle, XCircle, CalendarRange, MapPin, Pencil, UserCircle,
@@ -25,7 +25,7 @@ import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import {
   STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, CONTACT_TYPE_ICONS, OUTCOME_COLORS,
-  ALL_STATUSES, ALL_PRIORITIES, ALL_CONTACT_TYPES, ALL_OUTCOMES, formatDate, formatRelativeTime, getInitials
+  ALL_STATUSES, ALL_PRIORITIES, ALL_CONTACT_TYPES, ALL_OUTCOMES, formatDate, formatDateTime, formatRelativeTime, getInitials, buildGoogleCalendarUrl
 } from "@/lib/crm";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import EmailBody from "@/components/EmailBody";
@@ -86,9 +86,9 @@ function EditableMomentDate({ moment, leadId }: { moment: { id: number; occurred
         setEditing(true);
       }}
       className="text-xs text-muted-foreground hover:text-primary hover:underline cursor-pointer"
-      title="Click to edit date"
+      title="Click to edit date & time"
     >
-      {formatRelativeTime(moment.occurredAt)}
+      {formatDateTime(moment.occurredAt)}
     </button>
   );
 }
@@ -1082,6 +1082,23 @@ export default function LeadDetail() {
                               </div>
                               <div className="shrink-0 flex items-center gap-1">
                                 <EditableMomentDate moment={moment} leadId={leadId} />
+                                {moment.type === "meeting" && (
+                                  <Button
+                                    variant="ghost" size="sm"
+                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                                    title="Export to Google Calendar"
+                                    onClick={() => {
+                                      const url = buildGoogleCalendarUrl({
+                                        title: moment.subject || `Meeting with ${lead?.companyName ?? "Lead"}`,
+                                        start: new Date(moment.occurredAt),
+                                        details: moment.notes || undefined,
+                                      });
+                                      window.open(url, "_blank");
+                                    }}
+                                  >
+                                    <CalendarPlus className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost" size="sm"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
