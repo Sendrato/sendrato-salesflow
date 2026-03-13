@@ -557,9 +557,16 @@ export async function updateContactMoment(id: number, data: Partial<InsertContac
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   try {
-    const setData = { ...data, updatedAt: new Date() };
+    const setData: Record<string, unknown> = { ...data, updatedAt: new Date() };
+    // Ensure timestamp fields are proper Date objects (Drizzle requires .toISOString())
+    if (setData.occurredAt && !(setData.occurredAt instanceof Date)) {
+      setData.occurredAt = new Date(setData.occurredAt as string);
+    }
+    if (setData.followUpAt && !(setData.followUpAt instanceof Date)) {
+      setData.followUpAt = new Date(setData.followUpAt as string);
+    }
     console.log("[ContactMoment] Updating id:", id, "with data keys:", Object.keys(setData));
-    await db.update(contactMoments).set(setData).where(eq(contactMoments.id, id));
+    await db.update(contactMoments).set(setData as any).where(eq(contactMoments.id, id));
     const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, id)).limit(1);
     const updated = rows[0];
     if (data.occurredAt && updated) {
@@ -580,7 +587,8 @@ async function recalcLastContactedAt(db: any, leadId: number, personId?: number 
       .from(contactMoments)
       .where(eq(contactMoments.leadId, leadId));
     if (leadMax?.max) {
-      await db.update(leads).set({ lastContactedAt: leadMax.max, updatedAt: new Date() }).where(eq(leads.id, leadId));
+      const maxDate = leadMax.max instanceof Date ? leadMax.max : new Date(leadMax.max);
+      await db.update(leads).set({ lastContactedAt: maxDate, updatedAt: new Date() }).where(eq(leads.id, leadId));
     }
   }
   // Person: same logic
@@ -590,7 +598,8 @@ async function recalcLastContactedAt(db: any, leadId: number, personId?: number 
       .from(contactMoments)
       .where(eq(contactMoments.personId, personId));
     if (personMax?.max) {
-      await db.update(persons).set({ lastContactedAt: personMax.max, updatedAt: new Date() }).where(eq(persons.id, personId));
+      const maxDate = personMax.max instanceof Date ? personMax.max : new Date(personMax.max);
+      await db.update(persons).set({ lastContactedAt: maxDate, updatedAt: new Date() }).where(eq(persons.id, personId));
     }
   }
 }
