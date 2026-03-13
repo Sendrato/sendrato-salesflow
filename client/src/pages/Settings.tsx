@@ -813,9 +813,9 @@ function parseEmailPayload(rawPayload: string | null) {
 }
 
 function UnmatchedEmailsCard() {
-  const { user } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { data } = trpc.analytics.unmatchedEmails.useQuery(undefined, {
-    enabled: user?.role === "admin",
+    enabled: isAuthenticated,
   });
   const utils = trpc.useUtils();
 
@@ -857,7 +857,6 @@ function UnmatchedEmailsCard() {
     { enabled: matchDialogOpen && matchTab === "person" && matchSearch.length > 1 }
   );
 
-  if (user?.role !== "admin") return null;
   if (!data || data.count === 0) return null;
 
   function openMatchDialog(email: typeof matchingEmail) {
