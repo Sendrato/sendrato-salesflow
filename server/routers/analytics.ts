@@ -65,7 +65,7 @@ export const analyticsRouter = router({
           priority: leads.priority,
           estimatedValue: leads.estimatedValue,
           lastContactedAt: leads.lastContactedAt,
-          contactCount: sql<number>`(SELECT count(*) FROM contact_moments WHERE leadId = ${leads.id})`,
+          contactCount: sql<number>`(SELECT count(*) FROM contact_moments WHERE "leadId" = ${leads.id})`,
         })
         .from(leads)
         .orderBy(desc(leads.updatedAt))

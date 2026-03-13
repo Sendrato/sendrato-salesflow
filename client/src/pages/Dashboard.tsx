@@ -176,7 +176,7 @@ export default function Dashboard() {
                     <MailWarning className="h-4 w-4" />
                     Unmatched Emails ({unmatchedData!.count})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setLocation("/settings#unmatched-emails")} className="gap-1 text-xs text-orange-600">
+                  <Button variant="ghost" size="sm" onClick={() => setLocation("/settings?scrollTo=unmatched-emails")} className="gap-1 text-xs text-orange-600">
                     Match Emails <ArrowRight className="h-3 w-3" />
                   </Button>
                 </CardHeader>
@@ -186,7 +186,7 @@ export default function Dashboard() {
                       <div
                         key={item.id}
                         className="flex items-center justify-between px-6 py-2.5 hover:bg-orange-100/50 dark:hover:bg-orange-950/30 cursor-pointer transition-colors"
-                        onClick={() => setLocation("/settings#unmatched-emails")}
+                        onClick={() => setLocation("/settings?scrollTo=unmatched-emails")}
                       >
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">{item.parsedFrom || "Unknown sender"}</div>

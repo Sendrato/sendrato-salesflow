@@ -1124,14 +1124,22 @@ function UnmatchedEmailsCard() {
 }
 
 export default function SettingsPage() {
-  // Scroll to hash anchor on mount (e.g. /settings#unmatched-emails)
+  // Scroll to target section on mount (from ?scrollTo= param or #hash)
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash) {
-      setTimeout(() => {
-        document.querySelector(hash)?.scrollIntoView({ behavior: "smooth" });
-      }, 300);
-    }
+    const params = new URLSearchParams(window.location.search);
+    const scrollTo = params.get("scrollTo") || window.location.hash?.slice(1);
+    if (!scrollTo) return;
+    // Poll until element is rendered (async data may still be loading)
+    let attempts = 0;
+    const interval = setInterval(() => {
+      const el = document.getElementById(scrollTo);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        clearInterval(interval);
+      }
+      if (++attempts > 25) clearInterval(interval); // give up after 5s
+    }, 200);
+    return () => clearInterval(interval);
   }, []);
 
   const { data: config, isLoading, refetch } = trpc.settings.getLLMConfig.useQuery();
