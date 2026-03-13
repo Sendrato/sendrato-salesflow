@@ -312,6 +312,14 @@ export default function PersonDetailPage() {
     },
   });
 
+  const deleteMomentMutation = trpc.contactMoments.delete.useMutation({
+    onSuccess: () => {
+      refetchMoments();
+      toast.success("Interaction deleted");
+    },
+    onError: () => toast.error("Failed to delete interaction"),
+  });
+
   const unlinkMutation = trpc.persons.unlinkFromLead.useMutation({
     onSuccess: () => { refetchLinks(); toast.success("Unlinked"); },
   });
@@ -741,7 +749,16 @@ export default function PersonDetailPage() {
                                 {m.outcome ?? "neutral"}
                               </span>
                             </div>
-                            <EditableMomentDate moment={m} onUpdated={refetchMoments} />
+                            <div className="flex items-center gap-1">
+                              <EditableMomentDate moment={m} onUpdated={refetchMoments} />
+                              <Button
+                                variant="ghost" size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteMomentMutation.mutate({ id: m.id })}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </div>
                           {m.subject && <p className="text-sm font-medium">{m.subject}</p>}
                           {m.type === "email" && (m.emailRaw || m.notes) ? (

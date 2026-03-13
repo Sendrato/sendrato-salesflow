@@ -341,6 +341,14 @@ export default function LeadDetail() {
     },
   });
 
+  const deleteMomentMutation = trpc.contactMoments.delete.useMutation({
+    onSuccess: () => {
+      utils.contactMoments.list.invalidate({ leadId });
+      toast.success("Interaction deleted");
+    },
+    onError: () => toast.error("Failed to delete interaction"),
+  });
+
   const updateLeadMutation = trpc.leads.update.useMutation({
     onSuccess: () => { refetch(); toast.success("Lead updated"); },
     onError: () => toast.error("Failed to update lead"),
@@ -1072,8 +1080,15 @@ export default function LeadDetail() {
                                   </div>
                                 )}
                               </div>
-                              <div className="shrink-0">
+                              <div className="shrink-0 flex items-center gap-1">
                                 <EditableMomentDate moment={moment} leadId={leadId} />
+                                <Button
+                                  variant="ghost" size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => deleteMomentMutation.mutate({ id: moment.id })}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             </div>
                           </div>
