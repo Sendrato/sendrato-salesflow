@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag, UserCircle } from "lucide-react";
+import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag, UserCircle, XCircle } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { toast } from "sonner";
@@ -271,6 +271,27 @@ export default function Leads() {
                   <SelectItem value="45k+">45K+</SelectItem>
                 </SelectContent>
               </Select>
+              {(search || status !== "all" || priority !== "all" || country !== "all" || leadType !== "all" || label !== "all" || assignedToFilter !== "all" || sizeFilter !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="shrink-0"
+                  title="Reset all filters"
+                  onClick={() => {
+                    setSearch("");
+                    setStatus("all");
+                    setPriority("all");
+                    setCountry("all");
+                    setLeadType("all");
+                    setLabel("all");
+                    setAssignedToFilter("all");
+                    setSizeFilter("all");
+                    setPage(0);
+                  }}
+                >
+                  <XCircle className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
