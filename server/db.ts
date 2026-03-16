@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, like, lte, or, sql, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, like, lte, or, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
@@ -287,7 +287,7 @@ export async function getLeads(opts: {
   const offset = opts.offset ?? 0;
 
   const [items, countResult] = await Promise.all([
-    db.select().from(leads).where(where).orderBy(desc(leads.updatedAt)).limit(limit).offset(offset),
+    db.select().from(leads).where(where).orderBy(asc(leads.companyName)).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(leads).where(where),
   ]);
 

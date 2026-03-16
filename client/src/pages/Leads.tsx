@@ -17,8 +17,8 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag, UserCircle } from "lucide-react";
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useState, useEffect, useMemo } from "react";
+import { useLocation, useSearch } from "wouter";
 import { toast } from "sonner";
 import {
   STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, ALL_STATUSES, ALL_PRIORITIES, formatRelativeTime, getInitials
@@ -31,20 +31,40 @@ const leadTypeOptions = getLeadTypeOptions();
 
 export default function Leads() {
   const [, setLocation] = useLocation();
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<string>("all");
-  const [priority, setPriority] = useState<string>("all");
-  const [country, setCountry] = useState<string>("all");
-  const [leadType, setLeadType] = useState<string>("all");
-  const [label, setLabel] = useState<string>("all");
-  const [assignedToFilter, setAssignedToFilter] = useState<string>("all");
-  const [page, setPage] = useState(0);
+  const searchString = useSearch();
+  const initialParams = useMemo(() => new URLSearchParams(searchString), []);
+
+  const [search, setSearch] = useState(initialParams.get("search") ?? "");
+  const [status, setStatus] = useState<string>(initialParams.get("status") ?? "all");
+  const [priority, setPriority] = useState<string>(initialParams.get("priority") ?? "all");
+  const [country, setCountry] = useState<string>(initialParams.get("country") ?? "all");
+  const [leadType, setLeadType] = useState<string>(initialParams.get("leadType") ?? "all");
+  const [label, setLabel] = useState<string>(initialParams.get("label") ?? "all");
+  const [assignedToFilter, setAssignedToFilter] = useState<string>(initialParams.get("assignedTo") ?? "all");
+  const [page, setPage] = useState(Number(initialParams.get("page") ?? 0));
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bulkLabelOpen, setBulkLabelOpen] = useState(false);
   const [bulkLabelValue, setBulkLabelValue] = useState("");
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  const [sizeFilter, setSizeFilter] = useState<string>("all");
+  const [sizeFilter, setSizeFilter] = useState<string>(initialParams.get("size") ?? "all");
+
+  // Sync filter state to URL search params so back navigation preserves filters
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (status !== "all") params.set("status", status);
+    if (priority !== "all") params.set("priority", priority);
+    if (country !== "all") params.set("country", country);
+    if (leadType !== "all") params.set("leadType", leadType);
+    if (label !== "all") params.set("label", label);
+    if (assignedToFilter !== "all") params.set("assignedTo", assignedToFilter);
+    if (page > 0) params.set("page", String(page));
+    if (sizeFilter !== "all") params.set("size", sizeFilter);
+    const qs = params.toString();
+    const newUrl = qs ? `/leads?${qs}` : "/leads";
+    window.history.replaceState(null, "", newUrl);
+  }, [search, status, priority, country, leadType, label, assignedToFilter, page, sizeFilter]);
 
   const { data: userList } = trpc.auth.listUsers.useQuery();
   const users = userList ?? [];
@@ -57,8 +77,8 @@ export default function Leads() {
     leadType: leadType === "all" ? undefined : leadType,
     label: label === "all" ? undefined : label,
     assignedTo: assignedToFilter === "all" ? undefined : Number(assignedToFilter),
-    sizeMin: sizeFilter === "small" ? undefined : sizeFilter === "medium" ? 100 : sizeFilter === "large" ? 1000 : sizeFilter === "xl" ? 10000 : undefined,
-    sizeMax: sizeFilter === "small" ? 99 : sizeFilter === "medium" ? 999 : sizeFilter === "large" ? 9999 : undefined,
+    sizeMin: sizeFilter === "small" ? undefined : sizeFilter === "medium" ? 100 : sizeFilter === "large" ? 1000 : sizeFilter === "10k-20k" ? 10000 : sizeFilter === "20k-30k" ? 20000 : sizeFilter === "30k-45k" ? 30000 : sizeFilter === "45k+" ? 45000 : undefined,
+    sizeMax: sizeFilter === "small" ? 99 : sizeFilter === "medium" ? 999 : sizeFilter === "large" ? 9999 : sizeFilter === "10k-20k" ? 19999 : sizeFilter === "20k-30k" ? 29999 : sizeFilter === "30k-45k" ? 44999 : undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -245,7 +265,10 @@ export default function Leads() {
                   <SelectItem value="small">Small (&lt; 100)</SelectItem>
                   <SelectItem value="medium">Medium (100-1K)</SelectItem>
                   <SelectItem value="large">Large (1K-10K)</SelectItem>
-                  <SelectItem value="xl">XL (10K+)</SelectItem>
+                  <SelectItem value="10k-20k">10K-20K</SelectItem>
+                  <SelectItem value="20k-30k">20K-30K</SelectItem>
+                  <SelectItem value="30k-45k">30K-45K</SelectItem>
+                  <SelectItem value="45k+">45K+</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -406,7 +429,10 @@ export default function Leads() {
                     <TableRow
                       key={lead.id}
                       className={`cursor-pointer hover:bg-muted/30 transition-colors ${selectedIds.has(lead.id) ? "bg-primary/5" : ""}`}
-                      onClick={() => setLocation(`/leads/${lead.id}`)}
+                      onClick={() => {
+                        sessionStorage.setItem("leadsReturnUrl", window.location.pathname + window.location.search);
+                        setLocation(`/leads/${lead.id}`);
+                      }}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
@@ -525,7 +551,11 @@ export default function Leads() {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          onClick={(e) => { e.stopPropagation(); setLocation(`/leads/${lead.id}`); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sessionStorage.setItem("leadsReturnUrl", window.location.pathname + window.location.search);
+                            setLocation(`/leads/${lead.id}`);
+                          }}
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
                         </Button>
