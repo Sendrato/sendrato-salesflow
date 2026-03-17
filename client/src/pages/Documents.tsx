@@ -12,6 +12,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -36,7 +42,9 @@ import {
   Lock,
   Globe,
   Users,
+  Building2,
 } from "lucide-react";
+import { Link as RouterLink } from "wouter";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
 import { UserAccessPicker } from "@/components/UserAccessPicker";
@@ -99,8 +107,11 @@ export default function DocumentsPage() {
   const utils = trpc.useUtils();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [activeTab, setActiveTab] = useState("team");
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
+  const [leadSearch, setLeadSearch] = useState("");
+  const [leadCategory, setLeadCategory] = useState("all");
   const [uploadCategory, setUploadCategory] = useState("other");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -124,21 +135,37 @@ export default function DocumentsPage() {
     category: category !== "all" ? category : undefined,
   });
 
+  const { data: leadDocuments = [], isLoading: leadDocsLoading } =
+    trpc.documents.listAll.useQuery({
+      search: leadSearch || undefined,
+      category: leadCategory !== "all" ? leadCategory : undefined,
+    });
+
   const { data: shares, refetch: refetchShares } =
     trpc.crmDocuments.listShares.useQuery();
 
+  const editDocType = editAccessDoc?._docType ?? "crm";
   const accessQuery = trpc.documents.getAccess.useQuery(
-    { documentType: "crm", documentId: editAccessDoc?.id ?? 0 },
+    { documentType: editDocType as any, documentId: editAccessDoc?.id ?? 0 },
     { enabled: !!editAccessDoc }
   );
 
   const setAccessMutation = trpc.documents.setAccess.useMutation({
     onSuccess: () => {
       utils.crmDocuments.list.invalidate();
+      utils.documents.listAll.invalidate();
       setEditAccessDoc(null);
       toast.success("Access updated");
     },
     onError: () => toast.error("Failed to update access"),
+  });
+
+  const deleteLeadDocMutation = trpc.documents.delete.useMutation({
+    onSuccess: () => {
+      utils.documents.listAll.invalidate();
+      toast.success("Document deleted");
+    },
+    onError: () => toast.error("Failed to delete document"),
   });
 
   const deleteMutation = trpc.crmDocuments.delete.useMutation({
@@ -236,10 +263,17 @@ export default function DocumentsPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Documents</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Team document library — presentations, price sheets, templates, and
-            more.
+            Manage team documents and view documents attached to leads.
           </p>
         </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="team">Team Library</TabsTrigger>
+            <TabsTrigger value="lead">Lead Documents</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="team" className="mt-4 space-y-6">
 
         {/* Upload Section */}
         <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
@@ -421,7 +455,7 @@ export default function DocumentsPage() {
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium cursor-pointer hover:bg-muted/50 transition-colors"
                           title="Edit access"
                           onClick={() => {
-                            setEditAccessDoc(doc);
+                            setEditAccessDoc({ ...doc, _docType: "crm" });
                             setEditAccessType(doc.accessType ?? "all");
                             setEditAccessUserIds([]);
                           }}
@@ -582,6 +616,211 @@ export default function DocumentsPage() {
             </div>
           </div>
         )}
+
+          </TabsContent>
+
+          <TabsContent value="lead" className="mt-4 space-y-6">
+            {/* Lead Documents Filters */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={leadSearch}
+                  onChange={(e) => setLeadSearch(e.target.value)}
+                  placeholder="Search by document or lead name..."
+                  className="pl-9 h-9 text-sm"
+                />
+              </div>
+              <Select value={leadCategory} onValueChange={setLeadCategory}>
+                <SelectTrigger className="w-[180px] h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Lead Documents Table */}
+            {leadDocsLoading ? (
+              <div className="text-sm text-muted-foreground py-8 text-center">
+                Loading...
+              </div>
+            ) : leadDocuments.length === 0 ? (
+              <div className="py-12 text-center border rounded-lg">
+                <FileText className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground font-medium">
+                  No lead documents found
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Documents uploaded to individual leads will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/40">
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
+                        Document
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">
+                        Lead
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
+                        Category
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
+                        Access
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">
+                        Uploaded By
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">
+                        Date
+                      </th>
+                      <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leadDocuments.map((doc: any) => {
+                      const catColor =
+                        CATEGORY_COLORS[doc.category] ?? CATEGORY_COLORS.other;
+                      return (
+                        <tr
+                          key={doc.id}
+                          className="border-b last:border-b-0 hover:bg-muted/20 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {getDocIcon(doc.mimeType, doc.fileName)}
+                              <div className="min-w-0">
+                                <a
+                                  href={doc.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="font-medium text-foreground hover:text-primary hover:underline truncate block"
+                                >
+                                  {doc.fileName}
+                                </a>
+                                {doc.fileSize ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatFileSize(doc.fileSize)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <RouterLink
+                              href={`/leads/${doc.leadId}`}
+                              className="text-sm text-primary hover:underline flex items-center gap-1.5"
+                            >
+                              <Building2 className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate max-w-[160px]">
+                                {doc.companyName}
+                              </span>
+                            </RouterLink>
+                          </td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${catColor}`}
+                            >
+                              {doc.category
+                                ? doc.category.charAt(0).toUpperCase() +
+                                  doc.category.slice(1)
+                                : "Other"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            <button
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium cursor-pointer hover:bg-muted/50 transition-colors"
+                              title="Edit access"
+                              onClick={() => {
+                                setEditAccessDoc({ ...doc, _docType: "lead" });
+                                setEditAccessType(doc.accessType ?? "all");
+                                setEditAccessUserIds([]);
+                              }}
+                            >
+                              {doc.accessType === "restricted" ? (
+                                <>
+                                  <Lock className="h-3 w-3 text-amber-500" />
+                                  <span className="text-amber-700">Restricted</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Globe className="h-3 w-3 text-green-500" />
+                                  <span className="text-green-700">All users</span>
+                                </>
+                              )}
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 hidden sm:table-cell">
+                            <span className="text-xs text-muted-foreground">
+                              {doc.uploaderName || "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 hidden sm:table-cell">
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatRelativeTime(doc.createdAt)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="Open in new tab"
+                                asChild
+                              >
+                                <a
+                                  href={doc.fileUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0"
+                                title="Download"
+                                asChild
+                              >
+                                <a href={doc.fileUrl} download={doc.fileName}>
+                                  <Download className="h-3.5 w-3.5" />
+                                </a>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                title="Delete"
+                                onClick={() =>
+                                  deleteLeadDocMutation.mutate({ id: doc.id })
+                                }
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Share Dialog */}
@@ -707,7 +946,7 @@ export default function DocumentsPage() {
               setSavingAccess(true);
               setAccessMutation.mutate(
                 {
-                  documentType: "crm",
+                  documentType: editAccessDoc._docType ?? "crm",
                   documentId: editAccessDoc.id,
                   accessType: editAccessType,
                   userIds: editAccessUserIds,

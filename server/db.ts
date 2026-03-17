@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, like, lte, or, sql, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, getTableColumns, gte, like, lte, or, sql, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
@@ -348,7 +348,12 @@ export async function getLeads(opts: {
   const offset = opts.offset ?? 0;
 
   const [items, countResult] = await Promise.all([
-    db.select().from(leads).where(where).orderBy(asc(leads.companyName)).limit(limit).offset(offset),
+    db
+      .select({
+        ...getTableColumns(leads),
+        documentCount: sql<number>`(SELECT COUNT(*) FROM lead_documents WHERE "leadId" = ${leads.id})`.as("documentCount"),
+      })
+      .from(leads).where(where).orderBy(asc(leads.companyName)).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(leads).where(where),
   ]);
 
@@ -757,6 +762,76 @@ export async function getLeadDocuments(
     .from(leadDocuments)
     .where(and(...conditions))
     .orderBy(desc(leadDocuments.createdAt));
+}
+
+export async function getAllLeadDocuments(opts: {
+  search?: string;
+  category?: string;
+  limit?: number;
+  offset?: number;
+  userId?: number;
+  isAdmin?: boolean;
+} = {}) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const conditions: any[] = [];
+
+  if (opts.category) {
+    conditions.push(eq(leadDocuments.category, opts.category as any));
+  }
+
+  if (opts.search) {
+    const pattern = `%${opts.search}%`;
+    conditions.push(
+      or(
+        sql`${leadDocuments.fileName} ILIKE ${pattern}`,
+        sql`${leads.companyName} ILIKE ${pattern}`
+      )
+    );
+  }
+
+  // Access filtering
+  if (!opts.isAdmin && opts.userId) {
+    conditions.push(
+      or(
+        eq(leadDocuments.accessType, "all"),
+        eq(leadDocuments.uploadedBy, opts.userId),
+        sql`EXISTS (
+          SELECT 1 FROM document_access da
+          WHERE da."documentType" = 'lead'
+          AND da."documentId" = ${leadDocuments.id}
+          AND da."userId" = ${opts.userId}
+        )`
+      )
+    );
+  } else if (!opts.isAdmin && !opts.userId) {
+    conditions.push(eq(leadDocuments.accessType, "all"));
+  }
+
+  return db
+    .select({
+      id: leadDocuments.id,
+      leadId: leadDocuments.leadId,
+      companyName: leads.companyName,
+      fileName: leadDocuments.fileName,
+      fileKey: leadDocuments.fileKey,
+      fileUrl: leadDocuments.fileUrl,
+      mimeType: leadDocuments.mimeType,
+      fileSize: leadDocuments.fileSize,
+      category: leadDocuments.category,
+      accessType: leadDocuments.accessType,
+      uploadedBy: leadDocuments.uploadedBy,
+      uploaderName: users.name,
+      createdAt: leadDocuments.createdAt,
+    })
+    .from(leadDocuments)
+    .innerJoin(leads, eq(leadDocuments.leadId, leads.id))
+    .leftJoin(users, eq(leadDocuments.uploadedBy, users.id))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(leadDocuments.createdAt))
+    .limit(opts.limit ?? 100)
+    .offset(opts.offset ?? 0);
 }
 
 export async function createLeadDocument(data: InsertLeadDocument) {

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag, UserCircle, XCircle } from "lucide-react";
+import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag, UserCircle, XCircle, FileText } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { toast } from "sonner";
@@ -423,6 +423,7 @@ export default function Leads() {
                   <TableHead>Country</TableHead>
                   <TableHead>Source</TableHead>
                   <TableHead>Last Contact</TableHead>
+                  <TableHead>Docs</TableHead>
                   <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -430,7 +431,7 @@ export default function Leads() {
                 {isLoading ? (
                   Array.from({ length: 8 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 13 }).map((_, j) => (
+                      {Array.from({ length: 14 }).map((_, j) => (
                         <TableCell key={j}>
                           <div className="h-4 bg-muted rounded animate-pulse" />
                         </TableCell>
@@ -566,6 +567,16 @@ export default function Leads() {
                       </TableCell>
                       <TableCell>
                         <span className="text-xs text-muted-foreground">{formatRelativeTime(lead.lastContactedAt)}</span>
+                      </TableCell>
+                      <TableCell>
+                        {(lead as any).documentCount > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                            <FileText className="h-3 w-3" />
+                            {(lead as any).documentCount}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Button

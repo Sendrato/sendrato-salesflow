@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { getLeadDocuments, createLeadDocument, deleteLeadDocument, getRawPool } from "../db";
+import { getLeadDocuments, getAllLeadDocuments, createLeadDocument, deleteLeadDocument, getRawPool } from "../db";
 import {
   getDocumentAccessUsers,
   setDocumentAccess,
@@ -34,6 +34,25 @@ export const documentsRouter = router({
       }));
       return enriched;
     }),
+
+  listAll: publicProcedure
+    .input(
+      z
+        .object({
+          search: z.string().optional(),
+          category: z.string().optional(),
+          limit: z.number().optional(),
+          offset: z.number().optional(),
+        })
+        .optional()
+    )
+    .query(({ input, ctx }) =>
+      getAllLeadDocuments({
+        ...(input ?? {}),
+        userId: ctx.user?.id,
+        isAdmin: ctx.user?.role === "admin",
+      })
+    ),
 
   create: protectedProcedure
     .input(

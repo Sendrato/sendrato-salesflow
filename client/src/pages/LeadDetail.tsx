@@ -910,6 +910,11 @@ export default function LeadDetail() {
                 className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent capitalize px-4 py-2.5 text-sm"
               >
                 {tab}
+                {tab === "documents" && (documents?.length ?? 0) > 0 && (
+                  <span className="ml-1.5 text-[10px] bg-muted rounded-full px-1.5 py-0.5 font-normal tabular-nums">
+                    {documents!.length}
+                  </span>
+                )}
               </TabsTrigger>
             ))}
           </TabsList>
