@@ -1,12 +1,19 @@
 import { z } from "zod/v4";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getLeadDocuments, createLeadDocument, deleteLeadDocument, getRawPool } from "../db";
+import {
+  getDocumentAccessUsers,
+  setDocumentAccess,
+} from "../documentAccessDb";
 
 export const documentsRouter = router({
   list: publicProcedure
     .input(z.object({ leadId: z.number() }))
-    .query(async ({ input }) => {
-      const docs = await getLeadDocuments(input.leadId);
+    .query(async ({ input, ctx }) => {
+      const docs = await getLeadDocuments(input.leadId, {
+        userId: ctx.user?.id,
+        isAdmin: ctx.user?.role === "admin",
+      });
       const pool = await getRawPool();
       if (!pool) return docs;
       // Attach chunk count and share count for each doc
@@ -79,6 +86,73 @@ export const documentsRouter = router({
     .mutation(async ({ input }) => {
       const pool = await getRawPool();
       if (pool) await pool.query('UPDATE shareable_presentations SET "isActive" = FALSE WHERE token = $1', [input.token]);
+      return { success: true };
+    }),
+
+  getAccess: protectedProcedure
+    .input(
+      z.object({
+        documentType: z.enum(["lead", "competitor", "crm"]),
+        documentId: z.number(),
+      })
+    )
+    .query(async ({ input }) => {
+      const pool = await getRawPool();
+      if (!pool) return { accessType: "all" as const, userIds: [] as number[] };
+
+      const tableMap: Record<string, string> = {
+        lead: "lead_documents",
+        competitor: "competitor_documents",
+        crm: "crm_documents",
+      };
+      const table = tableMap[input.documentType];
+      const { rows } = await pool.query(
+        `SELECT "accessType" FROM "${table}" WHERE id = $1`,
+        [input.documentId]
+      );
+      const accessType = (rows[0]?.accessType ?? "all") as "all" | "restricted";
+      const userIds =
+        accessType === "restricted"
+          ? await getDocumentAccessUsers(input.documentType, input.documentId)
+          : [];
+      return { accessType, userIds };
+    }),
+
+  setAccess: protectedProcedure
+    .input(
+      z.object({
+        documentType: z.enum(["lead", "competitor", "crm"]),
+        documentId: z.number(),
+        accessType: z.enum(["all", "restricted"]),
+        userIds: z.array(z.number()).optional().default([]),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const pool = await getRawPool();
+      if (!pool) throw new Error("DB not available");
+
+      const tableMap: Record<string, string> = {
+        lead: "lead_documents",
+        competitor: "competitor_documents",
+        crm: "crm_documents",
+      };
+      const table = tableMap[input.documentType];
+
+      await pool.query(
+        `UPDATE "${table}" SET "accessType" = $1 WHERE id = $2`,
+        [input.accessType, input.documentId]
+      );
+
+      if (input.accessType === "restricted") {
+        await setDocumentAccess(
+          input.documentType,
+          input.documentId,
+          input.userIds
+        );
+      } else {
+        await setDocumentAccess(input.documentType, input.documentId, []);
+      }
+
       return { success: true };
     }),
 });

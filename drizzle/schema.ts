@@ -78,6 +78,11 @@ export const documentCategoryEnum = pgEnum("document_category", [
   "other",
 ]);
 
+export const documentAccessTypeEnum = pgEnum("document_access_type", [
+  "all",
+  "restricted",
+]);
+
 export const personTypeEnum = pgEnum("person_type", [
   "prospect",
   "contact",
@@ -225,6 +230,7 @@ export const leadDocuments = pgTable("lead_documents", {
   mimeType: varchar("mimeType", { length: 128 }),
   fileSize: bigint("fileSize", { mode: "number" }),
   category: documentCategoryEnum("category").default("other"),
+  accessType: documentAccessTypeEnum("accessType").default("all").notNull(),
   uploadedBy: integer("uploadedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -419,6 +425,7 @@ export const competitorDocuments = pgTable("competitor_documents", {
   mimeType: varchar("mimeType", { length: 128 }),
   fileSize: bigint("fileSize", { mode: "number" }),
   category: documentCategoryEnum("category").default("other"),
+  accessType: documentAccessTypeEnum("accessType").default("all").notNull(),
   uploadedBy: integer("uploadedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -468,9 +475,22 @@ export const crmDocuments = pgTable("crm_documents", {
   fileSize: bigint("fileSize", { mode: "number" }),
   category: documentCategoryEnum("category").default("other"),
   description: text("description"),
+  accessType: documentAccessTypeEnum("accessType").default("all").notNull(),
   uploadedBy: integer("uploadedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
 export type CrmDocument = typeof crmDocuments.$inferSelect;
 export type InsertCrmDocument = typeof crmDocuments.$inferInsert;
+
+// ─── Document Access (junction table) ────────────────────────────────────────
+export const documentAccess = pgTable("document_access", {
+  id: serial("id").primaryKey(),
+  documentType: varchar("documentType", { length: 32 }).notNull(),
+  documentId: integer("documentId").notNull(),
+  userId: integer("userId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DocumentAccess = typeof documentAccess.$inferSelect;
+export type InsertDocumentAccess = typeof documentAccess.$inferInsert;

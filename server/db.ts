@@ -93,6 +93,67 @@ export async function getDb() {
           } catch (e) {
             console.warn("[DB] leadSize backfill failed:", e);
           }
+          // Ensure document_access_type enum exists
+          try {
+            const dacEnumCheck = await _pool.query(
+              `SELECT 1 FROM pg_type WHERE typname = 'document_access_type'`
+            );
+            if (dacEnumCheck.rows.length === 0) {
+              await _pool.query(
+                `CREATE TYPE "document_access_type" AS ENUM ('all', 'restricted')`
+              );
+              console.log("[DB] Created 'document_access_type' enum");
+            }
+          } catch (e) {
+            console.warn("[DB] document_access_type enum check:", e);
+          }
+          // Ensure accessType columns exist on document tables
+          for (const table of [
+            "lead_documents",
+            "competitor_documents",
+            "crm_documents",
+          ]) {
+            try {
+              const colCheck = await _pool.query(
+                `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = 'accessType'`,
+                [table]
+              );
+              if (colCheck.rows.length === 0) {
+                await _pool.query(
+                  `ALTER TABLE "${table}" ADD COLUMN "accessType" document_access_type NOT NULL DEFAULT 'all'`
+                );
+                console.log(`[DB] Added 'accessType' column to ${table}`);
+              }
+            } catch (e) {
+              console.warn(`[DB] accessType column check for ${table}:`, e);
+            }
+          }
+          // Ensure document_access table exists
+          try {
+            const tableCheck = await _pool.query(
+              `SELECT 1 FROM information_schema.tables WHERE table_name = 'document_access'`
+            );
+            if (tableCheck.rows.length === 0) {
+              await _pool.query(`
+                CREATE TABLE document_access (
+                  id SERIAL PRIMARY KEY,
+                  "documentType" VARCHAR(32) NOT NULL,
+                  "documentId" INTEGER NOT NULL,
+                  "userId" INTEGER NOT NULL,
+                  "createdAt" TIMESTAMP DEFAULT NOW() NOT NULL
+                )
+              `);
+              await _pool.query(
+                `CREATE INDEX idx_document_access_lookup ON document_access ("documentType", "documentId")`
+              );
+              await _pool.query(
+                `CREATE UNIQUE INDEX idx_document_access_unique ON document_access ("documentType", "documentId", "userId")`
+              );
+              console.log("[DB] Created 'document_access' table");
+            }
+          } catch (e) {
+            console.warn("[DB] document_access table check:", e);
+          }
           // Trim trailing/leading whitespace from key text fields
           try {
             const trimFields = ["companyName", "country", "location", "industry", "contactPerson", "email", "source", "label"];
@@ -665,10 +726,37 @@ export async function getContactMomentStats() {
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────
-export async function getLeadDocuments(leadId: number) {
+export async function getLeadDocuments(
+  leadId: number,
+  opts?: { userId?: number; isAdmin?: boolean }
+) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(leadDocuments).where(eq(leadDocuments.leadId, leadId)).orderBy(desc(leadDocuments.createdAt));
+
+  const conditions: any[] = [eq(leadDocuments.leadId, leadId)];
+
+  if (!opts?.isAdmin && opts?.userId) {
+    conditions.push(
+      or(
+        eq(leadDocuments.accessType, "all"),
+        eq(leadDocuments.uploadedBy, opts.userId),
+        sql`EXISTS (
+          SELECT 1 FROM document_access da
+          WHERE da."documentType" = 'lead'
+          AND da."documentId" = ${leadDocuments.id}
+          AND da."userId" = ${opts.userId}
+        )`
+      )
+    );
+  } else if (!opts?.isAdmin && !opts?.userId) {
+    conditions.push(eq(leadDocuments.accessType, "all"));
+  }
+
+  return db
+    .select()
+    .from(leadDocuments)
+    .where(and(...conditions))
+    .orderBy(desc(leadDocuments.createdAt));
 }
 
 export async function createLeadDocument(data: InsertLeadDocument) {
@@ -682,6 +770,8 @@ export async function createLeadDocument(data: InsertLeadDocument) {
 export async function deleteLeadDocument(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  const { deleteDocumentAccess } = await import("./documentAccessDb");
+  await deleteDocumentAccess("lead", id);
   await db.delete(leadDocuments).where(eq(leadDocuments.id, id));
 }
 

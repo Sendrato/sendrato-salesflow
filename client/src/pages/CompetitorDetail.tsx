@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -21,10 +21,12 @@ import {
 import {
   ArrowLeft, Swords, Globe, Pencil, Save, X,
   Link2, Unlink, FileText, Upload, Download, Trash2,
-  Building2, CalendarClock, ThumbsUp, ThumbsDown,
+  Building2, CalendarClock, ThumbsUp, ThumbsDown, Lock, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime } from "@/lib/crm";
+import { UserAccessPicker } from "@/components/UserAccessPicker";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const THREAT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   low:    { label: "Low",    color: "text-green-700",  bg: "bg-green-100" },
@@ -59,8 +61,30 @@ export default function CompetitorDetailPage() {
   });
 
   // Document upload
+  const { user } = useAuth();
   const [uploadCategory, setUploadCategory] = useState("other");
+  const [uploadAccessType, setUploadAccessType] = useState<"all" | "restricted">("all");
+  const [uploadAccessUserIds, setUploadAccessUserIds] = useState<number[]>([]);
+  const [editAccessDoc, setEditAccessDoc] = useState<any>(null);
+  const [editAccessType, setEditAccessType] = useState<"all" | "restricted">("all");
+  const [editAccessUserIds, setEditAccessUserIds] = useState<number[]>([]);
+  const [savingAccess, setSavingAccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const accessQuery = trpc.documents.getAccess.useQuery(
+    { documentType: "competitor", documentId: editAccessDoc?.id ?? 0 },
+    { enabled: !!editAccessDoc }
+  );
+
+  const setAccessMutation = trpc.documents.setAccess.useMutation({
+    onSuccess: () => {
+      refetchDocs();
+      setEditAccessDoc(null);
+      toast.success("Access updated");
+    },
+    onError: () => toast.error("Failed to update access"),
+  });
+
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -68,11 +92,20 @@ export default function CompetitorDetailPage() {
     formData.append("file", file);
     formData.append("competitorId", String(competitorId));
     formData.append("category", uploadCategory);
+    if (user?.id) {
+      formData.append("userId", String(user.id));
+    }
+    if (uploadAccessType === "restricted") {
+      formData.append("accessType", "restricted");
+      formData.append("accessUserIds", JSON.stringify(uploadAccessUserIds));
+    }
     try {
       const res = await fetch("/api/upload-competitor-document", { method: "POST", body: formData });
       if (res.ok) {
         refetchDocs();
         toast.success(`"${file.name}" uploaded`);
+        setUploadAccessType("all");
+        setUploadAccessUserIds([]);
       } else {
         toast.error("Upload failed");
       }
@@ -80,7 +113,7 @@ export default function CompetitorDetailPage() {
       toast.error("Upload failed");
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [competitorId, uploadCategory, refetchDocs]);
+  }, [competitorId, uploadCategory, refetchDocs, user, uploadAccessType, uploadAccessUserIds]);
 
   const deleteDocMutation = trpc.competitors.deleteDocument.useMutation({
     onSuccess: () => { refetchDocs(); toast.success("Document deleted"); },
@@ -382,7 +415,7 @@ export default function CompetitorDetailPage() {
                 <CardTitle className="text-base font-semibold">Upload Document</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-3 items-center">
+                <div className="flex flex-wrap gap-3 items-center">
                   <Select value={uploadCategory} onValueChange={setUploadCategory}>
                     <SelectTrigger className="w-[180px] text-sm h-9"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -393,6 +426,13 @@ export default function CompetitorDetailPage() {
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  <UserAccessPicker
+                    accessType={uploadAccessType}
+                    selectedUserIds={uploadAccessUserIds}
+                    onAccessTypeChange={setUploadAccessType}
+                    onSelectedUsersChange={setUploadAccessUserIds}
+                    compact
+                  />
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -426,10 +466,27 @@ export default function CompetitorDetailPage() {
                             {doc.chunkCount > 0 && (
                               <Badge variant="secondary" className="text-[10px] px-1.5 py-0">AI Indexed</Badge>
                             )}
+                            {doc.accessType === "restricted" && (
+                              <span className="text-amber-600 flex items-center gap-0.5">
+                                <Lock className="h-3 w-3" /> Restricted
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                       <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Edit access"
+                          onClick={() => {
+                            setEditAccessDoc(doc);
+                            setEditAccessType(doc.accessType ?? "all");
+                            setEditAccessUserIds([]);
+                          }}
+                        >
+                          <Lock className="h-3.5 w-3.5" />
+                        </Button>
                         <Button variant="ghost" size="sm" asChild>
                           <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
                             <Download className="h-3.5 w-3.5" />
@@ -449,6 +506,42 @@ export default function CompetitorDetailPage() {
                 ))}
               </div>
             )}
+
+            {/* Edit Access Dialog */}
+            <Dialog
+              open={!!editAccessDoc}
+              onOpenChange={(o) => { if (!o) setEditAccessDoc(null); }}
+            >
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Lock className="h-4 w-4" /> Document Access
+                  </DialogTitle>
+                </DialogHeader>
+                <CompetitorEditAccessContent
+                  doc={editAccessDoc}
+                  accessQuery={accessQuery}
+                  editAccessType={editAccessType}
+                  setEditAccessType={setEditAccessType}
+                  editAccessUserIds={editAccessUserIds}
+                  setEditAccessUserIds={setEditAccessUserIds}
+                  savingAccess={savingAccess}
+                  onSave={() => {
+                    setSavingAccess(true);
+                    setAccessMutation.mutate(
+                      {
+                        documentType: "competitor",
+                        documentId: editAccessDoc.id,
+                        accessType: editAccessType,
+                        userIds: editAccessUserIds,
+                      },
+                      { onSettled: () => setSavingAccess(false) }
+                    );
+                  }}
+                  onCancel={() => setEditAccessDoc(null)}
+                />
+              </DialogContent>
+            </Dialog>
           </TabsContent>
         </Tabs>
       </div>
@@ -649,5 +742,55 @@ function LinkLeadDialog({ competitorId, onSuccess }: { competitorId: number; onS
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function CompetitorEditAccessContent({
+  doc,
+  accessQuery,
+  editAccessType,
+  setEditAccessType,
+  editAccessUserIds,
+  setEditAccessUserIds,
+  savingAccess,
+  onSave,
+  onCancel,
+}: {
+  doc: any;
+  accessQuery: any;
+  editAccessType: "all" | "restricted";
+  setEditAccessType: (t: "all" | "restricted") => void;
+  editAccessUserIds: number[];
+  setEditAccessUserIds: (ids: number[]) => void;
+  savingAccess: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const data = accessQuery.data;
+  useEffect(() => {
+    if (data) {
+      setEditAccessType(data.accessType);
+      setEditAccessUserIds(data.userIds);
+    }
+  }, [data, setEditAccessType, setEditAccessUserIds]);
+
+  if (!doc) return null;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground truncate">{doc.fileName}</p>
+      <UserAccessPicker
+        accessType={editAccessType}
+        selectedUserIds={editAccessUserIds}
+        onAccessTypeChange={setEditAccessType}
+        onSelectedUsersChange={setEditAccessUserIds}
+      />
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button className="flex-1" onClick={onSave} disabled={savingAccess}>
+          {savingAccess ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+        </Button>
+      </div>
+    </div>
   );
 }

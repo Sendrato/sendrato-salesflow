@@ -180,8 +180,11 @@ export const competitorsRouter = router({
 
   listDocuments: publicProcedure
     .input(z.object({ competitorId: z.number() }))
-    .query(async ({ input }) => {
-      const docs = await getCompetitorDocuments(input.competitorId);
+    .query(async ({ input, ctx }) => {
+      const docs = await getCompetitorDocuments(input.competitorId, {
+        userId: ctx.user?.id,
+        isAdmin: ctx.user?.role === "admin",
+      });
       const pool = await getRawPool();
       if (!pool) return docs;
       const enriched = await Promise.all(

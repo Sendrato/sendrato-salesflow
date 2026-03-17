@@ -385,12 +385,22 @@ export function registerIntegrationRoutes(app: Express) {
       const pool = await getRawPool();
       if (!pool) throw new Error("No DB connection");
 
+      const accessType = req.body.accessType ?? "all";
+      const accessUserIds: number[] = req.body.accessUserIds
+        ? JSON.parse(req.body.accessUserIds)
+        : [];
+
       const { rows } = await pool.query(
-        `INSERT INTO lead_documents ("leadId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "uploadedBy", "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING id`,
-        [leadId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, userId ?? null]
+        `INSERT INTO lead_documents ("leadId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "accessType", "uploadedBy", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id`,
+        [leadId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, accessType, userId ?? null]
       );
       const documentId = rows[0].id;
+
+      if (accessType === "restricted" && accessUserIds.length > 0) {
+        const { setDocumentAccess } = await import("./documentAccessDb");
+        await setDocumentAccess("lead", documentId, accessUserIds);
+      }
 
       // Trigger RAG indexing asynchronously
       const buffer = req.file.buffer;
@@ -444,12 +454,22 @@ export function registerIntegrationRoutes(app: Express) {
       const pool = await getRawPool();
       if (!pool) throw new Error("No DB connection");
 
+      const accessType = req.body.accessType ?? "all";
+      const accessUserIds: number[] = req.body.accessUserIds
+        ? JSON.parse(req.body.accessUserIds)
+        : [];
+
       const { rows } = await pool.query(
-        `INSERT INTO competitor_documents ("competitorId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "uploadedBy", "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING id`,
-        [competitorId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, userId ?? null]
+        `INSERT INTO competitor_documents ("competitorId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "accessType", "uploadedBy", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id`,
+        [competitorId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, accessType, userId ?? null]
       );
       const documentId = rows[0].id;
+
+      if (accessType === "restricted" && accessUserIds.length > 0) {
+        const { setDocumentAccess } = await import("./documentAccessDb");
+        await setDocumentAccess("competitor", documentId, accessUserIds);
+      }
 
       const buffer = req.file.buffer;
       const mimeType = req.file.mimetype;
@@ -491,6 +511,10 @@ export function registerIntegrationRoutes(app: Express) {
       const category = req.body.category ?? "other";
       const description = req.body.description || null;
       const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
+      const accessType = req.body.accessType ?? "all";
+      const accessUserIds: number[] = req.body.accessUserIds
+        ? JSON.parse(req.body.accessUserIds)
+        : [];
 
       const ext = req.file.originalname.split(".").pop() ?? "bin";
       const fileKey = `crm-docs/${nanoid()}.${ext}`;
@@ -505,8 +529,14 @@ export function registerIntegrationRoutes(app: Express) {
         fileSize: req.file.size,
         category: category as any,
         description,
+        accessType: accessType as any,
         uploadedBy: userId ?? null,
       });
+
+      if (accessType === "restricted" && accessUserIds.length > 0) {
+        const { setDocumentAccess } = await import("./documentAccessDb");
+        await setDocumentAccess("crm", doc.id, accessUserIds);
+      }
 
       res.json({
         success: true,

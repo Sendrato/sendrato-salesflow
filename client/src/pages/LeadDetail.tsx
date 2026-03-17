@@ -18,9 +18,9 @@ import {
   Sparkles, Loader2, Upload, Trash2, ExternalLink, MessageSquare, Calendar, CalendarPlus,
   Share2, Link, CheckCircle2, BookOpen, FileSpreadsheet, FileCode, Copy, Eye,
   Users, UserPlus, Unlink as UnlinkIcon, Linkedin, Swords, MoreVertical, Merge, Search,
-  ChevronRight, Check, PauseCircle, XCircle, CalendarRange, MapPin, Pencil, UserCircle,
+  ChevronRight, Check, PauseCircle, XCircle, CalendarRange, MapPin, Pencil, UserCircle, Lock,
 } from "lucide-react";
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import {
@@ -33,6 +33,8 @@ import RichNotes from "@/components/RichNotes";
 import { Markdown } from "@/components/Markdown";
 import { LeadAttributeEditor } from "@/components/LeadAttributeEditor";
 import WebLinksCard from "@/components/WebLinksCard";
+import { UserAccessPicker } from "@/components/UserAccessPicker";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { getPromotorEventFields } from "@shared/leadAttributeSchemas";
 
 /** Convert plain newlines to markdown line breaks (two trailing spaces) */
@@ -211,6 +213,7 @@ function getDocIcon(mimeType?: string | null, fileName?: string) {
 }
 
 export default function LeadDetail() {
+  const { user } = useAuth();
   const params = useParams<{ id: string }>();
   const leadId = parseInt(params.id ?? "0");
   const [, setLocation] = useLocation();
@@ -230,6 +233,12 @@ export default function LeadDetail() {
   const [compLikes, setCompLikes] = useState("");
   const [compDislikes, setCompDislikes] = useState("");
   const [uploadCategory, setUploadCategory] = useState<"proposal"|"contract"|"presentation"|"report"|"other">("other");
+  const [uploadAccessType, setUploadAccessType] = useState<"all" | "restricted">("all");
+  const [uploadAccessUserIds, setUploadAccessUserIds] = useState<number[]>([]);
+  const [editAccessDoc, setEditAccessDoc] = useState<any>(null);
+  const [editAccessType, setEditAccessType] = useState<"all" | "restricted">("all");
+  const [editAccessUserIds, setEditAccessUserIds] = useState<number[]>([]);
+  const [savingAccess, setSavingAccess] = useState(false);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeSearch, setMergeSearch] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
@@ -381,6 +390,20 @@ export default function LeadDetail() {
     { enabled: mergeOpen && mergeSearch.length >= 2 },
   );
 
+  const accessQuery = trpc.documents.getAccess.useQuery(
+    { documentType: "lead", documentId: editAccessDoc?.id ?? 0 },
+    { enabled: !!editAccessDoc }
+  );
+
+  const setAccessMutation = trpc.documents.setAccess.useMutation({
+    onSuccess: () => {
+      utils.documents.list.invalidate({ leadId });
+      setEditAccessDoc(null);
+      toast.success("Access updated");
+    },
+    onError: () => toast.error("Failed to update access"),
+  });
+
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -388,11 +411,20 @@ export default function LeadDetail() {
     formData.append("file", file);
     formData.append("leadId", String(leadId));
     formData.append("category", uploadCategory);
+    if (user?.id) {
+      formData.append("userId", String(user.id));
+    }
+    if (uploadAccessType === "restricted") {
+      formData.append("accessType", "restricted");
+      formData.append("accessUserIds", JSON.stringify(uploadAccessUserIds));
+    }
     try {
       const res = await fetch("/api/upload-document", { method: "POST", body: formData });
       if (res.ok) {
         utils.documents.list.invalidate({ leadId });
         toast.success(`"${file.name}" uploaded and indexed for AI search`);
+        setUploadAccessType("all");
+        setUploadAccessUserIds([]);
       } else {
         toast.error("Upload failed");
       }
@@ -400,7 +432,7 @@ export default function LeadDetail() {
       toast.error("Upload failed");
     }
     if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [leadId, uploadCategory, utils]);
+  }, [leadId, uploadCategory, utils, user, uploadAccessType, uploadAccessUserIds]);
 
   const handleShare = async () => {
     if (!shareDialogDoc) return;
@@ -1675,7 +1707,7 @@ export default function LeadDetail() {
                 <CardTitle className="text-base font-semibold">Upload Document</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
                   <Select value={uploadCategory} onValueChange={(v) => setUploadCategory(v as any)}>
                     <SelectTrigger className="w-full sm:w-48">
                       <SelectValue placeholder="Category" />
@@ -1688,6 +1720,13 @@ export default function LeadDetail() {
                       <SelectItem value="other">📁 Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  <UserAccessPicker
+                    accessType={uploadAccessType}
+                    selectedUserIds={uploadAccessUserIds}
+                    onAccessTypeChange={setUploadAccessType}
+                    onSelectedUsersChange={setUploadAccessUserIds}
+                    compact
+                  />
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1742,10 +1781,26 @@ export default function LeadDetail() {
                                   <Share2 className="h-3 w-3" /> {doc.shareCount} share{doc.shareCount !== 1 ? "s" : ""}
                                 </span>
                               )}
+                              {doc.accessType === "restricted" && (
+                                <span className="text-xs text-amber-600 flex items-center gap-1">
+                                  <Lock className="h-3 w-3" /> Restricted
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
                         <div className="flex gap-1 shrink-0">
+                          <Button
+                            variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
+                            title="Edit access"
+                            onClick={() => {
+                              setEditAccessDoc(doc);
+                              setEditAccessType(doc.accessType ?? "all");
+                              setEditAccessUserIds([]);
+                            }}
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                          </Button>
                           <Button
                             variant="ghost" size="sm" className="h-7 px-2 gap-1 text-xs"
                             onClick={() => {
@@ -1893,6 +1948,42 @@ export default function LeadDetail() {
                     </div>
                   </div>
                 )}
+              </DialogContent>
+            </Dialog>
+
+            {/* Edit Access Dialog */}
+            <Dialog
+              open={!!editAccessDoc}
+              onOpenChange={(o) => { if (!o) setEditAccessDoc(null); }}
+            >
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Lock className="h-4 w-4" /> Document Access
+                  </DialogTitle>
+                </DialogHeader>
+                <LeadEditAccessContent
+                  doc={editAccessDoc}
+                  accessQuery={accessQuery}
+                  editAccessType={editAccessType}
+                  setEditAccessType={setEditAccessType}
+                  editAccessUserIds={editAccessUserIds}
+                  setEditAccessUserIds={setEditAccessUserIds}
+                  savingAccess={savingAccess}
+                  onSave={() => {
+                    setSavingAccess(true);
+                    setAccessMutation.mutate(
+                      {
+                        documentType: "lead",
+                        documentId: editAccessDoc.id,
+                        accessType: editAccessType,
+                        userIds: editAccessUserIds,
+                      },
+                      { onSettled: () => setSavingAccess(false) }
+                    );
+                  }}
+                  onCancel={() => setEditAccessDoc(null)}
+                />
               </DialogContent>
             </Dialog>
           </TabsContent>
@@ -2072,5 +2163,55 @@ export default function LeadDetail() {
         </Tabs>
       </div>
     </DashboardLayout>
+  );
+}
+
+function LeadEditAccessContent({
+  doc,
+  accessQuery,
+  editAccessType,
+  setEditAccessType,
+  editAccessUserIds,
+  setEditAccessUserIds,
+  savingAccess,
+  onSave,
+  onCancel,
+}: {
+  doc: any;
+  accessQuery: any;
+  editAccessType: "all" | "restricted";
+  setEditAccessType: (t: "all" | "restricted") => void;
+  editAccessUserIds: number[];
+  setEditAccessUserIds: (ids: number[]) => void;
+  savingAccess: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const data = accessQuery.data;
+  useEffect(() => {
+    if (data) {
+      setEditAccessType(data.accessType);
+      setEditAccessUserIds(data.userIds);
+    }
+  }, [data, setEditAccessType, setEditAccessUserIds]);
+
+  if (!doc) return null;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground truncate">{doc.fileName}</p>
+      <UserAccessPicker
+        accessType={editAccessType}
+        selectedUserIds={editAccessUserIds}
+        onAccessTypeChange={setEditAccessType}
+        onSelectedUsersChange={setEditAccessUserIds}
+      />
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button className="flex-1" onClick={onSave} disabled={savingAccess}>
+          {savingAccess ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+        </Button>
+      </div>
+    </div>
   );
 }

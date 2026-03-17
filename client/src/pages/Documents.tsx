@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -33,9 +33,13 @@ import {
   Eye,
   Link,
   Loader2,
+  Lock,
+  Globe,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
+import { UserAccessPicker } from "@/components/UserAccessPicker";
 
 const CATEGORIES = [
   { value: "all", label: "All Categories" },
@@ -100,6 +104,14 @@ export default function DocumentsPage() {
   const [uploadCategory, setUploadCategory] = useState("other");
   const [description, setDescription] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadAccessType, setUploadAccessType] = useState<"all" | "restricted">("all");
+  const [uploadAccessUserIds, setUploadAccessUserIds] = useState<number[]>([]);
+
+  // Edit access dialog state
+  const [editAccessDoc, setEditAccessDoc] = useState<any>(null);
+  const [editAccessType, setEditAccessType] = useState<"all" | "restricted">("all");
+  const [editAccessUserIds, setEditAccessUserIds] = useState<number[]>([]);
+  const [savingAccess, setSavingAccess] = useState(false);
 
   // Share dialog state
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
@@ -114,6 +126,20 @@ export default function DocumentsPage() {
 
   const { data: shares, refetch: refetchShares } =
     trpc.crmDocuments.listShares.useQuery();
+
+  const accessQuery = trpc.documents.getAccess.useQuery(
+    { documentType: "crm", documentId: editAccessDoc?.id ?? 0 },
+    { enabled: !!editAccessDoc }
+  );
+
+  const setAccessMutation = trpc.documents.setAccess.useMutation({
+    onSuccess: () => {
+      utils.crmDocuments.list.invalidate();
+      setEditAccessDoc(null);
+      toast.success("Access updated");
+    },
+    onError: () => toast.error("Failed to update access"),
+  });
 
   const deleteMutation = trpc.crmDocuments.delete.useMutation({
     onSuccess: () => {
@@ -147,6 +173,10 @@ export default function DocumentsPage() {
       if (user?.id) {
         formData.append("userId", String(user.id));
       }
+      if (uploadAccessType === "restricted") {
+        formData.append("accessType", "restricted");
+        formData.append("accessUserIds", JSON.stringify(uploadAccessUserIds));
+      }
       try {
         const res = await fetch("/api/upload-crm-document", {
           method: "POST",
@@ -156,6 +186,8 @@ export default function DocumentsPage() {
           utils.crmDocuments.list.invalidate();
           toast.success(`"${file.name}" uploaded`);
           setDescription("");
+          setUploadAccessType("all");
+          setUploadAccessUserIds([]);
         } else {
           toast.error("Upload failed");
         }
@@ -166,7 +198,7 @@ export default function DocumentsPage() {
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [uploadCategory, description, user, utils]
+    [uploadCategory, description, user, utils, uploadAccessType, uploadAccessUserIds]
   );
 
   const handleShare = async () => {
@@ -230,6 +262,12 @@ export default function DocumentsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <UserAccessPicker
+              accessType={uploadAccessType}
+              selectedUserIds={uploadAccessUserIds}
+              onAccessTypeChange={setUploadAccessType}
+              onSelectedUsersChange={setUploadAccessUserIds}
+            />
             <div className="space-y-1 flex-1 min-w-[200px]">
               <label className="text-xs text-muted-foreground">
                 Description (optional)
@@ -317,6 +355,9 @@ export default function DocumentsPage() {
                   <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden lg:table-cell">
                     Description
                   </th>
+                  <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden md:table-cell">
+                    Access
+                  </th>
                   <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">
                     Uploaded By
                   </th>
@@ -374,6 +415,29 @@ export default function DocumentsPage() {
                         <span className="text-muted-foreground text-xs line-clamp-2 max-w-[200px]">
                           {doc.description || "—"}
                         </span>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        <button
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium cursor-pointer hover:bg-muted/50 transition-colors"
+                          title="Edit access"
+                          onClick={() => {
+                            setEditAccessDoc(doc);
+                            setEditAccessType(doc.accessType ?? "all");
+                            setEditAccessUserIds([]);
+                          }}
+                        >
+                          {doc.accessType === "restricted" ? (
+                            <>
+                              <Lock className="h-3 w-3 text-amber-500" />
+                              <span className="text-amber-700">Restricted</span>
+                            </>
+                          ) : (
+                            <>
+                              <Globe className="h-3 w-3 text-green-500" />
+                              <span className="text-green-700">All users</span>
+                            </>
+                          )}
+                        </button>
                       </td>
                       <td className="px-4 py-3 hidden sm:table-cell">
                         <span className="text-xs text-muted-foreground">
@@ -617,6 +681,107 @@ export default function DocumentsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Edit Access Dialog */}
+      <Dialog
+        open={!!editAccessDoc}
+        onOpenChange={(o) => {
+          if (!o) setEditAccessDoc(null);
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-4 w-4" /> Document Access
+            </DialogTitle>
+          </DialogHeader>
+          <EditAccessDialogContent
+            doc={editAccessDoc}
+            accessQuery={accessQuery}
+            editAccessType={editAccessType}
+            setEditAccessType={setEditAccessType}
+            editAccessUserIds={editAccessUserIds}
+            setEditAccessUserIds={setEditAccessUserIds}
+            savingAccess={savingAccess}
+            onSave={() => {
+              setSavingAccess(true);
+              setAccessMutation.mutate(
+                {
+                  documentType: "crm",
+                  documentId: editAccessDoc.id,
+                  accessType: editAccessType,
+                  userIds: editAccessUserIds,
+                },
+                { onSettled: () => setSavingAccess(false) }
+              );
+            }}
+            onCancel={() => setEditAccessDoc(null)}
+          />
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
+  );
+}
+
+function EditAccessDialogContent({
+  doc,
+  accessQuery,
+  editAccessType,
+  setEditAccessType,
+  editAccessUserIds,
+  setEditAccessUserIds,
+  savingAccess,
+  onSave,
+  onCancel,
+}: {
+  doc: any;
+  accessQuery: any;
+  editAccessType: "all" | "restricted";
+  setEditAccessType: (t: "all" | "restricted") => void;
+  editAccessUserIds: number[];
+  setEditAccessUserIds: (ids: number[]) => void;
+  savingAccess: boolean;
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  // Sync access data when query loads
+  const data = accessQuery.data;
+  useEffect(() => {
+    if (data) {
+      setEditAccessType(data.accessType);
+      setEditAccessUserIds(data.userIds);
+    }
+  }, [data, setEditAccessType, setEditAccessUserIds]);
+
+  if (!doc) return null;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground truncate">
+        {doc.fileName}
+      </p>
+      <UserAccessPicker
+        accessType={editAccessType}
+        selectedUserIds={editAccessUserIds}
+        onAccessTypeChange={setEditAccessType}
+        onSelectedUsersChange={setEditAccessUserIds}
+      />
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button
+          className="flex-1"
+          onClick={onSave}
+          disabled={savingAccess}
+        >
+          {savingAccess ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Save"
+          )}
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { eq, desc, ilike, or, and } from "drizzle-orm";
+import { eq, desc, ilike, or, and, sql } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   crmDocuments,
@@ -11,6 +11,8 @@ export async function getCrmDocuments(opts: {
   category?: string;
   limit?: number;
   offset?: number;
+  userId?: number;
+  isAdmin?: boolean;
 } = {}) {
   const db = await getDb();
   if (!db) return [];
@@ -31,6 +33,24 @@ export async function getCrmDocuments(opts: {
     );
   }
 
+  // Access filtering
+  if (!opts.isAdmin && opts.userId) {
+    conditions.push(
+      or(
+        eq(crmDocuments.accessType, "all"),
+        eq(crmDocuments.uploadedBy, opts.userId),
+        sql`EXISTS (
+          SELECT 1 FROM document_access da
+          WHERE da."documentType" = 'crm'
+          AND da."documentId" = ${crmDocuments.id}
+          AND da."userId" = ${opts.userId}
+        )`
+      )
+    );
+  } else if (!opts.isAdmin && !opts.userId) {
+    conditions.push(eq(crmDocuments.accessType, "all"));
+  }
+
   const rows = await db
     .select({
       id: crmDocuments.id,
@@ -41,6 +61,7 @@ export async function getCrmDocuments(opts: {
       fileSize: crmDocuments.fileSize,
       category: crmDocuments.category,
       description: crmDocuments.description,
+      accessType: crmDocuments.accessType,
       uploadedBy: crmDocuments.uploadedBy,
       createdAt: crmDocuments.createdAt,
       uploaderName: users.name,
@@ -75,5 +96,7 @@ export async function createCrmDocument(data: InsertCrmDocument) {
 export async function deleteCrmDocument(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  const { deleteDocumentAccess } = await import("./documentAccessDb");
+  await deleteDocumentAccess("crm", id);
   await db.delete(crmDocuments).where(eq(crmDocuments.id, id));
 }

@@ -18,7 +18,13 @@ export const crmDocumentsRouter = router({
         })
         .optional()
     )
-    .query(({ input }) => getCrmDocuments(input ?? {})),
+    .query(({ input, ctx }) =>
+      getCrmDocuments({
+        ...(input ?? {}),
+        userId: ctx.user?.id,
+        isAdmin: ctx.user?.role === "admin",
+      })
+    ),
 
   delete: protectedProcedure
     .input(z.object({ id: z.number() }))

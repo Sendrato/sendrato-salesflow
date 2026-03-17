@@ -1,4 +1,4 @@
-import { eq, or, desc, and, sql, gte, lte } from "drizzle-orm";
+import { eq, or, desc, and, sql, gte, lte, inArray } from "drizzle-orm";
 import { getDb, getRawPool } from "./db";
 import {
   competitors,
@@ -130,6 +130,17 @@ export async function deleteCompetitor(id: number) {
       [id]
     );
   }
+  // Cascade: delete document access entries for competitor docs
+  const compDocs = await db
+    .select({ id: competitorDocuments.id })
+    .from(competitorDocuments)
+    .where(eq(competitorDocuments.competitorId, id));
+  if (compDocs.length > 0) {
+    const { deleteDocumentAccess } = await import("./documentAccessDb");
+    for (const doc of compDocs) {
+      await deleteDocumentAccess("competitor", doc.id);
+    }
+  }
   // Cascade: delete documents
   await db
     .delete(competitorDocuments)
@@ -246,13 +257,38 @@ export async function unlinkCompetitorFromLead(
 
 // ─── Competitor Documents ────────────────────────────────────────────────────
 
-export async function getCompetitorDocuments(competitorId: number) {
+export async function getCompetitorDocuments(
+  competitorId: number,
+  opts?: { userId?: number; isAdmin?: boolean }
+) {
   const db = await getDb();
   if (!db) return [];
+
+  const conditions: any[] = [
+    eq(competitorDocuments.competitorId, competitorId),
+  ];
+
+  if (!opts?.isAdmin && opts?.userId) {
+    conditions.push(
+      or(
+        eq(competitorDocuments.accessType, "all"),
+        eq(competitorDocuments.uploadedBy, opts.userId),
+        sql`EXISTS (
+          SELECT 1 FROM document_access da
+          WHERE da."documentType" = 'competitor'
+          AND da."documentId" = ${competitorDocuments.id}
+          AND da."userId" = ${opts.userId}
+        )`
+      )
+    );
+  } else if (!opts?.isAdmin && !opts?.userId) {
+    conditions.push(eq(competitorDocuments.accessType, "all"));
+  }
+
   return db
     .select()
     .from(competitorDocuments)
-    .where(eq(competitorDocuments.competitorId, competitorId))
+    .where(and(...conditions))
     .orderBy(desc(competitorDocuments.createdAt));
 }
 
@@ -278,6 +314,8 @@ export async function deleteCompetitorDocument(id: number) {
       [id]
     );
   }
+  const { deleteDocumentAccess } = await import("./documentAccessDb");
+  await deleteDocumentAccess("competitor", id);
   await db
     .delete(competitorDocuments)
     .where(eq(competitorDocuments.id, id));
