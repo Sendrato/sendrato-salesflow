@@ -569,7 +569,7 @@ export default function Leads() {
                         <span className="text-xs text-muted-foreground">{formatRelativeTime(lead.lastContactedAt)}</span>
                       </TableCell>
                       <TableCell>
-                        {(lead as any).documentCount > 0 ? (
+                        {Number((lead as any).documentCount) > 0 ? (
                           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                             <FileText className="h-3 w-3" />
                             {(lead as any).documentCount}

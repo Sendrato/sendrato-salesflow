@@ -351,13 +351,16 @@ export async function getLeads(opts: {
     db
       .select({
         ...getTableColumns(leads),
-        documentCount: sql<number>`(SELECT COUNT(*) FROM lead_documents WHERE "leadId" = ${leads.id})`.as("documentCount"),
+        documentCount: sql<number>`(SELECT COUNT(*)::int FROM lead_documents WHERE "leadId" = ${leads.id})`.as("documentCount"),
       })
       .from(leads).where(where).orderBy(asc(leads.companyName)).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(leads).where(where),
   ]);
 
-  return { items, total: Number(countResult[0]?.count ?? 0) };
+  return {
+    items: items.map((item) => ({ ...item, documentCount: Number(item.documentCount ?? 0) })),
+    total: Number(countResult[0]?.count ?? 0),
+  };
 }
 
 export async function getLeadById(id: number) {
