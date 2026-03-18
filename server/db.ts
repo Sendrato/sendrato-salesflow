@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, getTableColumns, gte, like, lte, or, sql, inArray } from "drizzle-orm";
+import { normalizeCountry } from "@shared/countries";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import {
@@ -167,6 +168,27 @@ export async function getDb() {
             }
           } catch (e) {
             console.warn("[DB] Whitespace trim failed:", e);
+          }
+          // Normalize country names to ISO 3166-1 standard
+          try {
+            const dirtyRows = await _pool.query(
+              `SELECT DISTINCT country FROM leads WHERE country IS NOT NULL AND country != ''`
+            );
+            for (const row of dirtyRows.rows) {
+              const original = row.country as string;
+              const normalized = normalizeCountry(original);
+              if (normalized !== original) {
+                const res = await _pool.query(
+                  `UPDATE leads SET country = $1 WHERE country = $2`,
+                  [normalized, original]
+                );
+                if (res.rowCount && res.rowCount > 0) {
+                  console.log(`[DB] Normalized country "${original}" → "${normalized}" (${res.rowCount} rows)`);
+                }
+              }
+            }
+          } catch (e) {
+            console.warn("[DB] Country normalization failed:", e);
           }
         } catch (e) {
           console.warn("[DB] Schema patch failed:", e);
@@ -386,6 +408,7 @@ export async function createLead(data: InsertLead) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const trimmed = trimLeadStrings(data);
+  if (trimmed.country) trimmed.country = normalizeCountry(trimmed.country);
   // Auto-compute leadSize from attributes
   const size = getLeadSize(trimmed.leadType ?? "default", trimmed.leadAttributes ?? null);
   const [inserted] = await db.insert(leads).values({ ...trimmed, leadSize: size }).returning({ id: leads.id });
@@ -396,6 +419,7 @@ export async function updateLead(id: number, data: Partial<InsertLead>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const trimmed = trimLeadStrings(data);
+  if (trimmed.country) trimmed.country = normalizeCountry(trimmed.country);
   // Re-compute leadSize if attributes or type changed
   let leadSize = trimmed.leadSize;
   if (trimmed.leadAttributes !== undefined || trimmed.leadType !== undefined) {
@@ -516,6 +540,7 @@ export async function bulkInsertLeads(data: InsertLead[]) {
   const results = [];
   for (const lead of data) {
     const trimmed = trimLeadStrings(lead);
+    if (trimmed.country) trimmed.country = normalizeCountry(trimmed.country);
     const size = getLeadSize(trimmed.leadType ?? "default", trimmed.leadAttributes ?? null);
     const [inserted] = await db.insert(leads).values({ ...trimmed, leadSize: size }).returning({ id: leads.id });
     results.push(inserted.id);

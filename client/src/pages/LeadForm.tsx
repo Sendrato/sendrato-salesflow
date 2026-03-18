@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import { ALL_STATUSES, ALL_PRIORITIES, STATUS_LABELS } from "@/lib/crm";
+import { CountryCombobox } from "@/components/CountryCombobox";
 
 type FormData = {
   companyName: string;
@@ -185,7 +186,7 @@ export default function LeadForm() {
               </div>
               <div className="space-y-1.5">
                 <Label>Country</Label>
-                <Input value={form.country} onChange={set("country")} placeholder="United Kingdom" />
+                <CountryCombobox value={form.country} onChange={(v) => setForm((f) => ({ ...f, country: v }))} />
               </div>
             </CardContent>
           </Card>
