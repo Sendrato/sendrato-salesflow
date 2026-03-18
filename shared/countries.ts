@@ -172,7 +172,7 @@ export const COUNTRY_ALIAS_MAP: Record<string, string> = (() => {
     qa: "Qatar",
     ro: "Romania",
     ru: "Russia",
-    sa: "Saudi Arabia",
+    sa: "South Africa",
     rs: "Serbia",
     sg: "Singapore",
     sk: "Slovakia",
@@ -202,6 +202,7 @@ export const COUNTRY_ALIAS_MAP: Record<string, string> = (() => {
   map["uk"] = "United Kingdom";
   map["uae"] = "United Arab Emirates";
   map["usa"] = "United States";
+  map["ksa"] = "Saudi Arabia";
 
   // UK constituent countries and regions
   const ukRegions = [
