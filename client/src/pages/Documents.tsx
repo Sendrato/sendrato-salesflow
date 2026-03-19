@@ -376,7 +376,7 @@ export default function DocumentsPage() {
             </p>
           </div>
         ) : (
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40">
@@ -398,7 +398,7 @@ export default function DocumentsPage() {
                   <th className="text-left px-4 py-2.5 font-medium text-muted-foreground hidden sm:table-cell">
                     Date
                   </th>
-                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground">
+                  <th className="text-right px-4 py-2.5 font-medium text-muted-foreground whitespace-nowrap">
                     Actions
                   </th>
                 </tr>
@@ -483,7 +483,7 @@ export default function DocumentsPage() {
                           {formatRelativeTime(doc.createdAt)}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -529,9 +529,11 @@ export default function DocumentsPage() {
                             size="sm"
                             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                             title="Delete"
-                            onClick={() =>
-                              deleteMutation.mutate({ id: doc.id })
-                            }
+                            onClick={() => {
+                              if (confirm("Delete this document? This cannot be undone.")) {
+                                deleteMutation.mutate({ id: doc.id });
+                              }
+                            }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
