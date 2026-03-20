@@ -46,6 +46,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { formatRelativeTime } from "@/lib/crm";
 
+function countryCodeToFlag(code: string): string {
+  const upper = code.toUpperCase();
+  return Array.from(upper)
+    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .join("");
+}
+
 const PROVIDERS = [
   {
     value: "forge",
@@ -226,6 +233,7 @@ function UserManagementCard() {
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last Active</TableHead>
+                <TableHead>Country</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -288,6 +296,11 @@ function UserManagementCard() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatRelativeTime(u.lastSignedIn)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {u.lastLoginCountry
+                        ? `${countryCodeToFlag(u.lastLoginCountry)} ${u.lastLoginCountry}`
+                        : "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">

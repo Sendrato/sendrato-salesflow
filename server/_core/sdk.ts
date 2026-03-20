@@ -5,6 +5,7 @@ import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
+import { extractIp, getCountryFromIp } from "../geoip";
 import { ENV } from "./env";
 
 const isNonEmptyString = (value: unknown): value is string =>
@@ -91,9 +92,15 @@ class SessionService {
       throw ForbiddenError("User not found");
     }
 
+    const ip = extractIp(req);
+    const ipChanged = ip && ip !== user.lastLoginIp;
+    const country = ipChanged ? await getCountryFromIp(ip) : null;
+
     await db.upsertUser({
       openId: user.openId,
       lastSignedIn: new Date(),
+      ...(ipChanged && { lastLoginIp: ip }),
+      ...(country && { lastLoginCountry: country }),
     });
 
     return user;

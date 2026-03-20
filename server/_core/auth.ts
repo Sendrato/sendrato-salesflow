@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import type { Express, Request, Response } from "express";
 import { nanoid } from "nanoid";
 import * as db from "../db";
+import { extractIp, getCountryFromIp } from "../geoip";
 import { getSessionCookieOptions } from "./cookies";
 import { sdk } from "./sdk";
 
@@ -102,9 +103,14 @@ export function registerAuthRoutes(app: Express) {
         return;
       }
 
+      const ip = extractIp(req);
+      const country = ip ? await getCountryFromIp(ip) : null;
+
       await db.upsertUser({
         openId: user.openId,
         lastSignedIn: new Date(),
+        ...(ip && { lastLoginIp: ip }),
+        ...(country && { lastLoginCountry: country }),
       });
 
       const sessionToken = await sdk.createSessionToken(user.openId, {
