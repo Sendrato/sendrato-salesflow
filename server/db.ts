@@ -382,7 +382,7 @@ export async function getLeads(opts: {
         ...getTableColumns(leads),
         documentCount: sql<number>`(SELECT COUNT(*)::int FROM lead_documents WHERE lead_documents."leadId" = "leads"."id")`.as("documentCount"),
       })
-      .from(leads).where(where).orderBy(asc(leads.companyName)).limit(limit).offset(offset),
+      .from(leads).where(where).orderBy(desc(leads.priorityScore)).limit(limit).offset(offset),
     db.select({ count: sql<number>`count(*)` }).from(leads).where(where),
   ]);
 

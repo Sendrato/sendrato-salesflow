@@ -275,7 +275,7 @@ export async function computePriorityScore(leadId: number): Promise<number> {
   if (!pool) return 0;
 
   const { rows: leadRows } = await pool.query(
-    'SELECT status, priority, "estimatedValue", "lastContactedAt", "nextFollowUpAt" FROM leads WHERE id = $1',
+    'SELECT status, priority, "estimatedValue", "lastContactedAt", "nextFollowUpAt", "enrichmentData" FROM leads WHERE id = $1',
     [leadId]
   );
   const lead = leadRows[0];
@@ -316,6 +316,16 @@ export async function computePriorityScore(leadId: number): Promise<number> {
   score += Math.min(Number(docCount) * 5, 10);
 
   if (lead.estimatedValue && lead.estimatedValue > 0) score += 5;
+
+  // Enrichment-based scores (fitScore 1-10, urgencyScore 1-10)
+  const enrichment = lead.enrichmentData as Record<string, unknown> | null;
+  if (enrichment) {
+    const fit = Number(enrichment.fitScore) || 0;
+    score += Math.min(fit * 2, 20); // up to 20 points
+
+    const urgency = Number(enrichment.urgencyScore) || 0;
+    score += Math.min(Math.round(urgency * 1.5), 15); // up to 15 points
+  }
 
   if (lead.nextFollowUpAt && new Date(lead.nextFollowUpAt) < new Date()) {
     score -= 10;
