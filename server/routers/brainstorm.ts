@@ -8,6 +8,8 @@ import {
   createBrainstorm,
   updateBrainstorm,
   deleteBrainstorm,
+  getBrainstormDocuments,
+  deleteBrainstormDocument,
 } from "../brainstormDb";
 import { getLeadById } from "../db";
 import { getLLMProvider } from "../llmProvider";
@@ -80,6 +82,19 @@ export const brainstormRouter = router({
     .input(z.object({ id: z.number() }))
     .mutation(async ({ input }) => {
       await deleteBrainstorm(input.id);
+      return { success: true };
+    }),
+
+  listDocuments: publicProcedure
+    .input(z.object({ brainstormId: z.number() }))
+    .query(async ({ input }) => {
+      return getBrainstormDocuments(input.brainstormId);
+    }),
+
+  deleteDocument: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      await deleteBrainstormDocument(input.id);
       return { success: true };
     }),
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
@@ -39,6 +39,8 @@ import {
   ExternalLink,
   Search as SearchIcon,
   Link2,
+  Upload,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
@@ -53,12 +55,19 @@ export default function BrainstormDetailPage() {
   const [editContent, setEditContent] = useState("");
   const [editLeadId, setEditLeadId] = useState<number | null>(null);
   const [leadSearch, setLeadSearch] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     data: brainstorm,
     isLoading,
     refetch,
   } = trpc.brainstorm.get.useQuery({ id: brainstormId });
+
+  const {
+    data: documents,
+    refetch: refetchDocs,
+  } = trpc.brainstorm.listDocuments.useQuery({ brainstormId });
 
   const { data: leadsData } = trpc.leads.list.useQuery(
     { search: leadSearch || undefined, limit: 20 },
@@ -92,6 +101,43 @@ export default function BrainstormDetailPage() {
   });
 
   const saveChatMutation = trpc.brainstorm.saveChatMessages.useMutation();
+
+  const deleteDocMutation = trpc.brainstorm.deleteDocument.useMutation({
+    onSuccess: () => {
+      refetchDocs();
+      toast.success("Document deleted");
+    },
+    onError: () => toast.error("Failed to delete document"),
+  });
+
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("brainstormId", String(brainstormId));
+        const res = await fetch("/api/upload-brainstorm-document", {
+          method: "POST",
+          body: formData,
+        });
+        if (res.ok) {
+          refetchDocs();
+          toast.success("Document uploaded");
+        } else {
+          toast.error("Upload failed");
+        }
+      } catch {
+        toast.error("Upload failed");
+      } finally {
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+      }
+    },
+    [brainstormId, refetchDocs]
+  );
 
   function startEditing() {
     if (!brainstorm) return;
@@ -357,6 +403,78 @@ export default function BrainstormDetailPage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Documents */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Documents
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="pt-0 space-y-3">
+                {documents && documents.length > 0 && (
+                  <ul className="space-y-2">
+                    {documents.map((doc) => (
+                      <li
+                        key={doc.id}
+                        className="flex items-center justify-between text-sm border rounded-md px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate">
+                            {doc.fileName}
+                          </span>
+                          {doc.fileSize && (
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              {formatFileSize(doc.fileSize)}
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 shrink-0"
+                          onClick={() =>
+                            deleteDocMutation.mutate({ id: doc.id })
+                          }
+                          disabled={deleteDocMutation.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.html"
+                    onChange={handleFileUpload}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Upload className="h-3.5 w-3.5" />
+                    )}
+                    {uploading ? "Uploading..." : "Upload Document"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    PDF, Word, Excel, PowerPoint, or text files.
+                    Content is available to the AI chat.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Enrichment Tab */}
@@ -534,6 +652,7 @@ export default function BrainstormDetailPage() {
                   id: brainstormId,
                   chatMessages: messages,
                 });
+                refetch();
               }}
               placeholder="Ask follow-up questions about your idea..."
               emptyStateMessage="Start a conversation to refine your idea further"
@@ -549,6 +668,13 @@ export default function BrainstormDetailPage() {
       </div>
     </DashboardLayout>
   );
+}
+
+function formatFileSize(bytes?: number | null): string {
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function EnrichmentCard({

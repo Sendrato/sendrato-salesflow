@@ -1,7 +1,10 @@
 import { eq, or, desc, and, sql } from "drizzle-orm";
 import { getDb } from "./db";
-import { brainstorms, leads } from "../drizzle/schema";
-import type { InsertBrainstorm } from "../drizzle/schema";
+import { brainstorms, brainstormDocuments } from "../drizzle/schema";
+import type {
+  InsertBrainstorm,
+  InsertBrainstormDocument,
+} from "../drizzle/schema";
 
 export async function getBrainstorms(opts: {
   search?: string;
@@ -113,5 +116,40 @@ export async function updateBrainstorm(
 export async function deleteBrainstorm(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
+  await db
+    .delete(brainstormDocuments)
+    .where(eq(brainstormDocuments.brainstormId, id));
   await db.delete(brainstorms).where(eq(brainstorms.id, id));
+}
+
+// ─── Brainstorm Documents ─────────────────────────────────────────────────────
+
+export async function getBrainstormDocuments(brainstormId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(brainstormDocuments)
+    .where(eq(brainstormDocuments.brainstormId, brainstormId))
+    .orderBy(desc(brainstormDocuments.createdAt));
+}
+
+export async function createBrainstormDocument(
+  data: InsertBrainstormDocument
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  const [result] = await db
+    .insert(brainstormDocuments)
+    .values(data)
+    .returning();
+  return result;
+}
+
+export async function deleteBrainstormDocument(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB not available");
+  await db
+    .delete(brainstormDocuments)
+    .where(eq(brainstormDocuments.id, id));
 }

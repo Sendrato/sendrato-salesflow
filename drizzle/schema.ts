@@ -518,3 +518,19 @@ export const brainstorms = pgTable("brainstorms", {
 
 export type Brainstorm = typeof brainstorms.$inferSelect;
 export type InsertBrainstorm = typeof brainstorms.$inferInsert;
+
+// ─── Brainstorm Documents ─────────────────────────────────────────────────────
+export const brainstormDocuments = pgTable("brainstorm_documents", {
+  id: serial("id").primaryKey(),
+  brainstormId: integer("brainstormId").notNull(),
+  fileName: varchar("fileName", { length: 512 }),
+  fileKey: varchar("fileKey", { length: 1024 }),
+  fileUrl: text("fileUrl"),
+  mimeType: varchar("mimeType", { length: 128 }),
+  fileSize: bigint("fileSize", { mode: "number" }),
+  textContent: text("textContent"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type BrainstormDocument = typeof brainstormDocuments.$inferSelect;
+export type InsertBrainstormDocument = typeof brainstormDocuments.$inferInsert;

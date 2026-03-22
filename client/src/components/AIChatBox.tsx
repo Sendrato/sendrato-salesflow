@@ -370,11 +370,27 @@ export function AIChatBox({
   });
 
   // -------------------------------------------------------------------------
-  // Sync messages when chatId or initialMessages change (chat switching)
+  // Sync messages when chatId changes (switching between chats).
+  // The Chat instance is recreated by useChat when id changes, so this
+  // handles the case where initialMessages load asynchronously.
+  // We intentionally exclude initialMessages from deps to avoid resetting
+  // messages on every parent re-render (new array reference).
   // -------------------------------------------------------------------------
   useEffect(() => {
     setMessages(initialMessages);
-  }, [chatId, initialMessages, setMessages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
+
+  // -------------------------------------------------------------------------
+  // Auto-resize textarea to grow with content (like messaging apps)
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = "auto";
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
+    }
+  }, [input]);
 
   // -------------------------------------------------------------------------
   // Derived state
@@ -410,6 +426,11 @@ export function AIChatBox({
     // AI SDK v6 sendMessage accepts { text, files? }
     sendMessage({ text: trimmedInput });
     setInput("");
+
+    // Reset textarea height after clearing input
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     textareaRef.current?.focus();
   };
 
@@ -497,14 +518,15 @@ export function AIChatBox({
       {/* Input Area */}
       <form onSubmit={handleSubmit} className="border-t bg-background/50 p-4">
         <div className="mx-auto max-w-3xl">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-end">
             <Textarea
               ref={textareaRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              className="min-h-[44px] max-h-32 resize-none"
+              className="min-h-[44px] resize-none overflow-y-auto"
+              style={{ maxHeight: 200 }}
               rows={1}
               disabled={!canSend}
             />

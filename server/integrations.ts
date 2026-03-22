@@ -549,6 +549,51 @@ export function registerIntegrationRoutes(app: Express) {
   });
 
   /**
+   * POST /api/upload-brainstorm-document
+   */
+  app.post("/api/upload-brainstorm-document", upload.single("file"), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: "No file uploaded" });
+        return;
+      }
+      const brainstormId = parseInt(req.body.brainstormId ?? "0");
+      if (!brainstormId) {
+        res.status(400).json({ error: "brainstormId is required" });
+        return;
+      }
+
+      const ext = req.file.originalname.split(".").pop() ?? "bin";
+      const fileKey = `brainstorms/${brainstormId}/docs/${nanoid()}.${ext}`;
+      const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
+
+      // Extract text from document
+      const { extractTextFromBuffer } = await import("./documentRag");
+      const { text } = await extractTextFromBuffer(req.file.buffer, req.file.mimetype, req.file.originalname);
+
+      // Save document record with extracted text
+      const { createBrainstormDocument } = await import("./brainstormDb");
+      const doc = await createBrainstormDocument({
+        brainstormId,
+        fileName: req.file.originalname,
+        fileKey,
+        fileUrl: url,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        textContent: text || null,
+      });
+
+      res.json({
+        success: true,
+        document: doc,
+      });
+    } catch (error) {
+      console.error("[/api/upload-brainstorm-document] Error:", error);
+      res.status(500).json({ error: "Upload failed" });
+    }
+  });
+
+  /**
    * POST /api/share-presentation
    */
   app.post("/api/share-presentation", async (req: Request, res: Response) => {
