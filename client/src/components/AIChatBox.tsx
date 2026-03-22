@@ -297,7 +297,12 @@ function MessageBubble({
             return (
               <div
                 key={i}
-                className="prose prose-sm dark:prose-invert max-w-none"
+                className={cn(
+                  "prose prose-sm max-w-none",
+                  isUser
+                    ? "prose-invert"
+                    : "dark:prose-invert"
+                )}
               >
                 <MarkdownErrorBoundary fallback={text}>
                   <Markdown mode={isStreaming ? "streaming" : "static"}>
