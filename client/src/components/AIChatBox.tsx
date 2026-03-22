@@ -51,7 +51,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/Markdown";
 import { cn } from "@/lib/utils";
 import { Loader2, Send, Sparkles } from "lucide-react";
@@ -340,41 +339,31 @@ export function AIChatBox({
   suggestedPrompts,
 }: AIChatBoxProps) {
   const [input, setInput] = useState("");
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // -------------------------------------------------------------------------
   // useChat hook - the core of AI SDK integration
   // -------------------------------------------------------------------------
   const { messages, sendMessage, setMessages, status, error } = useChat({
-    // Chat ID helps AI SDK track different conversations
     id: chatId,
-
-    // Initial messages from your data layer (React Query, etc.)
-    // Note: This makes it "controlled" - we sync via setMessages on changes
     messages: initialMessages,
-
-    // Transport configuration - sends all messages to the server
     transport: new DefaultChatTransport({
       api,
       body: { chatId, userId },
     }),
-
-    // Called when streaming completes
     onFinish: ({ messages: finalMessages, isError, isAbort, isDisconnect }) => {
       if (!isError && !isAbort && !isDisconnect) {
-        // Notify parent to update cache/persist
         onFinish?.(finalMessages);
       }
+    },
+    onError: (err) => {
+      console.error("[AIChatBox] Chat error:", err);
     },
   });
 
   // -------------------------------------------------------------------------
-  // Sync messages when chatId changes (switching between chats).
-  // The Chat instance is recreated by useChat when id changes, so this
-  // handles the case where initialMessages load asynchronously.
-  // We intentionally exclude initialMessages from deps to avoid resetting
-  // messages on every parent re-render (new array reference).
+  // Sync messages only when chatId changes (switching chats).
   // -------------------------------------------------------------------------
   useEffect(() => {
     setMessages(initialMessages);
@@ -382,7 +371,7 @@ export function AIChatBox({
   }, [chatId]);
 
   // -------------------------------------------------------------------------
-  // Auto-resize textarea to grow with content (like messaging apps)
+  // Auto-resize textarea to grow with content
   // -------------------------------------------------------------------------
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -395,23 +384,18 @@ export function AIChatBox({
   // -------------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------------
-  const canSend = status === "ready";
+  const isReady = status === "ready" || status === "error";
+  const isBusy = status === "submitted" || status === "streaming";
   const isStreaming = status === "streaming";
-  const lastMessage = messages[messages.length - 1];
-  const isWaitingForContent =
-    status === "submitted" ||
-    (isStreaming && lastMessage?.role === "assistant" && lastMessage?.parts.length === 0);
 
   // -------------------------------------------------------------------------
-  // Auto-scroll on new messages
+  // Auto-scroll on new messages or status changes
   // -------------------------------------------------------------------------
   useEffect(() => {
-    const viewport = scrollAreaRef.current?.querySelector(
-      "[data-radix-scroll-area-viewport]"
-    ) as HTMLDivElement;
-    if (viewport) {
+    const el = scrollRef.current;
+    if (el) {
       requestAnimationFrame(() => {
-        viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
+        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
       });
     }
   }, [messages, status]);
@@ -421,13 +405,11 @@ export function AIChatBox({
   // -------------------------------------------------------------------------
   const submitMessage = () => {
     const trimmedInput = input.trim();
-    if (!trimmedInput || !canSend) return;
+    if (!trimmedInput || !isReady) return;
 
-    // AI SDK v6 sendMessage accepts { text, files? }
     sendMessage({ text: trimmedInput });
     setInput("");
 
-    // Reset textarea height after clearing input
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
@@ -451,100 +433,119 @@ export function AIChatBox({
   // -------------------------------------------------------------------------
   return (
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
-      {/* Messages Area */}
-      <div ref={scrollAreaRef} className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full">
-          <div className="mx-auto max-w-3xl space-y-4 p-4">
-            {/* Empty state */}
-            {messages.length === 0 && !isWaitingForContent ? (
-              <div className="flex h-[60vh] flex-col items-center justify-center gap-6 text-muted-foreground">
-                <Sparkles className="size-12 opacity-20" />
-                <p className="text-center max-w-md">{emptyStateMessage}</p>
-                {suggestedPrompts && suggestedPrompts.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-                    {suggestedPrompts.map((prompt, i) => (
-                      <Button
-                        key={i}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => {
-                          setInput(prompt);
-                          textareaRef.current?.focus();
-                        }}
-                      >
-                        {prompt}
-                      </Button>
-                    ))}
-                  </div>
+      {/* Messages Area — plain scrollable div (no Radix ScrollArea) */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto"
+      >
+        <div className="mx-auto max-w-3xl space-y-4 p-4">
+          {/* Empty state */}
+          {messages.length === 0 && !isBusy ? (
+            <div className="flex h-[60vh] flex-col items-center justify-center gap-6 text-muted-foreground">
+              <Sparkles className="size-12 opacity-20" />
+              <p className="text-center max-w-md">{emptyStateMessage}</p>
+              {suggestedPrompts && suggestedPrompts.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-2 max-w-lg">
+                  {suggestedPrompts.map((prompt, i) => (
+                    <Button
+                      key={i}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => {
+                        setInput(prompt);
+                        textareaRef.current?.focus();
+                      }}
+                    >
+                      {prompt}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Message list */}
+              {messages.map((message, index) => {
+                const isLastAssistant =
+                  index === messages.length - 1 && message.role === "assistant";
+                const hasContent = message.parts.length > 0;
+
+                // Skip empty assistant messages (thinking indicator shows instead)
+                if (isLastAssistant && !hasContent) return null;
+
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    message={message}
+                    renderToolPart={renderToolPart}
+                    isStreaming={isStreaming && isLastAssistant && hasContent}
+                  />
+                );
+              })}
+
+              {/* Thinking indicator */}
+              {isBusy && !isStreaming && <ThinkingIndicator />}
+              {isStreaming &&
+                messages[messages.length - 1]?.role === "assistant" &&
+                messages[messages.length - 1]?.parts.length === 0 && (
+                  <ThinkingIndicator />
                 )}
-              </div>
-            ) : (
-              <>
-                {/* Message list */}
-                {messages.map((message, index) => {
-                  const isLastAssistant =
-                    index === messages.length - 1 && message.role === "assistant";
-                  const hasContent = message.parts.length > 0;
+            </>
+          )}
 
-                  // Skip empty assistant messages (thinking indicator shows instead)
-                  if (isLastAssistant && !hasContent) return null;
-
-                  return (
-                    <MessageBubble
-                      key={message.id}
-                      message={message}
-                      renderToolPart={renderToolPart}
-                      isStreaming={isStreaming && isLastAssistant && hasContent}
-                    />
-                  );
-                })}
-
-                {/* Thinking indicator */}
-                {isWaitingForContent && <ThinkingIndicator />}
-              </>
-            )}
-
-            {/* Error display */}
-            {error && (
-              <div className="rounded-lg bg-destructive/10 p-4 text-destructive">
-                Error: {error.message}
-              </div>
-            )}
-          </div>
-        </ScrollArea>
+          {/* Error display */}
+          {error && (
+            <div className="rounded-lg bg-destructive/10 p-4 text-destructive text-sm">
+              <p className="font-medium">Something went wrong</p>
+              <p className="mt-1">{error.message}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSubmit} className="border-t bg-background/50 p-4">
-        <div className="mx-auto max-w-3xl">
-          <div className="flex gap-2 items-end">
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={placeholder}
-              className="min-h-[44px] resize-none overflow-y-auto"
-              style={{ maxHeight: 200 }}
-              rows={1}
-              disabled={!canSend}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              disabled={!canSend || !input.trim()}
-              className="shrink-0 h-[44px] w-[44px]"
-            >
-              {status === "submitted" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Send className="size-4" />
-              )}
-            </Button>
-          </div>
+      <div className="border-t bg-background/50 p-4">
+        <div className="mx-auto max-w-3xl space-y-2">
+          {/* Status indicator */}
+          {isBusy && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+              <Loader2 className="size-3.5 animate-spin" />
+              <span>
+                {isStreaming ? "AI is responding..." : "Sending..."}
+              </span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <div className="flex gap-2 items-end">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={isBusy ? "Waiting for response..." : placeholder}
+                className="min-h-[44px] resize-none overflow-y-auto"
+                style={{ maxHeight: 200 }}
+                rows={1}
+                disabled={isBusy}
+              />
+              <Button
+                type="submit"
+                size="icon"
+                disabled={isBusy || !input.trim()}
+                className="shrink-0 h-[44px] w-[44px]"
+              >
+                {isBusy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Send className="size-4" />
+                )}
+              </Button>
+            </div>
+          </form>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

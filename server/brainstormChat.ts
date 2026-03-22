@@ -27,6 +27,7 @@ export function registerBrainstormChatRoutes(app: Express) {
         !Array.isArray(uiMessages) ||
         uiMessages.length === 0
       ) {
+        console.error("[brainstorm-chat] Invalid messages:", { uiMessages, chatId });
         res.status(400).json({ error: "messages array is required" });
         return;
       }
@@ -36,6 +37,7 @@ export function registerBrainstormChatRoutes(app: Express) {
         (chatId as string)?.replace("brainstorm-", "") ?? "0"
       );
       if (!brainstormId) {
+        console.error("[brainstorm-chat] Invalid chatId:", chatId);
         res.status(400).json({ error: "Valid chatId is required" });
         return;
       }
@@ -179,6 +181,8 @@ ${context}
 - Be direct and practical — avoid generic advice
 - When you discover significant new insights from documents or conversation that should be captured, use the updateEnrichment tool to update the enrichment analysis`;
 
+      console.log("[brainstorm-chat] Processing request for brainstorm", brainstormId, "with", uiMessages.length, "messages");
+
       const modelMessages = await convertToModelMessages(uiMessages);
       const llm = await getLLMProvider();
 
@@ -196,6 +200,10 @@ ${context}
 
           result.consumeStream();
           writer.merge(result.toUIMessageStream({ sendStart: false }));
+        },
+        onError: (error) => {
+          console.error("[brainstorm-chat] Stream error:", error);
+          return error instanceof Error ? error.message : "Stream processing failed";
         },
       });
 
