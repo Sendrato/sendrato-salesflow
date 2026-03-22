@@ -496,3 +496,25 @@ export const documentAccess = pgTable("document_access", {
 
 export type DocumentAccess = typeof documentAccess.$inferSelect;
 export type InsertDocumentAccess = typeof documentAccess.$inferInsert;
+
+// ─── Brainstorms ──────────────────────────────────────────────────────────────
+export const brainstorms = pgTable("brainstorms", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 512 }).notNull(),
+  content: text("content"),
+  leadId: integer("leadId"),
+  // AI enrichment
+  enrichmentData: json("enrichmentData"),
+  enrichedAt: timestamp("enrichedAt"),
+  // AI chat history (UIMessage[] serialized)
+  chatMessages: json("chatMessages").$type<unknown[]>(),
+  // Tags
+  tags: json("tags").$type<string[]>(),
+  // Metadata
+  createdBy: integer("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+
+export type Brainstorm = typeof brainstorms.$inferSelect;
+export type InsertBrainstorm = typeof brainstorms.$inferInsert;

@@ -7,6 +7,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerAuthRoutes } from "./auth";
 import { registerChatRoutes } from "./chat";
 import { registerCrmChatRoutes } from "../crmChat";
+import { registerBrainstormChatRoutes } from "../brainstormChat";
 import { registerIntegrationRoutes } from "../integrations";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
@@ -43,6 +44,8 @@ async function startServer() {
   registerChatRoutes(app);
   // CRM AI Chat with RAG
   registerCrmChatRoutes(app);
+  // Brainstorm AI Chat
+  registerBrainstormChatRoutes(app);
   // Serve uploaded files from local storage
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   // Integration routes: email ingest, Slack, import

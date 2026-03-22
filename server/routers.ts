@@ -21,6 +21,7 @@ import { webLinksRouter } from "./routers/webLinks";
 import { crmDocumentsRouter } from "./routers/crmDocuments";
 import { promotorEventsRouter } from "./routers/promotorEvents";
 import { settingsRouter } from "./routers/settings";
+import { brainstormRouter } from "./routers/brainstorm";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -152,6 +153,7 @@ export const appRouter = router({
   webLinks: webLinksRouter,
   crmDocuments: crmDocumentsRouter,
   promotorEvents: promotorEventsRouter,
+  brainstorm: brainstormRouter,
 
   // File upload for documents
   upload: router({

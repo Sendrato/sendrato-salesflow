@@ -95,7 +95,7 @@ async function fetchCompanyWebsite(
   };
 }
 
-async function fetchWikipedia(
+export async function fetchWikipedia(
   companyName: string
 ): Promise<EnrichmentSource | null> {
   try {
@@ -135,7 +135,7 @@ async function fetchWikipedia(
   }
 }
 
-async function fetchGoogleNews(
+export async function fetchGoogleNews(
   companyName: string
 ): Promise<EnrichmentSource[]> {
   try {
