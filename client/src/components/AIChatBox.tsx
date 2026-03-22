@@ -269,7 +269,7 @@ function MessageBubble({
         className={cn(
           "max-w-[80%] rounded-lg px-4 py-2.5",
           isUser
-            ? "bg-primary text-primary-foreground"
+            ? "bg-primary text-white"
             : "bg-muted text-foreground"
         )}
       >
