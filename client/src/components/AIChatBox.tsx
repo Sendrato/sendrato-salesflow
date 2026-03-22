@@ -267,7 +267,7 @@ function MessageBubble({
       {/* Message content */}
       <div
         className={cn(
-          "max-w-[80%] rounded-lg px-4 py-2.5",
+          "max-w-[90%] rounded-lg px-4 py-2.5",
           isUser
             ? "bg-primary text-white"
             : "bg-muted text-foreground"
@@ -493,7 +493,7 @@ export function AIChatBox({
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
       {/* Messages Area — plain scrollable div (no Radix ScrollArea) */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl space-y-4 p-4">
+        <div className="mx-auto max-w-5xl space-y-4 p-4">
           {/* Empty state */}
           {messages.length === 0 && !isBusy ? (
             <div className="flex h-[60vh] flex-col items-center justify-center gap-6 text-muted-foreground">
@@ -579,7 +579,7 @@ export function AIChatBox({
 
       {/* Input Area */}
       <div className="border-t bg-background/50 p-4">
-        <div className="mx-auto max-w-3xl space-y-2">
+        <div className="mx-auto max-w-5xl space-y-2">
           {/* Status indicator */}
           {isBusy && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
