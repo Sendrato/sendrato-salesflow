@@ -294,15 +294,17 @@ function MessageBubble({
               );
             }
             if (!text) return null;
+            if (isUser) {
+              return (
+                <p key={i} className="text-sm whitespace-pre-wrap">
+                  {text}
+                </p>
+              );
+            }
             return (
               <div
                 key={i}
-                className={cn(
-                  "prose prose-sm max-w-none",
-                  isUser
-                    ? "prose-invert"
-                    : "dark:prose-invert"
-                )}
+                className="prose prose-sm dark:prose-invert max-w-none"
               >
                 <MarkdownErrorBoundary fallback={text}>
                   <Markdown mode={isStreaming ? "streaming" : "static"}>
