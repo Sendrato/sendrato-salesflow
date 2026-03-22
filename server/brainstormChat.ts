@@ -134,7 +134,7 @@ Opportunities: ${lead.futureOpportunities ?? "N/A"}`;
               .union([z.array(z.string()), z.string()])
               .optional()
               .describe(
-                "Updated action items as a JSON array of strings, e.g. [\"item 1\", \"item 2\"]"
+                'Updated action items as a JSON array of strings, e.g. ["item 1", "item 2"]'
               ),
             risks: z.string().optional().describe("Updated risks assessment"),
             potentialValue: z

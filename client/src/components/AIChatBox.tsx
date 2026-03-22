@@ -49,11 +49,9 @@
  * @see https://sdk.vercel.ai/docs/ai-sdk-ui/chatbot - AI SDK Chat Documentation
  */
 
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/components/Markdown";
 import { cn } from "@/lib/utils";
-import { Loader2, Send, Sparkles } from "lucide-react";
+import { ArrowUp, Loader2, Sparkles } from "lucide-react";
 import {
   useState,
   useRef,
@@ -250,61 +248,60 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
 
-  return (
-    <div
-      className={cn(
-        "flex gap-3",
-        isUser ? "justify-end items-start" : "justify-start items-start"
-      )}
-    >
-      {/* Assistant avatar */}
-      {!isUser && (
-        <div className="size-8 shrink-0 mt-1 rounded-full bg-primary/10 flex items-center justify-center">
-          <Sparkles className="size-4 text-primary" />
-        </div>
-      )}
-
-      {/* Message content */}
-      <div
-        className={cn(
-          "max-w-[90%] rounded-lg px-4 py-2.5",
-          isUser
-            ? "bg-primary text-white"
-            : "bg-muted text-foreground"
-        )}
-      >
-        {message.parts.map((part, i) => {
-          // Step-start parts — skip (just a streaming boundary marker)
-          if (part.type === "step-start") {
-            return null;
-          }
-
-          // Text parts - render with Markdown
-          if (part.type === "text") {
-            const text = (part as { text: string }).text;
-            // Show loading indicator for empty text during streaming
-            if (isStreaming && !text) {
+  if (isUser) {
+    // User message — right-aligned, subtle rounded container
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-3xl bg-muted px-5 py-3 text-foreground">
+          {message.parts.map((part, i) => {
+            if (part.type === "step-start") return null;
+            if (part.type === "text") {
+              const text = (part as { text: string }).text;
+              if (!text) return null;
               return (
-                <div key={i} className="flex items-center gap-2">
-                  <Loader2 className="size-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">
-                    Thinking...
-                  </span>
-                </div>
-              );
-            }
-            if (!text) return null;
-            if (isUser) {
-              return (
-                <p key={i} className="text-sm whitespace-pre-wrap">
+                <p
+                  key={i}
+                  className="text-[15px] leading-relaxed whitespace-pre-wrap"
+                >
                   {text}
                 </p>
               );
             }
+            return null;
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // Assistant message — full width, no bubble, clean text
+  return (
+    <div className="flex gap-3 items-start">
+      <div className="size-7 shrink-0 mt-0.5 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
+        <Sparkles className="size-3.5 text-orange-600" />
+      </div>
+      <div className="flex-1 min-w-0 pt-0.5">
+        {message.parts.map((part, i) => {
+          if (part.type === "step-start") return null;
+
+          if (part.type === "text") {
+            const text = (part as { text: string }).text;
+            if (isStreaming && !text) {
+              return (
+                <div key={i} className="flex items-center gap-2 py-1">
+                  <div className="flex gap-1">
+                    <span className="size-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+                    <span className="size-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+                    <span className="size-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+                  </div>
+                </div>
+              );
+            }
+            if (!text) return null;
             return (
               <div
                 key={i}
-                className="prose prose-sm dark:prose-invert max-w-none"
+                className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-li:leading-relaxed"
               >
                 <MarkdownErrorBoundary fallback={text}>
                   <Markdown mode={isStreaming ? "streaming" : "static"}>
@@ -315,10 +312,8 @@ function MessageBubble({
             );
           }
 
-          // Tool parts - type is `tool-${toolName}`
           if (part.type.startsWith("tool-")) {
             const toolName = part.type.replace("tool-", "");
-            // Cast to access tool-specific properties
             const toolPart = part as UIMessagePart<
               Record<string, unknown>,
               Record<string, any>
@@ -340,7 +335,6 @@ function MessageBubble({
               errorText: toolPart.errorText,
             };
 
-            // Try custom renderer first, fall back to default
             const customRender = renderToolPart(rendererProps);
             if (customRender !== null) {
               return <div key={i}>{customRender}</div>;
@@ -352,7 +346,6 @@ function MessageBubble({
             );
           }
 
-          // Reasoning parts (if using reasoning models)
           if (part.type === "reasoning") {
             return (
               <div
@@ -377,15 +370,14 @@ function MessageBubble({
 
 function ThinkingIndicator() {
   return (
-    <div className="flex gap-3 justify-start items-start">
-      <div className="size-8 shrink-0 mt-1 rounded-full bg-primary/10 flex items-center justify-center">
-        <Sparkles className="size-4 text-primary" />
+    <div className="flex gap-3 items-start">
+      <div className="size-7 shrink-0 mt-0.5 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
+        <Sparkles className="size-3.5 text-orange-600" />
       </div>
-      <div className="bg-muted rounded-lg px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <Loader2 className="size-4 animate-spin" />
-          <span className="text-sm text-muted-foreground">Thinking...</span>
-        </div>
+      <div className="flex items-center gap-1 pt-2">
+        <span className="size-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+        <span className="size-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+        <span className="size-2 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
       </div>
     </div>
   );
@@ -503,24 +495,26 @@ export function AIChatBox({
         <div className="mx-auto max-w-5xl space-y-4 p-4">
           {/* Empty state */}
           {messages.length === 0 && !isBusy ? (
-            <div className="flex h-[60vh] flex-col items-center justify-center gap-6 text-muted-foreground">
-              <Sparkles className="size-12 opacity-20" />
-              <p className="text-center max-w-md">{emptyStateMessage}</p>
+            <div className="flex h-[60vh] flex-col items-center justify-center gap-4 text-muted-foreground">
+              <div className="size-10 rounded-full bg-gradient-to-br from-orange-200 to-amber-100 flex items-center justify-center">
+                <Sparkles className="size-5 text-orange-600" />
+              </div>
+              <p className="text-center text-sm max-w-md">
+                {emptyStateMessage}
+              </p>
               {suggestedPrompts && suggestedPrompts.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-2 max-w-lg">
+                <div className="flex flex-wrap justify-center gap-2 max-w-2xl mt-2">
                   {suggestedPrompts.map((prompt, i) => (
-                    <Button
+                    <button
                       key={i}
-                      variant="outline"
-                      size="sm"
-                      className="text-xs"
+                      className="rounded-full border border-border/60 px-4 py-2 text-sm text-foreground/80 hover:bg-muted transition-colors"
                       onClick={() => {
                         setInput(prompt);
                         textareaRef.current?.focus();
                       }}
                     >
                       {prompt}
-                    </Button>
+                    </button>
                   ))}
                 </div>
               )}
@@ -585,44 +579,40 @@ export function AIChatBox({
       </div>
 
       {/* Input Area */}
-      <div className="border-t bg-background/50 p-4">
-        <div className="mx-auto max-w-5xl space-y-2">
-          {/* Status indicator */}
-          {isBusy && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
-              <Loader2 className="size-3.5 animate-spin" />
-              <span>{isStreaming ? "AI is responding..." : "Sending..."}</span>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="flex gap-2 items-end">
-              <Textarea
-                ref={textareaRef}
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={isBusy ? "Waiting for response..." : placeholder}
-                className="min-h-[44px] resize-none overflow-y-auto"
-                style={{ maxHeight: 200 }}
-                rows={1}
-                disabled={isBusy}
-              />
-              <Button
+      <div className="px-4 pb-4 pt-2">
+        <form onSubmit={handleSubmit} className="mx-auto max-w-5xl">
+          <div className="relative rounded-2xl border border-border/60 bg-muted/30 shadow-sm transition-colors focus-within:border-border focus-within:bg-background">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={isBusy ? "Waiting for response..." : placeholder}
+              className="w-full resize-none bg-transparent px-4 pt-3 pb-10 text-[15px] leading-relaxed placeholder:text-muted-foreground/60 focus:outline-none disabled:opacity-50"
+              style={{ maxHeight: 200 }}
+              rows={1}
+              disabled={isBusy}
+            />
+            <div className="absolute bottom-2 right-2 flex items-center gap-2">
+              {isBusy && (
+                <span className="text-xs text-muted-foreground mr-1">
+                  {isStreaming ? "Responding..." : "Thinking..."}
+                </span>
+              )}
+              <button
                 type="submit"
-                size="icon"
                 disabled={isBusy || !input.trim()}
-                className="shrink-0 h-[44px] w-[44px]"
+                className="flex size-8 items-center justify-center rounded-lg bg-foreground text-background transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 {isBusy ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
-                  <Send className="size-4" />
+                  <ArrowUp className="size-4" strokeWidth={2.5} />
                 )}
-              </Button>
+              </button>
             </div>
-          </form>
-        </div>
+          </div>
+        </form>
       </div>
     </div>
   );

@@ -46,13 +46,11 @@ vi.mock("./db", () => ({
     .mockResolvedValue({ id: 1, type: "email", leadId: 1 }),
   updateContactMoment: vi.fn().mockResolvedValue({ id: 1, type: "email" }),
   deleteContactMoment: vi.fn().mockResolvedValue(undefined),
-  getContactMomentStats: vi
-    .fn()
-    .mockResolvedValue({
-      typeCounts: [],
-      outcomeCounts: [],
-      recentActivity: [],
-    }),
+  getContactMomentStats: vi.fn().mockResolvedValue({
+    typeCounts: [],
+    outcomeCounts: [],
+    recentActivity: [],
+  }),
   getLeadDocuments: vi.fn().mockResolvedValue([]),
   createLeadDocument: vi
     .fn()
