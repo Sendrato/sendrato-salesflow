@@ -382,6 +382,23 @@ export function AIChatBox({
   }, [input]);
 
   // -------------------------------------------------------------------------
+  // Debug logging — track status and message changes
+  // -------------------------------------------------------------------------
+  useEffect(() => {
+    console.log("[AIChatBox] status:", status, "| messages:", messages.length, messages.map(m => ({
+      id: m.id,
+      role: m.role,
+      parts: m.parts.map(p => ({ type: p.type, text: p.type === "text" ? (p as { text: string }).text?.slice(0, 80) : undefined })),
+    })));
+  }, [status, messages]);
+
+  useEffect(() => {
+    if (error) {
+      console.error("[AIChatBox] error state:", error);
+    }
+  }, [error]);
+
+  // -------------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------------
   const isReady = status === "ready" || status === "error";
