@@ -26,9 +26,7 @@ export function extractIp(req: Request): string | null {
   return ip;
 }
 
-export async function getCountryFromIp(
-  ip: string
-): Promise<string | null> {
+export async function getCountryFromIp(ip: string): Promise<string | null> {
   if (cache.has(ip)) return cache.get(ip) ?? null;
 
   try {
@@ -41,9 +39,7 @@ export async function getCountryFromIp(
     };
 
     const country =
-      data.status === "success" && data.countryCode
-        ? data.countryCode
-        : null;
+      data.status === "success" && data.countryCode ? data.countryCode : null;
 
     cache.set(ip, country);
     return country;

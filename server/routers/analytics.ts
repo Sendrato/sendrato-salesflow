@@ -46,7 +46,9 @@ export const analyticsRouter = router({
           count: sql<number>`count(*)`,
         })
         .from(contactMoments)
-        .where(sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '1 day' * ${input.days}`)
+        .where(
+          sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '1 day' * ${input.days}`
+        )
         .groupBy(sql`DATE(${contactMoments.occurredAt})`)
         .orderBy(sql`DATE(${contactMoments.occurredAt})`);
     }),
@@ -80,7 +82,8 @@ export const analyticsRouter = router({
 
   followUps: publicProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return { overdue: [], upcoming: [], overdueCount: 0, upcomingCount: 0 };
+    if (!db)
+      return { overdue: [], upcoming: [], overdueCount: 0, upcomingCount: 0 };
 
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -103,11 +106,13 @@ export const analyticsRouter = router({
       .from(contactMoments)
       .leftJoin(leads, eq(contactMoments.leadId, leads.id))
       .leftJoin(persons, eq(contactMoments.personId, persons.id))
-      .where(and(
-        sql`${contactMoments.followUpAt} IS NOT NULL`,
-        lt(contactMoments.followUpAt, now),
-        notDone,
-      ))
+      .where(
+        and(
+          sql`${contactMoments.followUpAt} IS NOT NULL`,
+          lt(contactMoments.followUpAt, now),
+          notDone
+        )
+      )
       .orderBy(contactMoments.followUpAt)
       .limit(20);
 
@@ -116,36 +121,44 @@ export const analyticsRouter = router({
       .from(contactMoments)
       .leftJoin(leads, eq(contactMoments.leadId, leads.id))
       .leftJoin(persons, eq(contactMoments.personId, persons.id))
-      .where(and(
-        sql`${contactMoments.followUpAt} IS NOT NULL`,
-        gte(contactMoments.followUpAt, now),
-        lte(contactMoments.followUpAt, sevenDaysFromNow),
-        notDone,
-      ))
+      .where(
+        and(
+          sql`${contactMoments.followUpAt} IS NOT NULL`,
+          gte(contactMoments.followUpAt, now),
+          lte(contactMoments.followUpAt, sevenDaysFromNow),
+          notDone
+        )
+      )
       .orderBy(contactMoments.followUpAt)
       .limit(20);
 
     const [overdueCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(contactMoments)
-      .where(and(
-        sql`${contactMoments.followUpAt} IS NOT NULL`,
-        lt(contactMoments.followUpAt, now),
-        notDone,
-      ));
+      .where(
+        and(
+          sql`${contactMoments.followUpAt} IS NOT NULL`,
+          lt(contactMoments.followUpAt, now),
+          notDone
+        )
+      );
 
     const [upcomingCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(contactMoments)
-      .where(and(
-        sql`${contactMoments.followUpAt} IS NOT NULL`,
-        gte(contactMoments.followUpAt, now),
-        lte(contactMoments.followUpAt, sevenDaysFromNow),
-        notDone,
-      ));
+      .where(
+        and(
+          sql`${contactMoments.followUpAt} IS NOT NULL`,
+          gte(contactMoments.followUpAt, now),
+          lte(contactMoments.followUpAt, sevenDaysFromNow),
+          notDone
+        )
+      );
 
     // Upcoming meetings: type="meeting" with occurredAt in the future (within 21 days)
-    const twentyOneDaysFromNow = new Date(now.getTime() + 21 * 24 * 60 * 60 * 1000);
+    const twentyOneDaysFromNow = new Date(
+      now.getTime() + 21 * 24 * 60 * 60 * 1000
+    );
     const upcomingMeetings = await db
       .select({
         momentId: contactMoments.id,
@@ -161,22 +174,26 @@ export const analyticsRouter = router({
       .from(contactMoments)
       .leftJoin(leads, eq(contactMoments.leadId, leads.id))
       .leftJoin(persons, eq(contactMoments.personId, persons.id))
-      .where(and(
-        eq(contactMoments.type, "meeting"),
-        gte(contactMoments.occurredAt, now),
-        lte(contactMoments.occurredAt, twentyOneDaysFromNow),
-      ))
+      .where(
+        and(
+          eq(contactMoments.type, "meeting"),
+          gte(contactMoments.occurredAt, now),
+          lte(contactMoments.occurredAt, twentyOneDaysFromNow)
+        )
+      )
       .orderBy(contactMoments.occurredAt)
       .limit(20);
 
     const [upcomingMeetingsCount] = await db
       .select({ count: sql<number>`count(*)` })
       .from(contactMoments)
-      .where(and(
-        eq(contactMoments.type, "meeting"),
-        gte(contactMoments.occurredAt, now),
-        lte(contactMoments.occurredAt, twentyOneDaysFromNow),
-      ));
+      .where(
+        and(
+          eq(contactMoments.type, "meeting"),
+          gte(contactMoments.occurredAt, now),
+          lte(contactMoments.occurredAt, twentyOneDaysFromNow)
+        )
+      );
 
     return {
       overdue,

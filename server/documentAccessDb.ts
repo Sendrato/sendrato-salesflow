@@ -20,7 +20,7 @@ export async function getDocumentAccessUsers(
         eq(documentAccess.documentId, documentId)
       )
     );
-  return rows.map((r) => r.userId);
+  return rows.map(r => r.userId);
 }
 
 /** Set access users for a document (replaces existing) */
@@ -41,7 +41,7 @@ export async function setDocumentAccess(
     );
   if (userIds.length > 0) {
     await db.insert(documentAccess).values(
-      userIds.map((userId) => ({
+      userIds.map(userId => ({
         documentType,
         documentId,
         userId,
@@ -73,7 +73,5 @@ export async function deleteDocumentAccessByUser(
 ): Promise<void> {
   const db = await getDb();
   if (!db) return;
-  await db
-    .delete(documentAccess)
-    .where(eq(documentAccess.userId, userId));
+  await db.delete(documentAccess).where(eq(documentAccess.userId, userId));
 }

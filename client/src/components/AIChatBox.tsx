@@ -54,7 +54,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Markdown } from "@/components/Markdown";
 import { cn } from "@/lib/utils";
 import { Loader2, Send, Sparkles } from "lucide-react";
-import { useState, useRef, useEffect, ReactNode } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  ReactNode,
+  Component,
+  ErrorInfo,
+} from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 
@@ -165,12 +172,19 @@ export interface AIChatBoxProps {
 // DEFAULT TOOL RENDERER
 // ============================================================================
 
-function DefaultToolPartRenderer({ toolName, state, output, errorText }: ToolPartRendererProps) {
+function DefaultToolPartRenderer({
+  toolName,
+  state,
+  output,
+  errorText,
+}: ToolPartRendererProps) {
   if (isToolLoading(state)) {
     return (
       <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg my-2">
         <Loader2 className="size-4 animate-spin" />
-        <span className="text-sm text-muted-foreground">Running {toolName}...</span>
+        <span className="text-sm text-muted-foreground">
+          Running {toolName}...
+        </span>
       </div>
     );
   }
@@ -194,6 +208,31 @@ function DefaultToolPartRenderer({ toolName, state, output, errorText }: ToolPar
   }
 
   return null;
+}
+
+// ============================================================================
+// MARKDOWN ERROR BOUNDARY
+// ============================================================================
+
+class MarkdownErrorBoundary extends Component<
+  { children: ReactNode; fallback: string },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("[AIChatBox] Markdown render error:", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <p className="text-sm whitespace-pre-wrap">{this.props.fallback}</p>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 // ============================================================================
@@ -229,26 +268,42 @@ function MessageBubble({
       <div
         className={cn(
           "max-w-[80%] rounded-lg px-4 py-2.5",
-          isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+          isUser
+            ? "bg-primary text-primary-foreground"
+            : "bg-muted text-foreground"
         )}
       >
         {message.parts.map((part, i) => {
+          // Step-start parts — skip (just a streaming boundary marker)
+          if (part.type === "step-start") {
+            return null;
+          }
+
           // Text parts - render with Markdown
           if (part.type === "text") {
+            const text = (part as { text: string }).text;
             // Show loading indicator for empty text during streaming
-            if (isStreaming && !part.text) {
+            if (isStreaming && !text) {
               return (
                 <div key={i} className="flex items-center gap-2">
                   <Loader2 className="size-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Thinking...</span>
+                  <span className="text-sm text-muted-foreground">
+                    Thinking...
+                  </span>
                 </div>
               );
             }
+            if (!text) return null;
             return (
-              <div key={i} className="prose prose-sm dark:prose-invert max-w-none">
-                <Markdown mode={isStreaming ? "streaming" : "static"}>
-                  {part.text}
-                </Markdown>
+              <div
+                key={i}
+                className="prose prose-sm dark:prose-invert max-w-none"
+              >
+                <MarkdownErrorBoundary fallback={text}>
+                  <Markdown mode={isStreaming ? "streaming" : "static"}>
+                    {text}
+                  </Markdown>
+                </MarkdownErrorBoundary>
               </div>
             );
           }
@@ -283,14 +338,21 @@ function MessageBubble({
             if (customRender !== null) {
               return <div key={i}>{customRender}</div>;
             }
-            return <div key={i}><DefaultToolPartRenderer {...rendererProps} /></div>;
+            return (
+              <div key={i}>
+                <DefaultToolPartRenderer {...rendererProps} />
+              </div>
+            );
           }
 
           // Reasoning parts (if using reasoning models)
           if (part.type === "reasoning") {
             return (
-              <div key={i} className="text-xs text-muted-foreground italic border-l-2 pl-2 my-2">
-                {part.text}
+              <div
+                key={i}
+                className="text-xs text-muted-foreground italic border-l-2 pl-2 my-2"
+              >
+                {(part as { text: string }).text}
               </div>
             );
           }
@@ -340,6 +402,7 @@ export function AIChatBox({
 }: AIChatBoxProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // -------------------------------------------------------------------------
@@ -357,7 +420,7 @@ export function AIChatBox({
         onFinish?.(finalMessages);
       }
     },
-    onError: (err) => {
+    onError: err => {
       console.error("[AIChatBox] Chat error:", err);
     },
   });
@@ -382,23 +445,6 @@ export function AIChatBox({
   }, [input]);
 
   // -------------------------------------------------------------------------
-  // Debug logging — track status and message changes
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    console.log("[AIChatBox] status:", status, "| messages:", messages.length, messages.map(m => ({
-      id: m.id,
-      role: m.role,
-      parts: m.parts.map(p => ({ type: p.type, text: p.type === "text" ? (p as { text: string }).text?.slice(0, 80) : undefined })),
-    })));
-  }, [status, messages]);
-
-  useEffect(() => {
-    if (error) {
-      console.error("[AIChatBox] error state:", error);
-    }
-  }, [error]);
-
-  // -------------------------------------------------------------------------
   // Derived state
   // -------------------------------------------------------------------------
   const isReady = status === "ready" || status === "error";
@@ -409,12 +455,7 @@ export function AIChatBox({
   // Auto-scroll on new messages or status changes
   // -------------------------------------------------------------------------
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      requestAnimationFrame(() => {
-        el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-      });
-    }
+    bottomRef.current?.scrollIntoView({ behavior: "instant", block: "end" });
   }, [messages, status]);
 
   // -------------------------------------------------------------------------
@@ -451,10 +492,7 @@ export function AIChatBox({
   return (
     <div className={cn("flex flex-col flex-1 min-h-0", className)}>
       {/* Messages Area — plain scrollable div (no Radix ScrollArea) */}
-      <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto"
-      >
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-4 p-4">
           {/* Empty state */}
           {messages.length === 0 && !isBusy ? (
@@ -486,28 +524,43 @@ export function AIChatBox({
               {messages.map((message, index) => {
                 const isLastAssistant =
                   index === messages.length - 1 && message.role === "assistant";
-                const hasContent = message.parts.length > 0;
+                // Check for real visible content (not just step-start markers)
+                const hasVisibleContent = message.parts.some(
+                  p =>
+                    (p.type === "text" && (p as { text: string }).text) ||
+                    p.type.startsWith("tool-") ||
+                    p.type === "reasoning"
+                );
 
-                // Skip empty assistant messages (thinking indicator shows instead)
-                if (isLastAssistant && !hasContent) return null;
+                // Skip last assistant message if it has no visible content (thinking indicator shows instead)
+                if (isLastAssistant && !hasVisibleContent) return null;
 
                 return (
                   <MessageBubble
                     key={message.id}
                     message={message}
                     renderToolPart={renderToolPart}
-                    isStreaming={isStreaming && isLastAssistant && hasContent}
+                    isStreaming={isStreaming && isLastAssistant}
                   />
                 );
               })}
 
-              {/* Thinking indicator */}
-              {isBusy && !isStreaming && <ThinkingIndicator />}
-              {isStreaming &&
-                messages[messages.length - 1]?.role === "assistant" &&
-                messages[messages.length - 1]?.parts.length === 0 && (
-                  <ThinkingIndicator />
-                )}
+              {/* Thinking indicator — show when busy and last assistant message has no visible content */}
+              {isBusy &&
+                (() => {
+                  const lastMsg = messages[messages.length - 1];
+                  const lastIsAssistantWithContent =
+                    lastMsg?.role === "assistant" &&
+                    lastMsg.parts.some(
+                      p =>
+                        (p.type === "text" && (p as { text: string }).text) ||
+                        p.type.startsWith("tool-") ||
+                        p.type === "reasoning"
+                    );
+                  return !lastIsAssistantWithContent ? (
+                    <ThinkingIndicator />
+                  ) : null;
+                })()}
             </>
           )}
 
@@ -518,6 +571,9 @@ export function AIChatBox({
               <p className="mt-1">{error.message}</p>
             </div>
           )}
+
+          {/* Scroll sentinel */}
+          <div ref={bottomRef} />
         </div>
       </div>
 
@@ -528,9 +584,7 @@ export function AIChatBox({
           {isBusy && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
               <Loader2 className="size-3.5 animate-spin" />
-              <span>
-                {isStreaming ? "AI is responding..." : "Sending..."}
-              </span>
+              <span>{isStreaming ? "AI is responding..." : "Sending..."}</span>
             </div>
           )}
 
@@ -539,7 +593,7 @@ export function AIChatBox({
               <Textarea
                 ref={textareaRef}
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder={isBusy ? "Waiting for response..." : placeholder}
                 className="min-h-[44px] resize-none overflow-y-auto"

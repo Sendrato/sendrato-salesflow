@@ -21,13 +21,21 @@ import { extractEmailAddresses, matchEmailAddresses } from "./emailMatcher";
 import { enrichLeadFromWeb } from "./enrichmentEngine";
 import { storagePut } from "./storage";
 import { indexLead } from "./crmChat";
-import { indexDocument, indexCompetitorDocument, computePriorityScore, updateAllPriorityScores } from "./documentRag";
+import {
+  indexDocument,
+  indexCompetitorDocument,
+  computePriorityScore,
+  updateAllPriorityScores,
+} from "./documentRag";
 import { nanoid } from "nanoid";
 import { generateText } from "ai";
 import { getLLMProvider } from "./llmProvider";
 import { LEAD_TYPE_SCHEMAS } from "@shared/leadAttributeSchemas";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
 
 // ─── Email Ingestion ──────────────────────────────────────────────────────────
 export function registerIntegrationRoutes(app: Express) {
@@ -49,11 +57,19 @@ export function registerIntegrationRoutes(app: Express) {
       const rawPayload = JSON.stringify(body).slice(0, 10000);
 
       // Extract all email addresses (handles forwarded, CC, and BCC scenarios)
-      const emailAddresses = extractEmailAddresses(from, text || html, undefined, subject, to, cc);
+      const emailAddresses = extractEmailAddresses(
+        from,
+        text || html,
+        undefined,
+        subject,
+        to,
+        cc
+      );
       const match = await matchEmailAddresses(emailAddresses);
       const fromEmail = match.matchedEmail ?? emailAddresses[0] ?? from;
 
-      let status: "matched" | "unmatched" | "error" = (match.lead || match.person) ? "matched" : "unmatched";
+      let status: "matched" | "unmatched" | "error" =
+        match.lead || match.person ? "matched" : "unmatched";
 
       const ingestDate = new Date();
       const ingestFollowUp = new Date(ingestDate);
@@ -109,7 +125,9 @@ export function registerIntegrationRoutes(app: Express) {
       res.json({
         success: true,
         status,
-        matchedLead: match.lead ? { id: match.lead.id, companyName: match.lead.companyName } : null,
+        matchedLead: match.lead
+          ? { id: match.lead.id, companyName: match.lead.companyName }
+          : null,
       });
     } catch (error) {
       console.error("[/api/email-ingest] Error:", error);
@@ -144,11 +162,15 @@ export function registerIntegrationRoutes(app: Express) {
       let responseText = "";
 
       if (command === "/crm-lead" || text.startsWith("lead ")) {
-        const parts = text.replace(/^lead\s+/, "").split("|").map((s: string) => s.trim());
+        const parts = text
+          .replace(/^lead\s+/, "")
+          .split("|")
+          .map((s: string) => s.trim());
         const [companyName, contactPerson, email] = parts;
 
         if (!companyName) {
-          responseText = "Usage: /crm-lead Company Name | Contact Person | email@example.com";
+          responseText =
+            "Usage: /crm-lead Company Name | Contact Person | email@example.com";
         } else {
           const lead = await createLead({
             companyName,
@@ -163,13 +185,19 @@ export function registerIntegrationRoutes(app: Express) {
           responseText = `✅ Lead created: *${companyName}*${contactPerson ? ` (${contactPerson})` : ""} — ID: ${lead?.id}`;
         }
       } else if (command === "/crm-note" || text.startsWith("note ")) {
-        const parts = text.replace(/^note\s+/, "").split("|").map((s: string) => s.trim());
+        const parts = text
+          .replace(/^note\s+/, "")
+          .split("|")
+          .map((s: string) => s.trim());
         const [companyQuery, noteText] = parts;
 
         if (!companyQuery || !noteText) {
-          responseText = "Usage: /crm-note Company Name | Your note about the interaction";
+          responseText =
+            "Usage: /crm-note Company Name | Your note about the interaction";
         } else {
-          const { items } = await (await import("./db")).getLeads({ search: companyQuery, limit: 1 });
+          const { items } = await (
+            await import("./db")
+          ).getLeads({ search: companyQuery, limit: 1 });
           const lead = items[0];
           if (!lead) {
             responseText = `❌ No lead found matching "${companyQuery}"`;
@@ -188,11 +216,13 @@ export function registerIntegrationRoutes(app: Express) {
         }
       } else if (command === "/crm-search" || text.startsWith("search ")) {
         const query = text.replace(/^search\s+/, "").trim();
-        const { items } = await (await import("./db")).getLeads({ search: query, limit: 5 });
+        const { items } = await (
+          await import("./db")
+        ).getLeads({ search: query, limit: 5 });
         if (items.length === 0) {
           responseText = `No leads found for "${query}"`;
         } else {
-          responseText = `Found ${items.length} lead(s):\n${items.map((l) => `• *${l.companyName}* — ${l.status} — ${l.contactPerson ?? "No contact"}`).join("\n")}`;
+          responseText = `Found ${items.length} lead(s):\n${items.map(l => `• *${l.companyName}* — ${l.status} — ${l.contactPerson ?? "No contact"}`).join("\n")}`;
         }
       } else {
         responseText = `Available commands:\n• \`/crm-lead Company | Contact | Email\` — Create lead\n• \`/crm-note Company | Note\` — Log interaction\n• \`/crm-search Query\` — Search leads`;
@@ -211,394 +241,484 @@ export function registerIntegrationRoutes(app: Express) {
   /**
    * POST /api/import
    */
-  app.post("/api/import", upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
-      }
-
-      const mappingRaw = req.body.mapping;
-      const mapping: Record<string, string> = mappingRaw ? JSON.parse(mappingRaw) : {};
-      const reqLeadType: string = req.body.leadType ?? "default";
-      const reqLabel: string | undefined = req.body.label || undefined;
-
-      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-      if (rows.length === 0) {
-        res.status(400).json({ error: "No data found in file" });
-        return;
-      }
-
-      const defaultMapping: Record<string, string> = {
-        "company name": "companyName",
-        company: "companyName",
-        "company_name": "companyName",
-        website: "website",
-        url: "website",
-        contact: "contactPerson",
-        "contact person": "contactPerson",
-        "contact_person": "contactPerson",
-        name: "contactPerson",
-        email: "email",
-        "e-mail": "email",
-        phone: "phone",
-        telephone: "phone",
-        status: "status",
-        priority: "priority",
-        notes: "notes",
-        industry: "industry",
-        location: "location",
-        country: "country",
-        "pain points": "painPoints",
-        "pain_points": "painPoints",
-        opportunities: "futureOpportunities",
-        "future opportunities": "futureOpportunities",
-        "revenue model": "revenueModel",
-        risks: "risks",
-        "social media": "socialMedia",
-        "ticketing system": "ticketingSystem",
-        "payment methods": "paymentMethods",
-        "mobile app": "mobileApp",
-        "brand tone": "brandTone",
-        "survey status": "surveyStatus",
-        "decision maker": "contactPerson",
-        "event name": "companyName",
-      };
-
-      const effectiveMapping = { ...defaultMapping, ...mapping };
-
-      const leadsToInsert = rows
-        .filter((row) => {
-          const hasCompany = Object.entries(row).some(([k, v]) => {
-            const normalized = k.toLowerCase().trim();
-            return (effectiveMapping[normalized] === "companyName" || normalized.includes("company")) && v;
-          });
-          return hasCompany;
-        })
-        .map((row) => {
-          const lead: Record<string, unknown> = { source: "excel_import" };
-          for (const [rawKey, value] of Object.entries(row)) {
-            const normalized = rawKey.toLowerCase().trim();
-            const mappedField = effectiveMapping[normalized];
-            if (mappedField && value !== "" && value !== null && value !== undefined) {
-              lead[mappedField] = String(value);
-            }
-          }
-          if (!lead.companyName) {
-            const firstVal = Object.values(row).find((v) => v && typeof v === "string");
-            if (firstVal) lead.companyName = String(firstVal);
-          }
-          // Normalise priority to a valid enum value
-          if (lead.priority) {
-            const p = String(lead.priority).toLowerCase().trim();
-            const priorityMap: Record<string, string> = {
-              low: "low",
-              medium: "medium",
-              high: "high",
-              "tier 1": "high",
-              "tier 2": "medium",
-              "tier 3": "low",
-              "1": "high",
-              "2": "medium",
-              "3": "low",
-            };
-            lead.priority = priorityMap[p] ?? "medium";
-          }
-          // Extract attr: prefixed fields into leadAttributes
-          const attrs: Record<string, unknown> = {};
-          const typeSchema = LEAD_TYPE_SCHEMAS[reqLeadType];
-          const numericAttrKeys = new Set(
-            typeSchema?.fields
-              .filter((f) => f.type === "number")
-              .map((f) => f.key) ?? []
-          );
-          for (const key of Object.keys(lead)) {
-            if (key.startsWith("attr:")) {
-              const attrKey = key.slice(5);
-              let val: unknown = lead[key];
-              if (numericAttrKeys.has(attrKey)) {
-                const num = Number(String(val).replace(/,/g, ""));
-                if (!isNaN(num)) val = num;
-              }
-              attrs[attrKey] = val;
-              delete lead[key];
-            }
-          }
-          if (Object.keys(attrs).length > 0) {
-            lead.leadType = reqLeadType;
-            lead.leadAttributes = attrs;
-          } else if (reqLeadType !== "default") {
-            lead.leadType = reqLeadType;
-          }
-          if (reqLabel) {
-            lead.label = reqLabel;
-          }
-          return lead;
-        })
-        .filter((l) => l.companyName);
-
-      const ids = await bulkInsertLeads(leadsToInsert as Parameters<typeof bulkInsertLeads>[0]);
-
-      // Index all imported leads asynchronously
-      setTimeout(async () => {
-        for (const id of ids) {
-          const { getLeadById } = await import("./db");
-          const lead = await getLeadById(id);
-          if (lead) await indexLead(lead as unknown as Record<string, unknown>);
+  app.post(
+    "/api/import",
+    upload.single("file"),
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ error: "No file uploaded" });
+          return;
         }
-      }, 100);
 
-      res.json({
-        success: true,
-        imported: ids.length,
-        total: rows.length,
-        skipped: rows.length - leadsToInsert.length,
-      });
-    } catch (error) {
-      console.error("[/api/import] Error:", error);
-      res.status(500).json({ error: "Failed to import file" });
+        const mappingRaw = req.body.mapping;
+        const mapping: Record<string, string> = mappingRaw
+          ? JSON.parse(mappingRaw)
+          : {};
+        const reqLeadType: string = req.body.leadType ?? "default";
+        const reqLabel: string | undefined = req.body.label || undefined;
+
+        const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(
+          worksheet,
+          { defval: "" }
+        );
+
+        if (rows.length === 0) {
+          res.status(400).json({ error: "No data found in file" });
+          return;
+        }
+
+        const defaultMapping: Record<string, string> = {
+          "company name": "companyName",
+          company: "companyName",
+          company_name: "companyName",
+          website: "website",
+          url: "website",
+          contact: "contactPerson",
+          "contact person": "contactPerson",
+          contact_person: "contactPerson",
+          name: "contactPerson",
+          email: "email",
+          "e-mail": "email",
+          phone: "phone",
+          telephone: "phone",
+          status: "status",
+          priority: "priority",
+          notes: "notes",
+          industry: "industry",
+          location: "location",
+          country: "country",
+          "pain points": "painPoints",
+          pain_points: "painPoints",
+          opportunities: "futureOpportunities",
+          "future opportunities": "futureOpportunities",
+          "revenue model": "revenueModel",
+          risks: "risks",
+          "social media": "socialMedia",
+          "ticketing system": "ticketingSystem",
+          "payment methods": "paymentMethods",
+          "mobile app": "mobileApp",
+          "brand tone": "brandTone",
+          "survey status": "surveyStatus",
+          "decision maker": "contactPerson",
+          "event name": "companyName",
+        };
+
+        const effectiveMapping = { ...defaultMapping, ...mapping };
+
+        const leadsToInsert = rows
+          .filter(row => {
+            const hasCompany = Object.entries(row).some(([k, v]) => {
+              const normalized = k.toLowerCase().trim();
+              return (
+                (effectiveMapping[normalized] === "companyName" ||
+                  normalized.includes("company")) &&
+                v
+              );
+            });
+            return hasCompany;
+          })
+          .map(row => {
+            const lead: Record<string, unknown> = { source: "excel_import" };
+            for (const [rawKey, value] of Object.entries(row)) {
+              const normalized = rawKey.toLowerCase().trim();
+              const mappedField = effectiveMapping[normalized];
+              if (
+                mappedField &&
+                value !== "" &&
+                value !== null &&
+                value !== undefined
+              ) {
+                lead[mappedField] = String(value);
+              }
+            }
+            if (!lead.companyName) {
+              const firstVal = Object.values(row).find(
+                v => v && typeof v === "string"
+              );
+              if (firstVal) lead.companyName = String(firstVal);
+            }
+            // Normalise priority to a valid enum value
+            if (lead.priority) {
+              const p = String(lead.priority).toLowerCase().trim();
+              const priorityMap: Record<string, string> = {
+                low: "low",
+                medium: "medium",
+                high: "high",
+                "tier 1": "high",
+                "tier 2": "medium",
+                "tier 3": "low",
+                "1": "high",
+                "2": "medium",
+                "3": "low",
+              };
+              lead.priority = priorityMap[p] ?? "medium";
+            }
+            // Extract attr: prefixed fields into leadAttributes
+            const attrs: Record<string, unknown> = {};
+            const typeSchema = LEAD_TYPE_SCHEMAS[reqLeadType];
+            const numericAttrKeys = new Set(
+              typeSchema?.fields
+                .filter(f => f.type === "number")
+                .map(f => f.key) ?? []
+            );
+            for (const key of Object.keys(lead)) {
+              if (key.startsWith("attr:")) {
+                const attrKey = key.slice(5);
+                let val: unknown = lead[key];
+                if (numericAttrKeys.has(attrKey)) {
+                  const num = Number(String(val).replace(/,/g, ""));
+                  if (!isNaN(num)) val = num;
+                }
+                attrs[attrKey] = val;
+                delete lead[key];
+              }
+            }
+            if (Object.keys(attrs).length > 0) {
+              lead.leadType = reqLeadType;
+              lead.leadAttributes = attrs;
+            } else if (reqLeadType !== "default") {
+              lead.leadType = reqLeadType;
+            }
+            if (reqLabel) {
+              lead.label = reqLabel;
+            }
+            return lead;
+          })
+          .filter(l => l.companyName);
+
+        const ids = await bulkInsertLeads(
+          leadsToInsert as Parameters<typeof bulkInsertLeads>[0]
+        );
+
+        // Index all imported leads asynchronously
+        setTimeout(async () => {
+          for (const id of ids) {
+            const { getLeadById } = await import("./db");
+            const lead = await getLeadById(id);
+            if (lead)
+              await indexLead(lead as unknown as Record<string, unknown>);
+          }
+        }, 100);
+
+        res.json({
+          success: true,
+          imported: ids.length,
+          total: rows.length,
+          skipped: rows.length - leadsToInsert.length,
+        });
+      } catch (error) {
+        console.error("[/api/import] Error:", error);
+        res.status(500).json({ error: "Failed to import file" });
+      }
     }
-  });
+  );
 
   /**
    * POST /api/upload-document
    */
-  app.post("/api/upload-document", upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
-      }
-      const leadId = parseInt(req.body.leadId ?? "0");
-      const category = req.body.category ?? "other";
-      const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
-
-      const ext = req.file.originalname.split(".").pop() ?? "bin";
-      const fileKey = `leads/${leadId}/docs/${nanoid()}.${ext}`;
-      const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
-
-      // Save document record to DB
-      const pool = await getRawPool();
-      if (!pool) throw new Error("No DB connection");
-
-      const accessType = req.body.accessType ?? "all";
-      const accessUserIds: number[] = req.body.accessUserIds
-        ? JSON.parse(req.body.accessUserIds)
-        : [];
-
-      const { rows } = await pool.query(
-        `INSERT INTO lead_documents ("leadId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "accessType", "uploadedBy", "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id`,
-        [leadId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, accessType, userId ?? null]
-      );
-      const documentId = rows[0].id;
-
-      if (accessType === "restricted" && accessUserIds.length > 0) {
-        const { setDocumentAccess } = await import("./documentAccessDb");
-        await setDocumentAccess("lead", documentId, accessUserIds);
-      }
-
-      // Trigger RAG indexing asynchronously
-      const buffer = req.file.buffer;
-      const mimeType = req.file.mimetype;
-      const fileName = req.file.originalname;
-      setTimeout(async () => {
-        try {
-          await indexDocument(documentId, leadId, buffer, mimeType, fileName);
-          const score = await computePriorityScore(leadId);
-          const scorePool = await getRawPool();
-          if (scorePool) await scorePool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
-        } catch (e) {
-          console.error("[DocumentRAG] Background indexing error:", e);
+  app.post(
+    "/api/upload-document",
+    upload.single("file"),
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ error: "No file uploaded" });
+          return;
         }
-      }, 100);
+        const leadId = parseInt(req.body.leadId ?? "0");
+        const category = req.body.category ?? "other";
+        const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
 
-      res.json({
-        success: true,
-        documentId,
-        fileKey,
-        fileUrl: url,
-        fileName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        fileSize: req.file.size,
-        category,
-        ragIndexing: true,
-      });
-    } catch (error) {
-      console.error("[/api/upload-document] Error:", error);
-      res.status(500).json({ error: "Upload failed" });
+        const ext = req.file.originalname.split(".").pop() ?? "bin";
+        const fileKey = `leads/${leadId}/docs/${nanoid()}.${ext}`;
+        const { url } = await storagePut(
+          fileKey,
+          req.file.buffer,
+          req.file.mimetype
+        );
+
+        // Save document record to DB
+        const pool = await getRawPool();
+        if (!pool) throw new Error("No DB connection");
+
+        const accessType = req.body.accessType ?? "all";
+        const accessUserIds: number[] = req.body.accessUserIds
+          ? JSON.parse(req.body.accessUserIds)
+          : [];
+
+        const { rows } = await pool.query(
+          `INSERT INTO lead_documents ("leadId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "accessType", "uploadedBy", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id`,
+          [
+            leadId,
+            req.file.originalname,
+            fileKey,
+            url,
+            req.file.mimetype,
+            req.file.size,
+            category,
+            accessType,
+            userId ?? null,
+          ]
+        );
+        const documentId = rows[0].id;
+
+        if (accessType === "restricted" && accessUserIds.length > 0) {
+          const { setDocumentAccess } = await import("./documentAccessDb");
+          await setDocumentAccess("lead", documentId, accessUserIds);
+        }
+
+        // Trigger RAG indexing asynchronously
+        const buffer = req.file.buffer;
+        const mimeType = req.file.mimetype;
+        const fileName = req.file.originalname;
+        setTimeout(async () => {
+          try {
+            await indexDocument(documentId, leadId, buffer, mimeType, fileName);
+            const score = await computePriorityScore(leadId);
+            const scorePool = await getRawPool();
+            if (scorePool)
+              await scorePool.query(
+                'UPDATE leads SET "priorityScore" = $1 WHERE id = $2',
+                [score, leadId]
+              );
+          } catch (e) {
+            console.error("[DocumentRAG] Background indexing error:", e);
+          }
+        }, 100);
+
+        res.json({
+          success: true,
+          documentId,
+          fileKey,
+          fileUrl: url,
+          fileName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          fileSize: req.file.size,
+          category,
+          ragIndexing: true,
+        });
+      } catch (error) {
+        console.error("[/api/upload-document] Error:", error);
+        res.status(500).json({ error: "Upload failed" });
+      }
     }
-  });
+  );
 
   /**
    * POST /api/upload-competitor-document
    */
-  app.post("/api/upload-competitor-document", upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
-      }
-      const competitorId = parseInt(req.body.competitorId ?? "0");
-      const category = req.body.category ?? "other";
-      const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
-
-      const ext = req.file.originalname.split(".").pop() ?? "bin";
-      const fileKey = `competitors/${competitorId}/docs/${nanoid()}.${ext}`;
-      const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
-
-      const pool = await getRawPool();
-      if (!pool) throw new Error("No DB connection");
-
-      const accessType = req.body.accessType ?? "all";
-      const accessUserIds: number[] = req.body.accessUserIds
-        ? JSON.parse(req.body.accessUserIds)
-        : [];
-
-      const { rows } = await pool.query(
-        `INSERT INTO competitor_documents ("competitorId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "accessType", "uploadedBy", "createdAt")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id`,
-        [competitorId, req.file.originalname, fileKey, url, req.file.mimetype, req.file.size, category, accessType, userId ?? null]
-      );
-      const documentId = rows[0].id;
-
-      if (accessType === "restricted" && accessUserIds.length > 0) {
-        const { setDocumentAccess } = await import("./documentAccessDb");
-        await setDocumentAccess("competitor", documentId, accessUserIds);
-      }
-
-      const buffer = req.file.buffer;
-      const mimeType = req.file.mimetype;
-      const fileName = req.file.originalname;
-      setTimeout(async () => {
-        try {
-          await indexCompetitorDocument(documentId, competitorId, buffer, mimeType, fileName);
-        } catch (e) {
-          console.error("[DocumentRAG] Competitor doc indexing error:", e);
+  app.post(
+    "/api/upload-competitor-document",
+    upload.single("file"),
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ error: "No file uploaded" });
+          return;
         }
-      }, 100);
+        const competitorId = parseInt(req.body.competitorId ?? "0");
+        const category = req.body.category ?? "other";
+        const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
 
-      res.json({
-        success: true,
-        documentId,
-        fileKey,
-        fileUrl: url,
-        fileName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        fileSize: req.file.size,
-        category,
-        ragIndexing: true,
-      });
-    } catch (error) {
-      console.error("[/api/upload-competitor-document] Error:", error);
-      res.status(500).json({ error: "Upload failed" });
+        const ext = req.file.originalname.split(".").pop() ?? "bin";
+        const fileKey = `competitors/${competitorId}/docs/${nanoid()}.${ext}`;
+        const { url } = await storagePut(
+          fileKey,
+          req.file.buffer,
+          req.file.mimetype
+        );
+
+        const pool = await getRawPool();
+        if (!pool) throw new Error("No DB connection");
+
+        const accessType = req.body.accessType ?? "all";
+        const accessUserIds: number[] = req.body.accessUserIds
+          ? JSON.parse(req.body.accessUserIds)
+          : [];
+
+        const { rows } = await pool.query(
+          `INSERT INTO competitor_documents ("competitorId", "fileName", "fileKey", "fileUrl", "mimeType", "fileSize", category, "accessType", "uploadedBy", "createdAt")
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id`,
+          [
+            competitorId,
+            req.file.originalname,
+            fileKey,
+            url,
+            req.file.mimetype,
+            req.file.size,
+            category,
+            accessType,
+            userId ?? null,
+          ]
+        );
+        const documentId = rows[0].id;
+
+        if (accessType === "restricted" && accessUserIds.length > 0) {
+          const { setDocumentAccess } = await import("./documentAccessDb");
+          await setDocumentAccess("competitor", documentId, accessUserIds);
+        }
+
+        const buffer = req.file.buffer;
+        const mimeType = req.file.mimetype;
+        const fileName = req.file.originalname;
+        setTimeout(async () => {
+          try {
+            await indexCompetitorDocument(
+              documentId,
+              competitorId,
+              buffer,
+              mimeType,
+              fileName
+            );
+          } catch (e) {
+            console.error("[DocumentRAG] Competitor doc indexing error:", e);
+          }
+        }, 100);
+
+        res.json({
+          success: true,
+          documentId,
+          fileKey,
+          fileUrl: url,
+          fileName: req.file.originalname,
+          mimeType: req.file.mimetype,
+          fileSize: req.file.size,
+          category,
+          ragIndexing: true,
+        });
+      } catch (error) {
+        console.error("[/api/upload-competitor-document] Error:", error);
+        res.status(500).json({ error: "Upload failed" });
+      }
     }
-  });
+  );
 
   /**
    * POST /api/upload-crm-document
    */
-  app.post("/api/upload-crm-document", upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
+  app.post(
+    "/api/upload-crm-document",
+    upload.single("file"),
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ error: "No file uploaded" });
+          return;
+        }
+        const category = req.body.category ?? "other";
+        const description = req.body.description || null;
+        const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
+        const accessType = req.body.accessType ?? "all";
+        const accessUserIds: number[] = req.body.accessUserIds
+          ? JSON.parse(req.body.accessUserIds)
+          : [];
+
+        const ext = req.file.originalname.split(".").pop() ?? "bin";
+        const fileKey = `crm-docs/${nanoid()}.${ext}`;
+        const { url } = await storagePut(
+          fileKey,
+          req.file.buffer,
+          req.file.mimetype
+        );
+
+        const { createCrmDocument } = await import("./crmDocumentsDb");
+        const doc = await createCrmDocument({
+          fileName: req.file.originalname,
+          fileKey,
+          fileUrl: url,
+          mimeType: req.file.mimetype,
+          fileSize: req.file.size,
+          category: category as any,
+          description,
+          accessType: accessType as any,
+          uploadedBy: userId ?? null,
+        });
+
+        if (accessType === "restricted" && accessUserIds.length > 0) {
+          const { setDocumentAccess } = await import("./documentAccessDb");
+          await setDocumentAccess("crm", doc.id, accessUserIds);
+        }
+
+        res.json({
+          success: true,
+          document: doc,
+        });
+      } catch (error) {
+        console.error("[/api/upload-crm-document] Error:", error);
+        res.status(500).json({ error: "Upload failed" });
       }
-      const category = req.body.category ?? "other";
-      const description = req.body.description || null;
-      const userId = req.body.userId ? parseInt(req.body.userId) : undefined;
-      const accessType = req.body.accessType ?? "all";
-      const accessUserIds: number[] = req.body.accessUserIds
-        ? JSON.parse(req.body.accessUserIds)
-        : [];
-
-      const ext = req.file.originalname.split(".").pop() ?? "bin";
-      const fileKey = `crm-docs/${nanoid()}.${ext}`;
-      const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
-
-      const { createCrmDocument } = await import("./crmDocumentsDb");
-      const doc = await createCrmDocument({
-        fileName: req.file.originalname,
-        fileKey,
-        fileUrl: url,
-        mimeType: req.file.mimetype,
-        fileSize: req.file.size,
-        category: category as any,
-        description,
-        accessType: accessType as any,
-        uploadedBy: userId ?? null,
-      });
-
-      if (accessType === "restricted" && accessUserIds.length > 0) {
-        const { setDocumentAccess } = await import("./documentAccessDb");
-        await setDocumentAccess("crm", doc.id, accessUserIds);
-      }
-
-      res.json({
-        success: true,
-        document: doc,
-      });
-    } catch (error) {
-      console.error("[/api/upload-crm-document] Error:", error);
-      res.status(500).json({ error: "Upload failed" });
     }
-  });
+  );
 
   /**
    * POST /api/upload-brainstorm-document
    */
-  app.post("/api/upload-brainstorm-document", upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
+  app.post(
+    "/api/upload-brainstorm-document",
+    upload.single("file"),
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ error: "No file uploaded" });
+          return;
+        }
+        const brainstormId = parseInt(req.body.brainstormId ?? "0");
+        if (!brainstormId) {
+          res.status(400).json({ error: "brainstormId is required" });
+          return;
+        }
+
+        const ext = req.file.originalname.split(".").pop() ?? "bin";
+        const fileKey = `brainstorms/${brainstormId}/docs/${nanoid()}.${ext}`;
+        const { url } = await storagePut(
+          fileKey,
+          req.file.buffer,
+          req.file.mimetype
+        );
+
+        // Extract text from document
+        const { extractTextFromBuffer } = await import("./documentRag");
+        const { text } = await extractTextFromBuffer(
+          req.file.buffer,
+          req.file.mimetype,
+          req.file.originalname
+        );
+
+        // Save document record with extracted text
+        const { createBrainstormDocument } = await import("./brainstormDb");
+        const doc = await createBrainstormDocument({
+          brainstormId,
+          fileName: req.file.originalname,
+          fileKey,
+          fileUrl: url,
+          mimeType: req.file.mimetype,
+          fileSize: req.file.size,
+          textContent: text || null,
+        });
+
+        res.json({
+          success: true,
+          document: doc,
+        });
+      } catch (error) {
+        console.error("[/api/upload-brainstorm-document] Error:", error);
+        res.status(500).json({ error: "Upload failed" });
       }
-      const brainstormId = parseInt(req.body.brainstormId ?? "0");
-      if (!brainstormId) {
-        res.status(400).json({ error: "brainstormId is required" });
-        return;
-      }
-
-      const ext = req.file.originalname.split(".").pop() ?? "bin";
-      const fileKey = `brainstorms/${brainstormId}/docs/${nanoid()}.${ext}`;
-      const { url } = await storagePut(fileKey, req.file.buffer, req.file.mimetype);
-
-      // Extract text from document
-      const { extractTextFromBuffer } = await import("./documentRag");
-      const { text } = await extractTextFromBuffer(req.file.buffer, req.file.mimetype, req.file.originalname);
-
-      // Save document record with extracted text
-      const { createBrainstormDocument } = await import("./brainstormDb");
-      const doc = await createBrainstormDocument({
-        brainstormId,
-        fileName: req.file.originalname,
-        fileKey,
-        fileUrl: url,
-        mimeType: req.file.mimetype,
-        fileSize: req.file.size,
-        textContent: text || null,
-      });
-
-      res.json({
-        success: true,
-        document: doc,
-      });
-    } catch (error) {
-      console.error("[/api/upload-brainstorm-document] Error:", error);
-      res.status(500).json({ error: "Upload failed" });
     }
-  });
+  );
 
   /**
    * POST /api/share-presentation
    */
   app.post("/api/share-presentation", async (req: Request, res: Response) => {
     try {
-      const { documentId, leadId, title, recordContactMoment, userId, notes } = req.body;
+      const { documentId, leadId, title, recordContactMoment, userId, notes } =
+        req.body;
       if (!documentId || !leadId) {
         res.status(400).json({ error: "documentId and leadId are required" });
         return;
@@ -635,7 +755,8 @@ export function registerIntegrationRoutes(app: Express) {
           type: "email",
           direction: "outbound",
           subject: `Shared presentation: ${title ?? doc.fileName}`,
-          notes: notes ?? `Shared document "${doc.fileName}" via link: ${shareUrl}`,
+          notes:
+            notes ?? `Shared document "${doc.fileName}" via link: ${shareUrl}`,
           source: "manual",
           userId: userId ? parseInt(userId) : undefined,
           outcome: "neutral",
@@ -656,7 +777,10 @@ export function registerIntegrationRoutes(app: Express) {
     try {
       const { token } = req.params;
       const pool = await getRawPool();
-      if (!pool) { res.status(503).send("Service unavailable"); return; }
+      if (!pool) {
+        res.status(503).send("Service unavailable");
+        return;
+      }
 
       // Try lead document first, then CRM document
       const { rows } = await pool.query(
@@ -681,7 +805,9 @@ export function registerIntegrationRoutes(app: Express) {
       }
 
       if (!share) {
-        res.status(404).send("<h1>Presentation not found or link has expired.</h1>");
+        res
+          .status(404)
+          .send("<h1>Presentation not found or link has expired.</h1>");
         return;
       }
 
@@ -698,7 +824,10 @@ export function registerIntegrationRoutes(app: Express) {
       );
 
       const mime = (share.mimeType ?? "").toLowerCase();
-      const isHtml = mime === "text/html" || share.fileName.endsWith(".html") || share.fileName.endsWith(".htm");
+      const isHtml =
+        mime === "text/html" ||
+        share.fileName.endsWith(".html") ||
+        share.fileName.endsWith(".htm");
 
       if (isHtml) {
         try {
@@ -775,7 +904,7 @@ export function registerIntegrationRoutes(app: Express) {
       if (!pool) throw new Error("No DB connection");
 
       const { rows: docRows } = await pool.query(
-        'SELECT * FROM crm_documents WHERE id = $1',
+        "SELECT * FROM crm_documents WHERE id = $1",
         [documentId]
       );
       const doc = docRows[0];
@@ -805,14 +934,20 @@ export function registerIntegrationRoutes(app: Express) {
   app.get("/api/share-info/:token", async (req: Request, res: Response) => {
     try {
       const pool = await getRawPool();
-      if (!pool) { res.status(503).json({ error: "DB unavailable" }); return; }
+      if (!pool) {
+        res.status(503).json({ error: "DB unavailable" });
+        return;
+      }
       const { rows } = await pool.query(
         `SELECT sp.*, ld."fileName", ld."mimeType" FROM shareable_presentations sp
          JOIN lead_documents ld ON ld.id = sp."documentId" WHERE sp.token = $1`,
         [req.params.token]
       );
       const share = rows[0];
-      if (!share) { res.status(404).json({ error: "Not found" }); return; }
+      if (!share) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
       res.json(share);
     } catch (e) {
       res.status(500).json({ error: "Failed" });
@@ -825,7 +960,10 @@ export function registerIntegrationRoutes(app: Express) {
   app.get("/api/shares/:leadId", async (req: Request, res: Response) => {
     try {
       const pool = await getRawPool();
-      if (!pool) { res.status(503).json({ error: "DB unavailable" }); return; }
+      if (!pool) {
+        res.status(503).json({ error: "DB unavailable" });
+        return;
+      }
       const { rows } = await pool.query(
         `SELECT sp.*, ld."fileName", ld."mimeType" FROM shareable_presentations sp
          JOIN lead_documents ld ON ld.id = sp."documentId"
@@ -841,29 +979,39 @@ export function registerIntegrationRoutes(app: Express) {
   /**
    * POST /api/priority-scores/refresh
    */
-  app.post("/api/priority-scores/refresh", async (_req: Request, res: Response) => {
-    try {
-      await updateAllPriorityScores();
-      res.json({ success: true });
-    } catch (e) {
-      res.status(500).json({ error: "Failed to refresh scores" });
+  app.post(
+    "/api/priority-scores/refresh",
+    async (_req: Request, res: Response) => {
+      try {
+        await updateAllPriorityScores();
+        res.json({ success: true });
+      } catch (e) {
+        res.status(500).json({ error: "Failed to refresh scores" });
+      }
     }
-  });
+  );
 
   /**
    * POST /api/priority-scores/:leadId
    */
-  app.post("/api/priority-scores/:leadId", async (req: Request, res: Response) => {
-    try {
-      const leadId = parseInt(req.params.leadId);
-      const score = await computePriorityScore(leadId);
-      const pool = await getRawPool();
-      if (pool) await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
-      res.json({ success: true, score });
-    } catch (e) {
-      res.status(500).json({ error: "Failed" });
+  app.post(
+    "/api/priority-scores/:leadId",
+    async (req: Request, res: Response) => {
+      try {
+        const leadId = parseInt(req.params.leadId);
+        const score = await computePriorityScore(leadId);
+        const pool = await getRawPool();
+        if (pool)
+          await pool.query(
+            'UPDATE leads SET "priorityScore" = $1 WHERE id = $2',
+            [score, leadId]
+          );
+        res.json({ success: true, score });
+      } catch (e) {
+        res.status(500).json({ error: "Failed" });
+      }
     }
-  });
+  );
 
   /**
    * POST /api/enrich-lead/:id
@@ -886,54 +1034,66 @@ export function registerIntegrationRoutes(app: Express) {
 
       // Re-index the lead so AI chat can find the enriched data
       const updatedLead = await getLeadById(leadId);
-      if (updatedLead) await indexLead(updatedLead as unknown as Record<string, unknown>);
+      if (updatedLead)
+        await indexLead(updatedLead as unknown as Record<string, unknown>);
 
       res.json({ success: true, enrichmentData });
     } catch (error) {
       console.error("[/api/enrich-lead] Error:", error);
-      res.status(500).json({ error: "Enrichment failed", details: String(error) });
+      res
+        .status(500)
+        .json({ error: "Enrichment failed", details: String(error) });
     }
   });
 
   /**
    * POST /api/import/preview
    */
-  app.post("/api/import/preview", upload.single("file"), async (req: Request, res: Response) => {
-    try {
-      if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
+  app.post(
+    "/api/import/preview",
+    upload.single("file"),
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ error: "No file uploaded" });
+          return;
+        }
+
+        const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(
+          worksheet,
+          { defval: "" }
+        );
+
+        const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
+        const preview = rows.slice(0, 5);
+
+        res.json({ columns, preview, totalRows: rows.length });
+      } catch (error) {
+        console.error("[/api/import/preview] Error:", error);
+        res.status(500).json({ error: "Failed to preview file" });
       }
-
-      const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const rows: Record<string, unknown>[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-      const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
-      const preview = rows.slice(0, 5);
-
-      res.json({ columns, preview, totalRows: rows.length });
-    } catch (error) {
-      console.error("[/api/import/preview] Error:", error);
-      res.status(500).json({ error: "Failed to preview file" });
     }
-  });
+  );
 
   /**
    * POST /api/import-json
    */
   app.post("/api/import-json", async (req: Request, res: Response) => {
     try {
-      const { leads: rawLeads } = req.body as { leads: Record<string, unknown>[] };
+      const { leads: rawLeads } = req.body as {
+        leads: Record<string, unknown>[];
+      };
       if (!Array.isArray(rawLeads) || rawLeads.length === 0) {
         res.status(400).json({ error: "No leads provided" });
         return;
       }
 
       const leadsToInsert = rawLeads
-        .filter((r) => r.companyName)
-        .map((r) => ({
+        .filter(r => r.companyName)
+        .map(r => ({
           companyName: String(r.companyName ?? ""),
           website: r.website ? String(r.website) : undefined,
           industry: r.industry ? String(r.industry) : undefined,
@@ -944,15 +1104,28 @@ export function registerIntegrationRoutes(app: Express) {
           phone: r.phone ? String(r.phone) : undefined,
           notes: r.notes ? String(r.notes) : undefined,
           painPoints: r.painPoints ? String(r.painPoints) : undefined,
-          futureOpportunities: r.futureOpportunities ? String(r.futureOpportunities) : undefined,
+          futureOpportunities: r.futureOpportunities
+            ? String(r.futureOpportunities)
+            : undefined,
           revenueModel: r.revenueModel ? String(r.revenueModel) : undefined,
           risks: r.risks ? String(r.risks) : undefined,
-          status: (r.status as "new" | "contacted" | "qualified" | "proposal" | "negotiation" | "won" | "lost" | "on_hold") ?? "new",
+          status:
+            (r.status as
+              | "new"
+              | "contacted"
+              | "qualified"
+              | "proposal"
+              | "negotiation"
+              | "won"
+              | "lost"
+              | "on_hold") ?? "new",
           priority: (r.priority as "low" | "medium" | "high") ?? "medium",
           source: r.source ? String(r.source) : "api_import",
         }));
 
-      const ids = await bulkInsertLeads(leadsToInsert as Parameters<typeof bulkInsertLeads>[0]);
+      const ids = await bulkInsertLeads(
+        leadsToInsert as Parameters<typeof bulkInsertLeads>[0]
+      );
 
       // Background: index all imported leads for vector search
       setTimeout(async () => {
@@ -979,7 +1152,9 @@ export function registerIntegrationRoutes(app: Express) {
     try {
       const { url } = req.body as { url?: string };
       if (!url || !url.includes("linkedin.com")) {
-        return res.status(400).json({ error: "A valid LinkedIn profile URL is required" });
+        return res
+          .status(400)
+          .json({ error: "A valid LinkedIn profile URL is required" });
       }
 
       const profileUrl = url.trim().split("?")[0].replace(/\/$/, "");
@@ -988,8 +1163,10 @@ export function registerIntegrationRoutes(app: Express) {
       try {
         const response = await fetch(profileUrl, {
           headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            Accept:
+              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
             "Cache-Control": "no-cache",
@@ -1000,8 +1177,12 @@ export function registerIntegrationRoutes(app: Express) {
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
           .replace(/<[^>]+>/g, " ")
-          .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-          .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&nbsp;/g, " ")
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&nbsp;/g, " ")
           .replace(/\s{2,}/g, " ")
           .trim()
           .slice(0, 8000);
@@ -1028,11 +1209,14 @@ Return ONLY the JSON object, no markdown, no explanation.`;
 
       const urlSlug = profileUrl.split("/in/").pop()?.replace(/\/$/, "") ?? "";
       const slugParts = urlSlug.replace(/-\d+$/, "").split("-").filter(Boolean);
-      const slugNameHint = slugParts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+      const slugNameHint = slugParts
+        .map(p => p.charAt(0).toUpperCase() + p.slice(1))
+        .join(" ");
 
-      const userPrompt = pageText && pageText.length > 200
-        ? `Extract person details from this LinkedIn profile page.\n\nLinkedIn URL: ${profileUrl}\n\nPage content:\n${pageText}`
-        : `The LinkedIn profile at ${profileUrl} could not be fetched (LinkedIn blocks automated access).\n\nURL slug: "${urlSlug}"\nName hint from slug: "${slugNameHint}"\n\nUse the slug to infer the person's full name (e.g. "john-doe" -> "John Doe", "zijlma" -> "Zijlma"). Set summary to "LinkedIn profile — please complete details manually" and personType to "prospect". Leave all other fields as null.`;
+      const userPrompt =
+        pageText && pageText.length > 200
+          ? `Extract person details from this LinkedIn profile page.\n\nLinkedIn URL: ${profileUrl}\n\nPage content:\n${pageText}`
+          : `The LinkedIn profile at ${profileUrl} could not be fetched (LinkedIn blocks automated access).\n\nURL slug: "${urlSlug}"\nName hint from slug: "${slugNameHint}"\n\nUse the slug to infer the person's full name (e.g. "john-doe" -> "John Doe", "zijlma" -> "Zijlma"). Set summary to "LinkedIn profile — please complete details manually" and personType to "prospect". Leave all other fields as null.`;
 
       const { text: llmText } = await generateText({
         model: llm.model,
@@ -1048,7 +1232,10 @@ Return ONLY the JSON object, no markdown, no explanation.`;
           extracted = JSON.parse(jsonMatch[0]);
         }
       } catch {
-        console.warn("[linkedin-import] Could not parse LLM JSON response:", llmText);
+        console.warn(
+          "[linkedin-import] Could not parse LLM JSON response:",
+          llmText
+        );
       }
 
       res.json({

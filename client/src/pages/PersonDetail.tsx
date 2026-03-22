@@ -11,27 +11,92 @@ import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import {
-  ArrowLeft, Linkedin, Mail, Phone, Building2, Edit2, Save, X,
-  MessageSquare, Plus, Link2, ExternalLink, Clock, Tag, User, UserCircle,
-  Calendar, CalendarPlus, CheckCircle2, AlertCircle, Loader2, MoreVertical, Merge, Trash2, Search,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ArrowLeft,
+  Linkedin,
+  Mail,
+  Phone,
+  Building2,
+  Edit2,
+  Save,
+  X,
+  MessageSquare,
+  Plus,
+  Link2,
+  ExternalLink,
+  Clock,
+  Tag,
+  User,
+  UserCircle,
+  Calendar,
+  CalendarPlus,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  MoreVertical,
+  Merge,
+  Trash2,
+  Search,
 } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { toast } from "sonner";
-import { formatDate, formatDateTime, formatRelativeTime, CONTACT_TYPE_ICONS, OUTCOME_COLORS, buildGoogleCalendarUrl } from "@/lib/crm";
+import {
+  formatDate,
+  formatDateTime,
+  formatRelativeTime,
+  CONTACT_TYPE_ICONS,
+  OUTCOME_COLORS,
+  buildGoogleCalendarUrl,
+} from "@/lib/crm";
 import EmailBody from "@/components/EmailBody";
 import RichNotes from "@/components/RichNotes";
 import WebLinksCard from "@/components/WebLinksCard";
 
-function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occurredAt: string | Date }; onUpdated: () => void }) {
+function EditableMomentDate({
+  moment,
+  onUpdated,
+}: {
+  moment: { id: number; occurredAt: string | Date };
+  onUpdated: () => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState("");
   const submitting = useRef(false);
@@ -42,11 +107,17 @@ function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occur
       setEditing(false);
       toast.success("Date updated");
     },
-    onError: () => { submitting.current = false; toast.error("Failed to update date"); },
+    onError: () => {
+      submitting.current = false;
+      toast.error("Failed to update date");
+    },
   });
 
   const submit = () => {
-    if (submitting.current || !value) { setEditing(false); return; }
+    if (submitting.current || !value) {
+      setEditing(false);
+      return;
+    }
     submitting.current = true;
     updateMutation.mutate({ id: moment.id, data: { occurredAt: value } });
   };
@@ -56,9 +127,9 @@ function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occur
       <Input
         type="datetime-local"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={e => setValue(e.target.value)}
         onBlur={submit}
-        onKeyDown={(e) => {
+        onKeyDown={e => {
           if (e.key === "Enter") submit();
           else if (e.key === "Escape") setEditing(false);
         }}
@@ -83,14 +154,29 @@ function EditableMomentDate({ moment, onUpdated }: { moment: { id: number; occur
   );
 }
 
-const PERSON_TYPE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  prospect:   { label: "Prospect",   color: "text-slate-700",  bg: "bg-slate-100" },
-  contact:    { label: "Contact",    color: "text-blue-700",   bg: "bg-blue-100" },
-  partner:    { label: "Partner",    color: "text-green-700",  bg: "bg-green-100" },
-  reseller:   { label: "Reseller",   color: "text-purple-700", bg: "bg-purple-100" },
-  influencer: { label: "Influencer", color: "text-orange-700", bg: "bg-orange-100" },
-  investor:   { label: "Investor",   color: "text-yellow-700", bg: "bg-yellow-100" },
-  other:      { label: "Other",      color: "text-gray-700",   bg: "bg-gray-100" },
+const PERSON_TYPE_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  prospect: { label: "Prospect", color: "text-slate-700", bg: "bg-slate-100" },
+  contact: { label: "Contact", color: "text-blue-700", bg: "bg-blue-100" },
+  partner: { label: "Partner", color: "text-green-700", bg: "bg-green-100" },
+  reseller: {
+    label: "Reseller",
+    color: "text-purple-700",
+    bg: "bg-purple-100",
+  },
+  influencer: {
+    label: "Influencer",
+    color: "text-orange-700",
+    bg: "bg-orange-100",
+  },
+  investor: {
+    label: "Investor",
+    color: "text-yellow-700",
+    bg: "bg-yellow-100",
+  },
+  other: { label: "Other", color: "text-gray-700", bg: "bg-gray-100" },
 };
 
 const RELATIONSHIP_LABELS: Record<string, string> = {
@@ -103,24 +189,39 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
 };
 
 function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  return name
+    .split(" ")
+    .map(n => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
-function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess: () => void }) {
+function LogMomentDialog({
+  personId,
+  onSuccess,
+}: {
+  personId: number;
+  onSuccess: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState("linkedin");
   const [direction, setDirection] = useState("outbound");
   const [subject, setSubject] = useState("");
   const [notes, setNotes] = useState("");
   const [outcome, setOutcome] = useState("neutral");
-  const [occurredAt, setOccurredAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [occurredAt, setOccurredAt] = useState(() =>
+    new Date().toISOString().slice(0, 16)
+  );
   const [followUpAt, setFollowUpAt] = useState("");
 
   const logMutation = trpc.persons.logContactMoment.useMutation({
     onSuccess: () => {
       toast.success("Contact moment logged");
       setOpen(false);
-      setSubject(""); setNotes(""); setFollowUpAt("");
+      setSubject("");
+      setNotes("");
+      setFollowUpAt("");
       onSuccess();
     },
     onError: () => toast.error("Failed to log contact moment"),
@@ -143,10 +244,23 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
             <div className="space-y-1.5">
               <Label className="text-xs">Type</Label>
               <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  {["email","phone","meeting","linkedin","slack","demo","proposal","other"].map((t) => (
-                    <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                  {[
+                    "email",
+                    "phone",
+                    "meeting",
+                    "linkedin",
+                    "slack",
+                    "demo",
+                    "proposal",
+                    "other",
+                  ].map(t => (
+                    <SelectItem key={t} value={t} className="capitalize">
+                      {t}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -154,7 +268,9 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
             <div className="space-y-1.5">
               <Label className="text-xs">Direction</Label>
               <Select value={direction} onValueChange={setDirection}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="outbound">Outbound</SelectItem>
                   <SelectItem value="inbound">Inbound</SelectItem>
@@ -164,17 +280,29 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Subject / Topic</Label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="What was discussed?" className="text-sm h-8" />
+            <Input
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              placeholder="What was discussed?"
+              className="text-sm h-8"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Key takeaways, next steps..." className="text-sm min-h-[80px]" />
+            <Textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Key takeaways, next steps..."
+              className="text-sm min-h-[80px]"
+            />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Outcome</Label>
               <Select value={outcome} onValueChange={setOutcome}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="positive">Positive</SelectItem>
                   <SelectItem value="neutral">Neutral</SelectItem>
@@ -185,7 +313,12 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Date & Time</Label>
-              <Input type="datetime-local" value={occurredAt} onChange={(e) => setOccurredAt(e.target.value)} className="text-sm h-8" />
+              <Input
+                type="datetime-local"
+                value={occurredAt}
+                onChange={e => setOccurredAt(e.target.value)}
+                className="text-sm h-8"
+              />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -193,7 +326,7 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
               <Checkbox
                 id="personScheduleFollowUp"
                 checked={!!followUpAt}
-                onCheckedChange={(checked) => {
+                onCheckedChange={checked => {
                   if (checked) {
                     const d = new Date(occurredAt);
                     d.setDate(d.getDate() + 3);
@@ -203,18 +336,47 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
                   }
                 }}
               />
-              <Label htmlFor="personScheduleFollowUp" className="cursor-pointer text-xs font-normal">Schedule follow-up</Label>
+              <Label
+                htmlFor="personScheduleFollowUp"
+                className="cursor-pointer text-xs font-normal"
+              >
+                Schedule follow-up
+              </Label>
             </div>
             {followUpAt && (
-              <Input type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} className="text-sm h-8" />
+              <Input
+                type="datetime-local"
+                value={followUpAt}
+                onChange={e => setFollowUpAt(e.target.value)}
+                className="text-sm h-8"
+              />
             )}
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button size="sm" disabled={logMutation.isPending} onClick={() =>
-              logMutation.mutate({ personId, type: type as any, direction: direction as any, subject: subject || undefined, notes: notes || undefined, outcome: outcome as any, occurredAt, followUpAt: followUpAt || undefined })
-            }>
-              {logMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={logMutation.isPending}
+              onClick={() =>
+                logMutation.mutate({
+                  personId,
+                  type: type as any,
+                  direction: direction as any,
+                  subject: subject || undefined,
+                  notes: notes || undefined,
+                  outcome: outcome as any,
+                  occurredAt,
+                  followUpAt: followUpAt || undefined,
+                })
+              }
+            >
+              {logMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                "Save"
+              )}
             </Button>
           </div>
         </div>
@@ -223,16 +385,29 @@ function LogMomentDialog({ personId, onSuccess }: { personId: number; onSuccess:
   );
 }
 
-function LinkLeadDialog({ personId, onSuccess }: { personId: number; onSuccess: () => void }) {
+function LinkLeadDialog({
+  personId,
+  onSuccess,
+}: {
+  personId: number;
+  onSuccess: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [leadSearch, setLeadSearch] = useState("");
   const [relationship, setRelationship] = useState("contact_at");
 
-  const { data: leadsData } = trpc.leads.list.useQuery({ search: leadSearch || undefined, limit: 20 });
+  const { data: leadsData } = trpc.leads.list.useQuery({
+    search: leadSearch || undefined,
+    limit: 20,
+  });
   const leads = leadsData?.items ?? [];
 
   const linkMutation = trpc.persons.linkToLead.useMutation({
-    onSuccess: () => { toast.success("Linked to lead"); setOpen(false); onSuccess(); },
+    onSuccess: () => {
+      toast.success("Linked to lead");
+      setOpen(false);
+      onSuccess();
+    },
     onError: () => toast.error("Failed to link"),
   });
 
@@ -252,31 +427,50 @@ function LinkLeadDialog({ personId, onSuccess }: { personId: number; onSuccess: 
           <div className="space-y-1.5">
             <Label className="text-xs">Relationship</Label>
             <Select value={relationship} onValueChange={setRelationship}>
-              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {Object.entries(RELATIONSHIP_LABELS).map(([val, label]) => (
-                  <SelectItem key={val} value={val}>{label}</SelectItem>
+                  <SelectItem key={val} value={val}>
+                    {label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Search Lead / Company</Label>
-            <Input value={leadSearch} onChange={(e) => setLeadSearch(e.target.value)} placeholder="Type company name..." className="text-sm h-8" />
+            <Input
+              value={leadSearch}
+              onChange={e => setLeadSearch(e.target.value)}
+              placeholder="Type company name..."
+              className="text-sm h-8"
+            />
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
-            {leads.map((lead) => (
+            {leads.map(lead => (
               <button
                 key={lead.id}
                 className="w-full text-left px-3 py-2 rounded hover:bg-muted text-sm flex items-center justify-between"
-                onClick={() => linkMutation.mutate({ personId, leadId: lead.id, relationship: relationship as any })}
+                onClick={() =>
+                  linkMutation.mutate({
+                    personId,
+                    leadId: lead.id,
+                    relationship: relationship as any,
+                  })
+                }
               >
                 <span className="font-medium">{lead.companyName}</span>
-                <span className="text-xs text-muted-foreground">{lead.industry ?? lead.location}</span>
+                <span className="text-xs text-muted-foreground">
+                  {lead.industry ?? lead.location}
+                </span>
               </button>
             ))}
             {leads.length === 0 && leadSearch && (
-              <p className="text-xs text-muted-foreground text-center py-4">No leads found</p>
+              <p className="text-xs text-muted-foreground text-center py-4">
+                No leads found
+              </p>
             )}
           </div>
         </div>
@@ -292,15 +486,27 @@ export default function PersonDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, string>>({});
 
-  const { data: person, isLoading, refetch } = trpc.persons.get.useQuery({ id: personId });
-  const { data: moments, refetch: refetchMoments } = trpc.persons.getContactMoments.useQuery({ personId });
-  const { data: leadLinks, refetch: refetchLinks } = trpc.persons.getLeadLinks.useQuery({ personId });
+  const {
+    data: person,
+    isLoading,
+    refetch,
+  } = trpc.persons.get.useQuery({ id: personId });
+  const { data: moments, refetch: refetchMoments } =
+    trpc.persons.getContactMoments.useQuery({ personId });
+  const { data: leadLinks, refetch: refetchLinks } =
+    trpc.persons.getLeadLinks.useQuery({ personId });
   const { data: userList } = trpc.auth.listUsers.useQuery();
   const users = userList ?? [];
-  const assignedUser = (person as any)?.assignedTo ? users.find((u) => u.id === (person as any).assignedTo) : null;
+  const assignedUser = (person as any)?.assignedTo
+    ? users.find(u => u.id === (person as any).assignedTo)
+    : null;
 
   const updateMutation = trpc.persons.update.useMutation({
-    onSuccess: () => { refetch(); setEditing(false); toast.success("Saved"); },
+    onSuccess: () => {
+      refetch();
+      setEditing(false);
+      toast.success("Saved");
+    },
     onError: () => toast.error("Failed to save"),
   });
 
@@ -321,7 +527,10 @@ export default function PersonDetailPage() {
   });
 
   const unlinkMutation = trpc.persons.unlinkFromLead.useMutation({
-    onSuccess: () => { refetchLinks(); toast.success("Unlinked"); },
+    onSuccess: () => {
+      refetchLinks();
+      toast.success("Unlinked");
+    },
   });
 
   const [mergeOpen, setMergeOpen] = useState(false);
@@ -329,12 +538,15 @@ export default function PersonDetailPage() {
   const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
 
   const deletePersonMutation = trpc.persons.delete.useMutation({
-    onSuccess: () => { toast.success("Person deleted"); navigate("/persons"); },
+    onSuccess: () => {
+      toast.success("Person deleted");
+      navigate("/persons");
+    },
     onError: () => toast.error("Failed to delete person"),
   });
 
   const mergePersonMutation = trpc.persons.merge.useMutation({
-    onSuccess: (result) => {
+    onSuccess: result => {
       toast.success("Persons merged successfully");
       setMergeOpen(false);
       navigate(`/persons/${result?.id ?? mergeTargetId}`);
@@ -344,7 +556,7 @@ export default function PersonDetailPage() {
 
   const { data: mergeSearchResults } = trpc.persons.list.useQuery(
     { search: mergeSearch, limit: 10 },
-    { enabled: mergeOpen && mergeSearch.length >= 2 },
+    { enabled: mergeOpen && mergeSearch.length >= 2 }
   );
 
   if (isLoading) {
@@ -360,7 +572,9 @@ export default function PersonDetailPage() {
   if (!person) {
     return (
       <DashboardLayout>
-        <div className="p-6 text-center text-muted-foreground">Person not found.</div>
+        <div className="p-6 text-center text-muted-foreground">
+          Person not found.
+        </div>
       </DashboardLayout>
     );
   }
@@ -402,7 +616,12 @@ export default function PersonDetailPage() {
       <div className="p-6 max-w-5xl mx-auto space-y-6">
         {/* Back + Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/persons")} className="gap-1.5 -ml-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/persons")}
+            className="gap-1.5 -ml-2"
+          >
             <ArrowLeft className="h-4 w-4" />
             People
           </Button>
@@ -419,17 +638,25 @@ export default function PersonDetailPage() {
               {editing ? (
                 <Input
                   value={editData.name}
-                  onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                  onChange={e =>
+                    setEditData({ ...editData, name: e.target.value })
+                  }
                   className="text-xl font-bold h-8 mb-1"
                 />
               ) : (
                 <h1 className="text-2xl font-bold">{person.name}</h1>
               )}
               <div className="flex items-center gap-2 mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.color}`}>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.color}`}
+                >
                   {cfg.label}
                 </span>
-                {person.title && <span className="text-sm text-muted-foreground">{person.title}</span>}
+                {person.title && (
+                  <span className="text-sm text-muted-foreground">
+                    {person.title}
+                  </span>
+                )}
                 {person.company && (
                   <span className="text-sm text-muted-foreground flex items-center gap-1">
                     <Building2 className="h-3.5 w-3.5" />
@@ -445,20 +672,33 @@ export default function PersonDetailPage() {
                     >
                       <UserCircle className="h-3 w-3" />
                       {assignedUser ? (
-                        <span className="font-medium">{assignedUser.name || assignedUser.email}</span>
+                        <span className="font-medium">
+                          {assignedUser.name || assignedUser.email}
+                        </span>
                       ) : (
-                        <span className="text-muted-foreground">Assign owner</span>
+                        <span className="text-muted-foreground">
+                          Assign owner
+                        </span>
                       )}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-48 p-2" align="start">
-                    {users.map((u) => (
+                    {users.map(u => (
                       <Button
                         key={u.id}
-                        variant={(person as any).assignedTo === u.id ? "secondary" : "ghost"}
+                        variant={
+                          (person as any).assignedTo === u.id
+                            ? "secondary"
+                            : "ghost"
+                        }
                         size="sm"
                         className="w-full justify-start gap-2 text-sm"
-                        onClick={() => updateMutation.mutate({ id: personId, data: { assignedTo: u.id } })}
+                        onClick={() =>
+                          updateMutation.mutate({
+                            id: personId,
+                            data: { assignedTo: u.id },
+                          })
+                        }
                       >
                         <Avatar className="h-5 w-5">
                           <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
@@ -473,7 +713,12 @@ export default function PersonDetailPage() {
                         variant="ghost"
                         size="sm"
                         className="w-full justify-start text-sm text-muted-foreground mt-1"
-                        onClick={() => updateMutation.mutate({ id: personId, data: { assignedTo: null as any } })}
+                        onClick={() =>
+                          updateMutation.mutate({
+                            id: personId,
+                            data: { assignedTo: null as any },
+                          })
+                        }
                       >
                         Unassign
                       </Button>
@@ -487,16 +732,31 @@ export default function PersonDetailPage() {
           <div className="flex gap-2">
             {editing ? (
               <>
-                <Button size="sm" variant="outline" onClick={() => setEditing(false)} className="gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditing(false)}
+                  className="gap-1.5"
+                >
                   <X className="h-3.5 w-3.5" /> Cancel
                 </Button>
-                <Button size="sm" onClick={saveEdit} disabled={updateMutation.isPending} className="gap-1.5">
+                <Button
+                  size="sm"
+                  onClick={saveEdit}
+                  disabled={updateMutation.isPending}
+                  className="gap-1.5"
+                >
                   <Save className="h-3.5 w-3.5" /> Save
                 </Button>
               </>
             ) : (
               <>
-                <Button size="sm" variant="outline" onClick={startEdit} className="gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={startEdit}
+                  className="gap-1.5"
+                >
                   <Edit2 className="h-3.5 w-3.5" /> Edit
                 </Button>
                 <DropdownMenu>
@@ -506,32 +766,46 @@ export default function PersonDetailPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setMergeOpen(true)} className="gap-2">
+                    <DropdownMenuItem
+                      onClick={() => setMergeOpen(true)}
+                      className="gap-2"
+                    >
                       <Merge className="h-4 w-4" />
                       Merge into another Person
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="gap-2 text-red-600 focus:text-red-600">
+                        <DropdownMenuItem
+                          onSelect={e => e.preventDefault()}
+                          className="gap-2 text-red-600 focus:text-red-600"
+                        >
                           <Trash2 className="h-4 w-4" />
                           Delete Person
                         </DropdownMenuItem>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Delete {person.name}?</AlertDialogTitle>
+                          <AlertDialogTitle>
+                            Delete {person.name}?
+                          </AlertDialogTitle>
                           <AlertDialogDescription>
-                            This will permanently delete this person. Contact moments linked to this person will be preserved but unlinked. This action cannot be undone.
+                            This will permanently delete this person. Contact
+                            moments linked to this person will be preserved but
+                            unlinked. This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => deletePersonMutation.mutate({ id: personId })}
+                            onClick={() =>
+                              deletePersonMutation.mutate({ id: personId })
+                            }
                             className="bg-red-600 hover:bg-red-700"
                           >
-                            {deletePersonMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                            {deletePersonMutation.isPending ? (
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            ) : null}
                             Delete
                           </AlertDialogAction>
                         </AlertDialogFooter>
@@ -545,12 +819,23 @@ export default function PersonDetailPage() {
         </div>
 
         {/* Merge Dialog */}
-        <Dialog open={mergeOpen} onOpenChange={(o) => { setMergeOpen(o); if (!o) { setMergeSearch(""); setMergeTargetId(null); } }}>
+        <Dialog
+          open={mergeOpen}
+          onOpenChange={o => {
+            setMergeOpen(o);
+            if (!o) {
+              setMergeSearch("");
+              setMergeTargetId(null);
+            }
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Merge Person</DialogTitle>
               <DialogDescription>
-                Merge <strong>{person.name}</strong> into another person. All contact moments and lead links will be moved to the target person. This person will be deleted.
+                Merge <strong>{person.name}</strong> into another person. All
+                contact moments and lead links will be moved to the target
+                person. This person will be deleted.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -559,37 +844,60 @@ export default function PersonDetailPage() {
                 <Input
                   placeholder="Search for target person..."
                   value={mergeSearch}
-                  onChange={(e) => { setMergeSearch(e.target.value); setMergeTargetId(null); }}
+                  onChange={e => {
+                    setMergeSearch(e.target.value);
+                    setMergeTargetId(null);
+                  }}
                   className="pl-9"
                 />
               </div>
               {mergeSearch.length >= 2 && (
                 <div className="border rounded-md max-h-48 overflow-y-auto divide-y">
                   {(mergeSearchResults?.persons ?? [])
-                    .filter((p) => p.id !== personId)
-                    .map((p) => (
+                    .filter(p => p.id !== personId)
+                    .map(p => (
                       <div
                         key={p.id}
                         className={`px-3 py-2 cursor-pointer hover:bg-muted/50 transition-colors ${mergeTargetId === p.id ? "bg-primary/10" : ""}`}
                         onClick={() => setMergeTargetId(p.id)}
                       >
                         <div className="text-sm font-medium">{p.name}</div>
-                        {p.email && <div className="text-xs text-muted-foreground">{p.email}</div>}
+                        {p.email && (
+                          <div className="text-xs text-muted-foreground">
+                            {p.email}
+                          </div>
+                        )}
                       </div>
                     ))}
-                  {(mergeSearchResults?.persons ?? []).filter((p) => p.id !== personId).length === 0 && (
-                    <div className="px-3 py-4 text-sm text-muted-foreground text-center">No persons found</div>
+                  {(mergeSearchResults?.persons ?? []).filter(
+                    p => p.id !== personId
+                  ).length === 0 && (
+                    <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                      No persons found
+                    </div>
                   )}
                 </div>
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setMergeOpen(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setMergeOpen(false)}>
+                Cancel
+              </Button>
               <Button
-                onClick={() => mergeTargetId && mergePersonMutation.mutate({ keepId: mergeTargetId, removeId: personId })}
+                onClick={() =>
+                  mergeTargetId &&
+                  mergePersonMutation.mutate({
+                    keepId: mergeTargetId,
+                    removeId: personId,
+                  })
+                }
                 disabled={!mergeTargetId || mergePersonMutation.isPending}
               >
-                {mergePersonMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Merge className="h-4 w-4 mr-2" />}
+                {mergePersonMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Merge className="h-4 w-4 mr-2" />
+                )}
                 Merge
               </Button>
             </DialogFooter>
@@ -598,7 +906,9 @@ export default function PersonDetailPage() {
 
         <Tabs defaultValue="overview">
           <TabsList className="h-9">
-            <TabsTrigger value="overview" className="text-xs">Overview</TabsTrigger>
+            <TabsTrigger value="overview" className="text-xs">
+              Overview
+            </TabsTrigger>
             <TabsTrigger value="timeline" className="text-xs">
               Timeline ({moments?.length ?? 0})
             </TabsTrigger>
@@ -612,39 +922,91 @@ export default function PersonDetailPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="border shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Contact Details</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    Contact Details
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {editing ? (
                     <>
                       <div className="space-y-1">
                         <Label className="text-xs">Email</Label>
-                        <Input value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} className="h-8 text-sm" placeholder="email@example.com" />
+                        <Input
+                          value={editData.email}
+                          onChange={e =>
+                            setEditData({ ...editData, email: e.target.value })
+                          }
+                          className="h-8 text-sm"
+                          placeholder="email@example.com"
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Phone</Label>
-                        <Input value={editData.phone} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} className="h-8 text-sm" placeholder="+44 7700 900000" />
+                        <Input
+                          value={editData.phone}
+                          onChange={e =>
+                            setEditData({ ...editData, phone: e.target.value })
+                          }
+                          className="h-8 text-sm"
+                          placeholder="+44 7700 900000"
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">LinkedIn URL</Label>
-                        <Input value={editData.linkedInUrl} onChange={(e) => setEditData({ ...editData, linkedInUrl: e.target.value })} className="h-8 text-sm" placeholder="https://linkedin.com/in/..." />
+                        <Input
+                          value={editData.linkedInUrl}
+                          onChange={e =>
+                            setEditData({
+                              ...editData,
+                              linkedInUrl: e.target.value,
+                            })
+                          }
+                          className="h-8 text-sm"
+                          placeholder="https://linkedin.com/in/..."
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Company</Label>
-                        <Input value={editData.company} onChange={(e) => setEditData({ ...editData, company: e.target.value })} className="h-8 text-sm" />
+                        <Input
+                          value={editData.company}
+                          onChange={e =>
+                            setEditData({
+                              ...editData,
+                              company: e.target.value,
+                            })
+                          }
+                          className="h-8 text-sm"
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Title</Label>
-                        <Input value={editData.title} onChange={(e) => setEditData({ ...editData, title: e.target.value })} className="h-8 text-sm" />
+                        <Input
+                          value={editData.title}
+                          onChange={e =>
+                            setEditData({ ...editData, title: e.target.value })
+                          }
+                          className="h-8 text-sm"
+                        />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Person Type</Label>
-                        <Select value={editData.personType} onValueChange={(v) => setEditData({ ...editData, personType: v })}>
-                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <Select
+                          value={editData.personType}
+                          onValueChange={v =>
+                            setEditData({ ...editData, personType: v })
+                          }
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue />
+                          </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(PERSON_TYPE_CONFIG).map(([val, c]) => (
-                              <SelectItem key={val} value={val}>{c.label}</SelectItem>
-                            ))}
+                            {Object.entries(PERSON_TYPE_CONFIG).map(
+                              ([val, c]) => (
+                                <SelectItem key={val} value={val}>
+                                  {c.label}
+                                </SelectItem>
+                              )
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -654,26 +1016,46 @@ export default function PersonDetailPage() {
                       {person.email && (
                         <div className="flex items-center gap-2 text-sm">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          <a href={`mailto:${person.email}`} className="text-primary hover:underline">{person.email}</a>
+                          <a
+                            href={`mailto:${person.email}`}
+                            className="text-primary hover:underline"
+                          >
+                            {person.email}
+                          </a>
                         </div>
                       )}
                       {person.phone && (
                         <div className="flex items-center gap-2 text-sm">
                           <Phone className="h-4 w-4 text-muted-foreground" />
-                          <a href={`tel:${person.phone}`} className="hover:underline">{person.phone}</a>
+                          <a
+                            href={`tel:${person.phone}`}
+                            className="hover:underline"
+                          >
+                            {person.phone}
+                          </a>
                         </div>
                       )}
                       {person.linkedInUrl && (
                         <div className="flex items-center gap-2 text-sm">
                           <Linkedin className="h-4 w-4 text-blue-500" />
-                          <a href={person.linkedInUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
-                            LinkedIn Profile <ExternalLink className="h-3 w-3" />
+                          <a
+                            href={person.linkedInUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline flex items-center gap-1"
+                          >
+                            LinkedIn Profile{" "}
+                            <ExternalLink className="h-3 w-3" />
                           </a>
                         </div>
                       )}
-                      {!person.email && !person.phone && !person.linkedInUrl && (
-                        <p className="text-xs text-muted-foreground">No contact details yet</p>
-                      )}
+                      {!person.email &&
+                        !person.phone &&
+                        !person.linkedInUrl && (
+                          <p className="text-xs text-muted-foreground">
+                            No contact details yet
+                          </p>
+                        )}
                     </>
                   )}
                 </CardContent>
@@ -687,7 +1069,9 @@ export default function PersonDetailPage() {
                   {editing ? (
                     <Textarea
                       value={editData.notes}
-                      onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                      onChange={e =>
+                        setEditData({ ...editData, notes: e.target.value })
+                      }
                       className="text-sm min-h-[120px]"
                       placeholder="Why is this person interesting? What have you discussed?"
                     />
@@ -704,14 +1088,24 @@ export default function PersonDetailPage() {
               <CardContent className="p-4 flex items-center gap-6 text-sm">
                 <div>
                   <div className="text-xs text-muted-foreground">Source</div>
-                  <div className="font-medium capitalize">{person.source ?? "Manual"}</div>
+                  <div className="font-medium capitalize">
+                    {person.source ?? "Manual"}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Last Interaction</div>
-                  <div className="font-medium">{person.lastContactedAt ? formatDate(person.lastContactedAt) : "Never"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    Last Interaction
+                  </div>
+                  <div className="font-medium">
+                    {person.lastContactedAt
+                      ? formatDate(person.lastContactedAt)
+                      : "Never"}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Interactions</div>
+                  <div className="text-xs text-muted-foreground">
+                    Interactions
+                  </div>
                   <div className="font-medium">{moments?.length ?? 0}</div>
                 </div>
               </CardContent>
@@ -724,41 +1118,62 @@ export default function PersonDetailPage() {
           <TabsContent value="timeline" className="mt-4">
             <Card className="border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-semibold">Interaction History</CardTitle>
-                <LogMomentDialog personId={personId} onSuccess={refetchMoments} />
+                <CardTitle className="text-sm font-semibold">
+                  Interaction History
+                </CardTitle>
+                <LogMomentDialog
+                  personId={personId}
+                  onSuccess={refetchMoments}
+                />
               </CardHeader>
               <CardContent>
                 {!moments || moments.length === 0 ? (
                   <div className="py-8 text-center">
                     <MessageSquare className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">No interactions logged yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Log your first LinkedIn message, call, or meeting</p>
+                    <p className="text-sm text-muted-foreground">
+                      No interactions logged yet
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Log your first LinkedIn message, call, or meeting
+                    </p>
                   </div>
                 ) : (
                   <div className="relative pl-5 space-y-4">
                     <div className="absolute left-2 top-2 bottom-2 w-px bg-border" />
-                    {moments.map((m) => (
+                    {moments.map(m => (
                       <div key={m.id} className="relative">
                         <div className="absolute -left-3 top-1.5 h-2 w-2 rounded-full bg-primary border-2 border-background" />
                         <div className="bg-muted/30 rounded-lg p-3 border">
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-semibold capitalize">{m.type}</span>
-                              <span className="text-xs text-muted-foreground capitalize">{m.direction}</span>
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${OUTCOME_COLORS[m.outcome ?? "neutral"] ?? ""}`}>
+                              <span className="text-xs font-semibold capitalize">
+                                {m.type}
+                              </span>
+                              <span className="text-xs text-muted-foreground capitalize">
+                                {m.direction}
+                              </span>
+                              <span
+                                className={`text-xs px-1.5 py-0.5 rounded ${OUTCOME_COLORS[m.outcome ?? "neutral"] ?? ""}`}
+                              >
                                 {m.outcome ?? "neutral"}
                               </span>
                             </div>
                             <div className="flex items-center gap-1">
-                              <EditableMomentDate moment={m} onUpdated={refetchMoments} />
+                              <EditableMomentDate
+                                moment={m}
+                                onUpdated={refetchMoments}
+                              />
                               {m.type === "meeting" && (
                                 <Button
-                                  variant="ghost" size="sm"
+                                  variant="ghost"
+                                  size="sm"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
                                   title="Export to Google Calendar"
                                   onClick={() => {
                                     const url = buildGoogleCalendarUrl({
-                                      title: m.subject || `Meeting with ${person?.name ?? "Contact"}`,
+                                      title:
+                                        m.subject ||
+                                        `Meeting with ${person?.name ?? "Contact"}`,
                                       start: new Date(m.occurredAt),
                                       details: m.notes || undefined,
                                     });
@@ -769,25 +1184,33 @@ export default function PersonDetailPage() {
                                 </Button>
                               )}
                               <Button
-                                variant="ghost" size="sm"
+                                variant="ghost"
+                                size="sm"
                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => deleteMomentMutation.mutate({ id: m.id })}
+                                onClick={() =>
+                                  deleteMomentMutation.mutate({ id: m.id })
+                                }
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </div>
-                          {m.subject && <p className="text-sm font-medium">{m.subject}</p>}
+                          {m.subject && (
+                            <p className="text-sm font-medium">{m.subject}</p>
+                          )}
                           {m.type === "email" && (m.emailRaw || m.notes) ? (
                             <EmailBody html={m.emailRaw} text={m.notes} />
                           ) : m.notes ? (
-                            <RichNotes notes={m.notes} className="text-xs text-muted-foreground mt-1" />
+                            <RichNotes
+                              notes={m.notes}
+                              className="text-xs text-muted-foreground mt-1"
+                            />
                           ) : null}
                           {m.followUpAt && (
                             <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
                               <Checkbox
                                 checked={!!m.followUpDone}
-                                onCheckedChange={(checked) => {
+                                onCheckedChange={checked => {
                                   toggleFollowUpMutation.mutate({
                                     id: m.id,
                                     data: { followUpDone: !!checked },
@@ -795,14 +1218,19 @@ export default function PersonDetailPage() {
                                 }}
                                 className="h-3.5 w-3.5"
                               />
-                              <span className={`text-xs ${
-                                m.followUpDone
-                                  ? "text-muted-foreground line-through"
-                                  : new Date(m.followUpAt) < new Date()
-                                    ? "text-red-600 font-medium"
-                                    : "text-amber-600"
-                              }`}>
-                                Follow-up {m.followUpDone ? "done" : `due ${formatDate(m.followUpAt)}`}
+                              <span
+                                className={`text-xs ${
+                                  m.followUpDone
+                                    ? "text-muted-foreground line-through"
+                                    : new Date(m.followUpAt) < new Date()
+                                      ? "text-red-600 font-medium"
+                                      : "text-amber-600"
+                                }`}
+                              >
+                                Follow-up{" "}
+                                {m.followUpDone
+                                  ? "done"
+                                  : `due ${formatDate(m.followUpAt)}`}
                               </span>
                             </div>
                           )}
@@ -819,20 +1247,29 @@ export default function PersonDetailPage() {
           <TabsContent value="leads" className="mt-4">
             <Card className="border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-semibold">Linked Companies / Events</CardTitle>
+                <CardTitle className="text-sm font-semibold">
+                  Linked Companies / Events
+                </CardTitle>
                 <LinkLeadDialog personId={personId} onSuccess={refetchLinks} />
               </CardHeader>
               <CardContent>
                 {!leadLinks || leadLinks.length === 0 ? (
                   <div className="py-8 text-center">
                     <Link2 className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                    <p className="text-sm text-muted-foreground">Not linked to any leads yet</p>
-                    <p className="text-xs text-muted-foreground mt-1">Link this person to a company or event lead</p>
+                    <p className="text-sm text-muted-foreground">
+                      Not linked to any leads yet
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Link this person to a company or event lead
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {leadLinks.map(({ link, lead }) => (
-                      <div key={link.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
+                      <div
+                        key={link.id}
+                        className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors"
+                      >
                         <div className="flex items-center gap-3">
                           <Building2 className="h-4 w-4 text-muted-foreground" />
                           <div>
@@ -843,18 +1280,29 @@ export default function PersonDetailPage() {
                               {lead.companyName}
                             </button>
                             <div className="text-xs text-muted-foreground">
-                              {RELATIONSHIP_LABELS[link.relationship] ?? link.relationship}
+                              {RELATIONSHIP_LABELS[link.relationship] ??
+                                link.relationship}
                               {lead.industry ? ` · ${lead.industry}` : ""}
                             </div>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs capitalize">{lead.status}</Badge>
+                          <Badge
+                            variant="outline"
+                            className="text-xs capitalize"
+                          >
+                            {lead.status}
+                          </Badge>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                            onClick={() => unlinkMutation.mutate({ personId, leadId: lead.id })}
+                            onClick={() =>
+                              unlinkMutation.mutate({
+                                personId,
+                                leadId: lead.id,
+                              })
+                            }
                           >
                             <X className="h-3.5 w-3.5" />
                           </Button>

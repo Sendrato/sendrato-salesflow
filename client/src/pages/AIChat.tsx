@@ -20,7 +20,8 @@ export default function AIChat() {
         <div className="mb-4">
           <h1 className="text-2xl font-bold">AI Assistant</h1>
           <p className="text-sm text-muted-foreground">
-            Ask questions about your leads, pipeline, and contact history using natural language
+            Ask questions about your leads, pipeline, and contact history using
+            natural language
           </p>
         </div>
         <div className="flex-1 min-h-0">

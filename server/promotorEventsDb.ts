@@ -53,7 +53,5 @@ export async function deletePromotorEvent(id: number) {
 export async function deletePromotorEventsByLead(leadId: number) {
   const db = await getDb();
   if (!db) return;
-  await db
-    .delete(promotorEvents)
-    .where(eq(promotorEvents.leadId, leadId));
+  await db.delete(promotorEvents).where(eq(promotorEvents.leadId, leadId));
 }

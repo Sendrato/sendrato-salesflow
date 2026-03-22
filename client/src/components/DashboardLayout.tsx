@@ -20,11 +20,26 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users, Building2, MessageSquare, BarChart3, Upload, Bot, FileText, Calendar, Settings, Swords, Lightbulb } from "lucide-react";
+import {
+  LayoutDashboard,
+  LogOut,
+  PanelLeft,
+  Users,
+  Building2,
+  MessageSquare,
+  BarChart3,
+  Upload,
+  Bot,
+  FileText,
+  Calendar,
+  Settings,
+  Swords,
+  Lightbulb,
+} from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { LoginForm } from "./LoginForm";
 import { useLocation } from "wouter";
-import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
+import { DashboardLayoutSkeleton } from "./DashboardLayoutSkeleton";
 import { Button } from "./ui/button";
 
 const menuItems = [
@@ -63,7 +78,7 @@ export default function DashboardLayout({
   }, [sidebarWidth]);
 
   if (loading) {
-    return <DashboardLayoutSkeleton />
+    return <DashboardLayoutSkeleton />;
   }
 
   if (!user) {

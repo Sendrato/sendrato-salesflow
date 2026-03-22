@@ -39,7 +39,7 @@ function linkifyLine(line: string): React.ReactNode[] {
       >
         {isVideo && <Video className="h-3 w-3 inline shrink-0" />}
         {url}
-      </a>,
+      </a>
     );
     lastIndex = match.index + url.length;
   }
@@ -57,7 +57,11 @@ interface RichNotesProps {
   lineClamp?: number;
 }
 
-export default function RichNotes({ notes, className, lineClamp }: RichNotesProps) {
+export default function RichNotes({
+  notes,
+  className,
+  lineClamp,
+}: RichNotesProps) {
   const lines = notes.split("\n");
 
   // Collect consecutive address-like lines into groups
@@ -83,7 +87,7 @@ export default function RichNotes({ notes, className, lineClamp }: RichNotesProp
         >
           {full}
         </a>
-      </span>,
+      </span>
     );
     addressBlock = [];
   };
@@ -100,9 +104,7 @@ export default function RichNotes({ notes, className, lineClamp }: RichNotesProp
         elements.push("\n");
       }
       elements.push(
-        <React.Fragment key={`line-${i}`}>
-          {linkifyLine(line)}
-        </React.Fragment>,
+        <React.Fragment key={`line-${i}`}>{linkifyLine(line)}</React.Fragment>
       );
     }
   }

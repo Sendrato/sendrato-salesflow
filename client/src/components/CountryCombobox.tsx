@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Command,
   CommandInput,
@@ -38,7 +42,7 @@ export function CountryCombobox({
             {value && (
               <X
                 className="h-3 w-3 opacity-50 hover:opacity-100"
-                onClick={(e) => {
+                onClick={e => {
                   e.stopPropagation();
                   onChange("");
                 }}
@@ -54,7 +58,7 @@ export function CountryCombobox({
           <CommandList>
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
-              {COUNTRY_NAMES.map((country) => (
+              {COUNTRY_NAMES.map(country => (
                 <CommandItem
                   key={country}
                   value={country}

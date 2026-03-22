@@ -9,29 +9,53 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Tabs, TabsContent, TabsList, TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  ArrowLeft, Swords, Globe, Pencil, Save, X,
-  Link2, Unlink, FileText, Upload, Download, Trash2,
-  Building2, CalendarClock, ThumbsUp, ThumbsDown, Lock, Loader2,
+  ArrowLeft,
+  Swords,
+  Globe,
+  Pencil,
+  Save,
+  X,
+  Link2,
+  Unlink,
+  FileText,
+  Upload,
+  Download,
+  Trash2,
+  Building2,
+  CalendarClock,
+  ThumbsUp,
+  ThumbsDown,
+  Lock,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate, formatRelativeTime } from "@/lib/crm";
 import { UserAccessPicker } from "@/components/UserAccessPicker";
 import { useAuth } from "@/_core/hooks/useAuth";
 
-const THREAT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  low:    { label: "Low",    color: "text-green-700",  bg: "bg-green-100" },
+const THREAT_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  low: { label: "Low", color: "text-green-700", bg: "bg-green-100" },
   medium: { label: "Medium", color: "text-yellow-700", bg: "bg-yellow-100" },
-  high:   { label: "High",   color: "text-red-700",    bg: "bg-red-100" },
+  high: { label: "High", color: "text-red-700", bg: "bg-red-100" },
 };
 
 export default function CompetitorDetailPage() {
@@ -41,32 +65,52 @@ export default function CompetitorDetailPage() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Record<string, string>>({});
 
-  const { data: competitor, isLoading, refetch } = trpc.competitors.get.useQuery({ id: competitorId });
-  const { data: leadLinks, refetch: refetchLinks } = trpc.competitors.getLeadLinks.useQuery({ competitorId });
-  const { data: documents, refetch: refetchDocs } = trpc.competitors.listDocuments.useQuery({ competitorId });
+  const {
+    data: competitor,
+    isLoading,
+    refetch,
+  } = trpc.competitors.get.useQuery({ id: competitorId });
+  const { data: leadLinks, refetch: refetchLinks } =
+    trpc.competitors.getLeadLinks.useQuery({ competitorId });
+  const { data: documents, refetch: refetchDocs } =
+    trpc.competitors.listDocuments.useQuery({ competitorId });
 
   const updateMutation = trpc.competitors.update.useMutation({
-    onSuccess: () => { refetch(); setEditing(false); toast.success("Saved"); },
+    onSuccess: () => {
+      refetch();
+      setEditing(false);
+      toast.success("Saved");
+    },
     onError: () => toast.error("Failed to save"),
   });
 
   const deleteMutation = trpc.competitors.delete.useMutation({
-    onSuccess: () => { toast.success("Competitor deleted"); navigate("/competitors"); },
+    onSuccess: () => {
+      toast.success("Competitor deleted");
+      navigate("/competitors");
+    },
     onError: () => toast.error("Failed to delete"),
   });
 
   const unlinkMutation = trpc.competitors.unlinkFromLead.useMutation({
-    onSuccess: () => { refetchLinks(); toast.success("Unlinked"); },
+    onSuccess: () => {
+      refetchLinks();
+      toast.success("Unlinked");
+    },
     onError: () => toast.error("Failed to unlink"),
   });
 
   // Document upload
   const { user } = useAuth();
   const [uploadCategory, setUploadCategory] = useState("other");
-  const [uploadAccessType, setUploadAccessType] = useState<"all" | "restricted">("all");
+  const [uploadAccessType, setUploadAccessType] = useState<
+    "all" | "restricted"
+  >("all");
   const [uploadAccessUserIds, setUploadAccessUserIds] = useState<number[]>([]);
   const [editAccessDoc, setEditAccessDoc] = useState<any>(null);
-  const [editAccessType, setEditAccessType] = useState<"all" | "restricted">("all");
+  const [editAccessType, setEditAccessType] = useState<"all" | "restricted">(
+    "all"
+  );
   const [editAccessUserIds, setEditAccessUserIds] = useState<number[]>([]);
   const [savingAccess, setSavingAccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,38 +129,54 @@ export default function CompetitorDetailPage() {
     onError: () => toast.error("Failed to update access"),
   });
 
-  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("competitorId", String(competitorId));
-    formData.append("category", uploadCategory);
-    if (user?.id) {
-      formData.append("userId", String(user.id));
-    }
-    if (uploadAccessType === "restricted") {
-      formData.append("accessType", "restricted");
-      formData.append("accessUserIds", JSON.stringify(uploadAccessUserIds));
-    }
-    try {
-      const res = await fetch("/api/upload-competitor-document", { method: "POST", body: formData });
-      if (res.ok) {
-        refetchDocs();
-        toast.success(`"${file.name}" uploaded`);
-        setUploadAccessType("all");
-        setUploadAccessUserIds([]);
-      } else {
+  const handleFileUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("competitorId", String(competitorId));
+      formData.append("category", uploadCategory);
+      if (user?.id) {
+        formData.append("userId", String(user.id));
+      }
+      if (uploadAccessType === "restricted") {
+        formData.append("accessType", "restricted");
+        formData.append("accessUserIds", JSON.stringify(uploadAccessUserIds));
+      }
+      try {
+        const res = await fetch("/api/upload-competitor-document", {
+          method: "POST",
+          body: formData,
+        });
+        if (res.ok) {
+          refetchDocs();
+          toast.success(`"${file.name}" uploaded`);
+          setUploadAccessType("all");
+          setUploadAccessUserIds([]);
+        } else {
+          toast.error("Upload failed");
+        }
+      } catch {
         toast.error("Upload failed");
       }
-    } catch {
-      toast.error("Upload failed");
-    }
-    if (fileInputRef.current) fileInputRef.current.value = "";
-  }, [competitorId, uploadCategory, refetchDocs, user, uploadAccessType, uploadAccessUserIds]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    },
+    [
+      competitorId,
+      uploadCategory,
+      refetchDocs,
+      user,
+      uploadAccessType,
+      uploadAccessUserIds,
+    ]
+  );
 
   const deleteDocMutation = trpc.competitors.deleteDocument.useMutation({
-    onSuccess: () => { refetchDocs(); toast.success("Document deleted"); },
+    onSuccess: () => {
+      refetchDocs();
+      toast.success("Document deleted");
+    },
     onError: () => toast.error("Failed to delete document"),
   });
 
@@ -168,19 +228,26 @@ export default function CompetitorDetailPage() {
   if (!competitor) {
     return (
       <DashboardLayout>
-        <div className="p-6 text-center text-muted-foreground">Competitor not found</div>
+        <div className="p-6 text-center text-muted-foreground">
+          Competitor not found
+        </div>
       </DashboardLayout>
     );
   }
 
-  const threatCfg = THREAT_CONFIG[competitor.threatLevel] ?? THREAT_CONFIG.medium;
+  const threatCfg =
+    THREAT_CONFIG[competitor.threatLevel] ?? THREAT_CONFIG.medium;
 
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/competitors")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate("/competitors")}
+          >
             <ArrowLeft className="h-4 w-4 mr-1" /> Back
           </Button>
         </div>
@@ -193,18 +260,26 @@ export default function CompetitorDetailPage() {
             <div>
               <h1 className="text-2xl font-bold">{competitor.name}</h1>
               <div className="flex items-center gap-2 mt-1">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${threatCfg.bg} ${threatCfg.color}`}>
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${threatCfg.bg} ${threatCfg.color}`}
+                >
                   {threatCfg.label} Threat
                 </span>
                 {competitor.website && (
                   <a
-                    href={competitor.website.startsWith("http") ? competitor.website : `https://${competitor.website}`}
+                    href={
+                      competitor.website.startsWith("http")
+                        ? competitor.website
+                        : `https://${competitor.website}`
+                    }
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                   >
                     <Globe className="h-3 w-3" />
-                    {competitor.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                    {competitor.website
+                      .replace(/^https?:\/\//, "")
+                      .replace(/\/$/, "")}
                   </a>
                 )}
               </div>
@@ -213,10 +288,18 @@ export default function CompetitorDetailPage() {
           <div className="flex gap-2">
             {editing ? (
               <>
-                <Button size="sm" variant="outline" onClick={() => setEditing(false)}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditing(false)}
+                >
                   <X className="h-4 w-4 mr-1" /> Cancel
                 </Button>
-                <Button size="sm" onClick={saveEdit} disabled={updateMutation.isPending}>
+                <Button
+                  size="sm"
+                  onClick={saveEdit}
+                  disabled={updateMutation.isPending}
+                >
                   <Save className="h-4 w-4 mr-1" /> Save
                 </Button>
               </>
@@ -229,7 +312,8 @@ export default function CompetitorDetailPage() {
                   size="sm"
                   variant="destructive"
                   onClick={() => {
-                    if (confirm("Delete this competitor?")) deleteMutation.mutate({ id: competitorId });
+                    if (confirm("Delete this competitor?"))
+                      deleteMutation.mutate({ id: competitorId });
                   }}
                 >
                   <Trash2 className="h-4 w-4 mr-1" /> Delete
@@ -256,20 +340,56 @@ export default function CompetitorDetailPage() {
             <div className="grid md:grid-cols-2 gap-4">
               <Card className="border shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Company Info</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    Company Info
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Field label="Description" field="description" editing={editing} editData={editData} setEditData={setEditData} value={competitor.description} multiline />
-                  <Field label="Website" field="website" editing={editing} editData={editData} setEditData={setEditData} value={competitor.website} />
-                  <Field label="Business Model" field="businessModel" editing={editing} editData={editData} setEditData={setEditData} value={competitor.businessModel} multiline />
+                  <Field
+                    label="Description"
+                    field="description"
+                    editing={editing}
+                    editData={editData}
+                    setEditData={setEditData}
+                    value={competitor.description}
+                    multiline
+                  />
+                  <Field
+                    label="Website"
+                    field="website"
+                    editing={editing}
+                    editData={editData}
+                    setEditData={setEditData}
+                    value={competitor.website}
+                  />
+                  <Field
+                    label="Business Model"
+                    field="businessModel"
+                    editing={editing}
+                    editData={editData}
+                    setEditData={setEditData}
+                    value={competitor.businessModel}
+                    multiline
+                  />
                   {editing && (
                     <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Threat Level</Label>
-                      <Select value={editData.threatLevel} onValueChange={(v) => setEditData({ ...editData, threatLevel: v })}>
-                        <SelectTrigger className="text-sm h-8"><SelectValue /></SelectTrigger>
+                      <Label className="text-xs text-muted-foreground">
+                        Threat Level
+                      </Label>
+                      <Select
+                        value={editData.threatLevel}
+                        onValueChange={v =>
+                          setEditData({ ...editData, threatLevel: v })
+                        }
+                      >
+                        <SelectTrigger className="text-sm h-8">
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           {Object.entries(THREAT_CONFIG).map(([val, cfg]) => (
-                            <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+                            <SelectItem key={val} value={val}>
+                              {cfg.label}
+                            </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -280,11 +400,29 @@ export default function CompetitorDetailPage() {
 
               <Card className="border shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Competitive Intelligence</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    Competitive Intelligence
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <Field label="Strengths" field="strengths" editing={editing} editData={editData} setEditData={setEditData} value={competitor.strengths} multiline />
-                  <Field label="Weaknesses" field="weaknesses" editing={editing} editData={editData} setEditData={setEditData} value={competitor.weaknesses} multiline />
+                  <Field
+                    label="Strengths"
+                    field="strengths"
+                    editing={editing}
+                    editData={editData}
+                    setEditData={setEditData}
+                    value={competitor.strengths}
+                    multiline
+                  />
+                  <Field
+                    label="Weaknesses"
+                    field="weaknesses"
+                    editing={editing}
+                    editData={editData}
+                    setEditData={setEditData}
+                    value={competitor.weaknesses}
+                    multiline
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -292,19 +430,36 @@ export default function CompetitorDetailPage() {
             <div className="grid md:grid-cols-2 gap-4">
               <Card className="border shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Products / Services</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    Products / Services
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Field field="products" editing={editing} editData={editData} setEditData={setEditData} value={competitor.products} multiline />
+                  <Field
+                    field="products"
+                    editing={editing}
+                    editData={editData}
+                    setEditData={setEditData}
+                    value={competitor.products}
+                    multiline
+                  />
                 </CardContent>
               </Card>
 
               <Card className="border shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-semibold">Regions / Markets</CardTitle>
+                  <CardTitle className="text-sm font-semibold">
+                    Regions / Markets
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Field field="regions" editing={editing} editData={editData} setEditData={setEditData} value={competitor.regions} />
+                  <Field
+                    field="regions"
+                    editing={editing}
+                    editData={editData}
+                    setEditData={setEditData}
+                    value={competitor.regions}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -314,7 +469,14 @@ export default function CompetitorDetailPage() {
                 <CardTitle className="text-sm font-semibold">Pricing</CardTitle>
               </CardHeader>
               <CardContent>
-                <Field field="pricing" editing={editing} editData={editData} setEditData={setEditData} value={competitor.pricing} multiline />
+                <Field
+                  field="pricing"
+                  editing={editing}
+                  editData={editData}
+                  setEditData={setEditData}
+                  value={competitor.pricing}
+                  multiline
+                />
               </CardContent>
             </Card>
 
@@ -323,7 +485,14 @@ export default function CompetitorDetailPage() {
                 <CardTitle className="text-sm font-semibold">Notes</CardTitle>
               </CardHeader>
               <CardContent>
-                <Field field="notes" editing={editing} editData={editData} setEditData={setEditData} value={competitor.notes} multiline />
+                <Field
+                  field="notes"
+                  editing={editing}
+                  editData={editData}
+                  setEditData={setEditData}
+                  value={competitor.notes}
+                  multiline
+                />
               </CardContent>
             </Card>
 
@@ -333,20 +502,30 @@ export default function CompetitorDetailPage() {
           {/* Linked Leads Tab */}
           <TabsContent value="leads" className="mt-4 space-y-4">
             <div className="flex justify-end">
-              <LinkLeadDialog competitorId={competitorId} onSuccess={refetchLinks} />
+              <LinkLeadDialog
+                competitorId={competitorId}
+                onSuccess={refetchLinks}
+              />
             </div>
 
             {!leadLinks?.length ? (
               <div className="p-8 text-center text-muted-foreground text-sm">
                 <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                No leads linked yet. Link leads to track which ones use this competitor.
+                No leads linked yet. Link leads to track which ones use this
+                competitor.
               </div>
             ) : (
               <div className="grid gap-3">
                 {leadLinks.map(({ link, lead }) => {
-                  const contractEnding = link.contractEndDate && new Date(link.contractEndDate) < new Date(Date.now() + 90 * 86400000);
+                  const contractEnding =
+                    link.contractEndDate &&
+                    new Date(link.contractEndDate) <
+                      new Date(Date.now() + 90 * 86400000);
                   return (
-                    <Card key={link.id} className={`border shadow-sm ${contractEnding ? "border-amber-300" : ""}`}>
+                    <Card
+                      key={link.id}
+                      className={`border shadow-sm ${contractEnding ? "border-amber-300" : ""}`}
+                    >
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
                           <div className="space-y-1 flex-1">
@@ -357,45 +536,79 @@ export default function CompetitorDetailPage() {
                               >
                                 {lead.companyName}
                               </button>
-                              <Badge variant="outline" className="text-xs">{lead.status}</Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {lead.status}
+                              </Badge>
                               {contractEnding && (
-                                <Badge variant="destructive" className="text-xs">Contract ending soon</Badge>
+                                <Badge
+                                  variant="destructive"
+                                  className="text-xs"
+                                >
+                                  Contract ending soon
+                                </Badge>
                               )}
                             </div>
-                            {lead.industry && <div className="text-xs text-muted-foreground">{lead.industry}</div>}
+                            {lead.industry && (
+                              <div className="text-xs text-muted-foreground">
+                                {lead.industry}
+                              </div>
+                            )}
                             {link.competitorProduct && (
-                              <div className="text-xs"><span className="text-muted-foreground">Using:</span> {link.competitorProduct}</div>
+                              <div className="text-xs">
+                                <span className="text-muted-foreground">
+                                  Using:
+                                </span>{" "}
+                                {link.competitorProduct}
+                              </div>
                             )}
                             <div className="flex gap-4 mt-2 text-xs">
                               {link.contractStartDate && (
                                 <span className="text-muted-foreground">
                                   <CalendarClock className="h-3 w-3 inline mr-1" />
-                                  {formatDate(link.contractStartDate)} — {link.contractEndDate ? formatDate(link.contractEndDate) : "ongoing"}
+                                  {formatDate(link.contractStartDate)} —{" "}
+                                  {link.contractEndDate
+                                    ? formatDate(link.contractEndDate)
+                                    : "ongoing"}
                                 </span>
                               )}
                               {link.satisfaction && (
-                                <span className="text-muted-foreground capitalize">Satisfaction: {link.satisfaction}</span>
+                                <span className="text-muted-foreground capitalize">
+                                  Satisfaction: {link.satisfaction}
+                                </span>
                               )}
                             </div>
                             {link.likes && (
                               <div className="text-xs mt-1 flex items-start gap-1">
                                 <ThumbsUp className="h-3 w-3 text-green-600 mt-0.5 shrink-0" />
-                                <span className="whitespace-pre-wrap">{link.likes}</span>
+                                <span className="whitespace-pre-wrap">
+                                  {link.likes}
+                                </span>
                               </div>
                             )}
                             {link.dislikes && (
                               <div className="text-xs mt-1 flex items-start gap-1">
                                 <ThumbsDown className="h-3 w-3 text-red-500 mt-0.5 shrink-0" />
-                                <span className="whitespace-pre-wrap">{link.dislikes}</span>
+                                <span className="whitespace-pre-wrap">
+                                  {link.dislikes}
+                                </span>
                               </div>
                             )}
-                            {link.notes && <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">{link.notes}</div>}
+                            {link.notes && (
+                              <div className="text-xs text-muted-foreground mt-1 whitespace-pre-wrap">
+                                {link.notes}
+                              </div>
+                            )}
                           </div>
                           <Button
                             variant="ghost"
                             size="sm"
                             className="text-muted-foreground hover:text-destructive"
-                            onClick={() => unlinkMutation.mutate({ competitorId, leadId: lead.id })}
+                            onClick={() =>
+                              unlinkMutation.mutate({
+                                competitorId,
+                                leadId: lead.id,
+                              })
+                            }
                           >
                             <Unlink className="h-3.5 w-3.5" />
                           </Button>
@@ -412,12 +625,19 @@ export default function CompetitorDetailPage() {
           <TabsContent value="documents" className="mt-4 space-y-4">
             <Card className="border shadow-sm">
               <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Upload Document</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  Upload Document
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-3 items-center">
-                  <Select value={uploadCategory} onValueChange={setUploadCategory}>
-                    <SelectTrigger className="w-[180px] text-sm h-9"><SelectValue /></SelectTrigger>
+                  <Select
+                    value={uploadCategory}
+                    onValueChange={setUploadCategory}
+                  >
+                    <SelectTrigger className="w-[180px] text-sm h-9">
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="report">Report</SelectItem>
                       <SelectItem value="presentation">Presentation</SelectItem>
@@ -440,7 +660,11 @@ export default function CompetitorDetailPage() {
                     accept=".pdf,.html,.htm,.xlsx,.xls,.docx,.doc,.txt,.md,.pptx,.ppt"
                     onChange={handleFileUpload}
                   />
-                  <Button variant="outline" className="gap-2 flex-1" onClick={() => fileInputRef.current?.click()}>
+                  <Button
+                    variant="outline"
+                    className="gap-2 flex-1"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
                     <Upload className="h-4 w-4" /> Choose File
                   </Button>
                 </div>
@@ -460,11 +684,18 @@ export default function CompetitorDetailPage() {
                       <div className="flex items-center gap-3">
                         <FileText className="h-4 w-4 text-muted-foreground" />
                         <div>
-                          <div className="text-sm font-medium">{doc.fileName}</div>
+                          <div className="text-sm font-medium">
+                            {doc.fileName}
+                          </div>
                           <div className="text-xs text-muted-foreground flex items-center gap-2">
                             <span className="capitalize">{doc.category}</span>
                             {doc.chunkCount > 0 && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">AI Indexed</Badge>
+                              <Badge
+                                variant="secondary"
+                                className="text-[10px] px-1.5 py-0"
+                              >
+                                AI Indexed
+                              </Badge>
                             )}
                             {doc.accessType === "restricted" && (
                               <span className="text-amber-600 flex items-center gap-0.5">
@@ -488,7 +719,11 @@ export default function CompetitorDetailPage() {
                           <Lock className="h-3.5 w-3.5" />
                         </Button>
                         <Button variant="ghost" size="sm" asChild>
-                          <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                          <a
+                            href={doc.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             <Download className="h-3.5 w-3.5" />
                           </a>
                         </Button>
@@ -496,7 +731,9 @@ export default function CompetitorDetailPage() {
                           variant="ghost"
                           size="sm"
                           className="text-muted-foreground hover:text-destructive"
-                          onClick={() => deleteDocMutation.mutate({ id: doc.id })}
+                          onClick={() =>
+                            deleteDocMutation.mutate({ id: doc.id })
+                          }
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -510,7 +747,9 @@ export default function CompetitorDetailPage() {
             {/* Edit Access Dialog */}
             <Dialog
               open={!!editAccessDoc}
-              onOpenChange={(o) => { if (!o) setEditAccessDoc(null); }}
+              onOpenChange={o => {
+                if (!o) setEditAccessDoc(null);
+              }}
             >
               <DialogContent className="max-w-sm">
                 <DialogHeader>
@@ -571,17 +810,23 @@ function Field({
   if (editing) {
     return (
       <div className="space-y-1">
-        {label && <Label className="text-xs text-muted-foreground">{label}</Label>}
+        {label && (
+          <Label className="text-xs text-muted-foreground">{label}</Label>
+        )}
         {multiline ? (
           <Textarea
             value={editData[field] ?? ""}
-            onChange={(e) => setEditData({ ...editData, [field]: e.target.value })}
+            onChange={e =>
+              setEditData({ ...editData, [field]: e.target.value })
+            }
             className="text-sm min-h-[60px]"
           />
         ) : (
           <Input
             value={editData[field] ?? ""}
-            onChange={(e) => setEditData({ ...editData, [field]: e.target.value })}
+            onChange={e =>
+              setEditData({ ...editData, [field]: e.target.value })
+            }
             className="text-sm h-8"
           />
         )}
@@ -591,14 +836,22 @@ function Field({
   return (
     <div>
       {label && <div className="text-xs text-muted-foreground">{label}</div>}
-      <div className="text-sm whitespace-pre-wrap">{value || <span className="text-muted-foreground">—</span>}</div>
+      <div className="text-sm whitespace-pre-wrap">
+        {value || <span className="text-muted-foreground">—</span>}
+      </div>
     </div>
   );
 }
 
 // ─── Link Lead Dialog ────────────────────────────────────────────────────────
 
-function LinkLeadDialog({ competitorId, onSuccess }: { competitorId: number; onSuccess: () => void }) {
+function LinkLeadDialog({
+  competitorId,
+  onSuccess,
+}: {
+  competitorId: number;
+  onSuccess: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedLeadId, setSelectedLeadId] = useState<number | null>(null);
@@ -627,12 +880,21 @@ function LinkLeadDialog({ competitorId, onSuccess }: { competitorId: number; onS
   });
 
   function resetForm() {
-    setSearch(""); setSelectedLeadId(null); setProduct("");
-    setContractStart(""); setContractEnd(""); setLikes("");
-    setDislikes(""); setSatisfaction(""); setIntelSource(""); setNotes("");
+    setSearch("");
+    setSelectedLeadId(null);
+    setProduct("");
+    setContractStart("");
+    setContractEnd("");
+    setLikes("");
+    setDislikes("");
+    setSatisfaction("");
+    setIntelSource("");
+    setNotes("");
   }
 
-  const selectedLead = leadsData?.items?.find((l: any) => l.id === selectedLeadId);
+  const selectedLead = leadsData?.items?.find(
+    (l: any) => l.id === selectedLeadId
+  );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -650,91 +912,140 @@ function LinkLeadDialog({ competitorId, onSuccess }: { competitorId: number; onS
             <Label className="text-sm">Search Lead</Label>
             <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={e => setSearch(e.target.value)}
               placeholder="Search by company name..."
               className="text-sm"
             />
-            {leadsData?.items && leadsData.items.length > 0 && !selectedLeadId && (
-              <div className="border rounded-md max-h-32 overflow-y-auto">
-                {leadsData.items.map((lead: any) => (
-                  <button
-                    key={lead.id}
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted/50"
-                    onClick={() => { setSelectedLeadId(lead.id); setSearch(lead.companyName); }}
-                  >
-                    {lead.companyName}
-                  </button>
-                ))}
-              </div>
-            )}
+            {leadsData?.items &&
+              leadsData.items.length > 0 &&
+              !selectedLeadId && (
+                <div className="border rounded-md max-h-32 overflow-y-auto">
+                  {leadsData.items.map((lead: any) => (
+                    <button
+                      key={lead.id}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedLeadId(lead.id);
+                        setSearch(lead.companyName);
+                      }}
+                    >
+                      {lead.companyName}
+                    </button>
+                  ))}
+                </div>
+              )}
             {selectedLead && (
-              <div className="text-xs text-green-600">Selected: {selectedLead.companyName}</div>
+              <div className="text-xs text-green-600">
+                Selected: {selectedLead.companyName}
+              </div>
             )}
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-sm">Competitor Product Used</Label>
-            <Input value={product} onChange={(e) => setProduct(e.target.value)} placeholder="Which product/service?" className="text-sm" />
+            <Input
+              value={product}
+              onChange={e => setProduct(e.target.value)}
+              placeholder="Which product/service?"
+              className="text-sm"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm">Contract Start</Label>
-              <Input type="date" value={contractStart} onChange={(e) => setContractStart(e.target.value)} className="text-sm" />
+              <Input
+                type="date"
+                value={contractStart}
+                onChange={e => setContractStart(e.target.value)}
+                className="text-sm"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Contract End</Label>
-              <Input type="date" value={contractEnd} onChange={(e) => setContractEnd(e.target.value)} className="text-sm" />
+              <Input
+                type="date"
+                value={contractEnd}
+                onChange={e => setContractEnd(e.target.value)}
+                className="text-sm"
+              />
             </div>
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-sm">Satisfaction</Label>
             <Select value={satisfaction} onValueChange={setSatisfaction}>
-              <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Select..." /></SelectTrigger>
+              <SelectTrigger className="text-sm h-9">
+                <SelectValue placeholder="Select..." />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="happy">Happy</SelectItem>
                 <SelectItem value="neutral">Neutral</SelectItem>
                 <SelectItem value="unhappy">Unhappy</SelectItem>
-                <SelectItem value="looking_to_switch">Looking to switch</SelectItem>
+                <SelectItem value="looking_to_switch">
+                  Looking to switch
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-sm">What do they like?</Label>
-            <Textarea value={likes} onChange={(e) => setLikes(e.target.value)} placeholder="What the lead likes about this competitor" className="text-sm min-h-[50px]" />
+            <Textarea
+              value={likes}
+              onChange={e => setLikes(e.target.value)}
+              placeholder="What the lead likes about this competitor"
+              className="text-sm min-h-[50px]"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">What do they dislike?</Label>
-            <Textarea value={dislikes} onChange={(e) => setDislikes(e.target.value)} placeholder="Pain points with the competitor" className="text-sm min-h-[50px]" />
+            <Textarea
+              value={dislikes}
+              onChange={e => setDislikes(e.target.value)}
+              placeholder="Pain points with the competitor"
+              className="text-sm min-h-[50px]"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Intelligence Source</Label>
-            <Input value={intelSource} onChange={(e) => setIntelSource(e.target.value)} placeholder="e.g. told us in demo, public info" className="text-sm" />
+            <Input
+              value={intelSource}
+              onChange={e => setIntelSource(e.target.value)}
+              placeholder="e.g. told us in demo, public info"
+              className="text-sm"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Notes</Label>
-            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="text-sm min-h-[50px]" />
+            <Textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              className="text-sm min-h-[50px]"
+            />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button
               size="sm"
               disabled={!selectedLeadId || linkMutation.isPending}
-              onClick={() => linkMutation.mutate({
-                competitorId,
-                leadId: selectedLeadId!,
-                competitorProduct: product || undefined,
-                contractStartDate: contractStart || undefined,
-                contractEndDate: contractEnd || undefined,
-                likes: likes || undefined,
-                dislikes: dislikes || undefined,
-                satisfaction: satisfaction || undefined,
-                intelSource: intelSource || undefined,
-                notes: notes || undefined,
-              })}
+              onClick={() =>
+                linkMutation.mutate({
+                  competitorId,
+                  leadId: selectedLeadId!,
+                  competitorProduct: product || undefined,
+                  contractStartDate: contractStart || undefined,
+                  contractEndDate: contractEnd || undefined,
+                  likes: likes || undefined,
+                  dislikes: dislikes || undefined,
+                  satisfaction: satisfaction || undefined,
+                  intelSource: intelSource || undefined,
+                  notes: notes || undefined,
+                })
+              }
             >
               {linkMutation.isPending ? "Linking..." : "Link Lead"}
             </Button>
@@ -786,7 +1097,9 @@ function CompetitorEditAccessContent({
         onSelectedUsersChange={setEditAccessUserIds}
       />
       <div className="flex gap-2">
-        <Button variant="outline" className="flex-1" onClick={onCancel}>Cancel</Button>
+        <Button variant="outline" className="flex-1" onClick={onCancel}>
+          Cancel
+        </Button>
         <Button className="flex-1" onClick={onSave} disabled={savingAccess}>
           {savingAccess ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
         </Button>

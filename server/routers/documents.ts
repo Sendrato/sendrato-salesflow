@@ -1,10 +1,13 @@
 import { z } from "zod/v4";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { getLeadDocuments, getAllLeadDocuments, createLeadDocument, deleteLeadDocument, getRawPool } from "../db";
 import {
-  getDocumentAccessUsers,
-  setDocumentAccess,
-} from "../documentAccessDb";
+  getLeadDocuments,
+  getAllLeadDocuments,
+  createLeadDocument,
+  deleteLeadDocument,
+  getRawPool,
+} from "../db";
+import { getDocumentAccessUsers, setDocumentAccess } from "../documentAccessDb";
 
 export const documentsRouter = router({
   list: publicProcedure
@@ -17,21 +20,23 @@ export const documentsRouter = router({
       const pool = await getRawPool();
       if (!pool) return docs;
       // Attach chunk count and share count for each doc
-      const enriched = await Promise.all(docs.map(async (doc) => {
-        const chunkResult = await pool.query(
-          'SELECT COUNT(*) as cnt FROM document_chunks WHERE "documentId" = $1',
-          [doc.id]
-        );
-        const shareResult = await pool.query(
-          'SELECT COUNT(*) as cnt FROM shareable_presentations WHERE "documentId" = $1 AND "isActive" = TRUE',
-          [doc.id]
-        );
-        return {
-          ...doc,
-          chunkCount: Number(chunkResult.rows[0]?.cnt ?? 0),
-          shareCount: Number(shareResult.rows[0]?.cnt ?? 0),
-        };
-      }));
+      const enriched = await Promise.all(
+        docs.map(async doc => {
+          const chunkResult = await pool.query(
+            'SELECT COUNT(*) as cnt FROM document_chunks WHERE "documentId" = $1',
+            [doc.id]
+          );
+          const shareResult = await pool.query(
+            'SELECT COUNT(*) as cnt FROM shareable_presentations WHERE "documentId" = $1 AND "isActive" = TRUE',
+            [doc.id]
+          );
+          return {
+            ...doc,
+            chunkCount: Number(chunkResult.rows[0]?.cnt ?? 0),
+            shareCount: Number(shareResult.rows[0]?.cnt ?? 0),
+          };
+        })
+      );
       return enriched;
     }),
 
@@ -63,7 +68,10 @@ export const documentsRouter = router({
         fileUrl: z.string(),
         mimeType: z.string().optional(),
         fileSize: z.number().optional(),
-        category: z.enum(["proposal", "contract", "presentation", "report", "other"]).optional().default("other"),
+        category: z
+          .enum(["proposal", "contract", "presentation", "report", "other"])
+          .optional()
+          .default("other"),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -78,8 +86,14 @@ export const documentsRouter = router({
     .mutation(async ({ input }) => {
       const pool = await getRawPool();
       if (pool) {
-        await pool.query('DELETE FROM document_chunks WHERE "documentId" = $1', [input.id]);
-        await pool.query('UPDATE shareable_presentations SET "isActive" = FALSE WHERE "documentId" = $1', [input.id]);
+        await pool.query(
+          'DELETE FROM document_chunks WHERE "documentId" = $1',
+          [input.id]
+        );
+        await pool.query(
+          'UPDATE shareable_presentations SET "isActive" = FALSE WHERE "documentId" = $1',
+          [input.id]
+        );
       }
       await deleteLeadDocument(input.id);
       return { success: true };
@@ -104,7 +118,11 @@ export const documentsRouter = router({
     .input(z.object({ token: z.string() }))
     .mutation(async ({ input }) => {
       const pool = await getRawPool();
-      if (pool) await pool.query('UPDATE shareable_presentations SET "isActive" = FALSE WHERE token = $1', [input.token]);
+      if (pool)
+        await pool.query(
+          'UPDATE shareable_presentations SET "isActive" = FALSE WHERE token = $1',
+          [input.token]
+        );
       return { success: true };
     }),
 

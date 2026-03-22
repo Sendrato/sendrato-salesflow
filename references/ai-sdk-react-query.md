@@ -38,18 +38,21 @@ function ChatPage() {
     window.history.replaceState(null, "", `/chat/${newChatId}`);
   }, []);
 
-  const handleFinish = useCallback((finalMessages: UIMessage[]) => {
-    trpcUtils.chat.loadMessages.setData({ chatId }, finalMessages);
-  }, [chatId, trpcUtils]);
+  const handleFinish = useCallback(
+    (finalMessages: UIMessage[]) => {
+      trpcUtils.chat.loadMessages.setData({ chatId }, finalMessages);
+    },
+    [chatId, trpcUtils]
+  );
 
   if (messagesQuery.isLoading) return <LoadingSpinner />;
 
   return (
     <div className="flex h-screen">
-      <ChatSidebar 
-        currentChatId={chatId} 
+      <ChatSidebar
+        currentChatId={chatId}
         onSelectChat={switchChat}
-        onPrefetch={(id) => trpcUtils.chat.loadMessages.prefetch({ chatId: id })}
+        onPrefetch={id => trpcUtils.chat.loadMessages.prefetch({ chatId: id })}
       />
       <ChatView
         chatId={chatId}
@@ -91,7 +94,7 @@ function ChatView({ chatId, initialMessages, onFinish }: ChatViewProps) {
         onFinish(finalMessages);
       }
     },
-    onError: (error) => {
+    onError: error => {
       toast.error("Failed to send message", {
         description: error.message,
       });
@@ -158,8 +161,8 @@ function ChatLink({ chat, onSelect, onPrefetch }) {
 
 // In parent
 <ChatSidebar
-  onPrefetch={(id) => trpcUtils.chat.loadMessages.prefetch({ chatId: id })}
-/>
+  onPrefetch={id => trpcUtils.chat.loadMessages.prefetch({ chatId: id })}
+/>;
 ```
 
 ---
@@ -189,7 +192,7 @@ The template includes `AIChatBox` (`client/src/components/AIChatBox.tsx`) which 
 <AIChatBox
   chatId={chatId}
   initialMessages={messagesQuery.data ?? []}
-  onFinish={(messages) => {
+  onFinish={messages => {
     trpcUtils.chat.loadMessages.setData({ chatId }, messages);
   }}
   renderToolPart={({ toolName, state, output }) => {
@@ -199,6 +202,7 @@ The template includes `AIChatBox` (`client/src/components/AIChatBox.tsx`) which 
 ```
 
 Exports:
+
 - `ToolInvocationState` — Derived from `UIToolInvocation<any>["state"]`
 - `ToolPartRendererProps` — Props for custom tool renderers
 - `isToolLoading()`, `isToolError()`, `isToolComplete()` — State helpers

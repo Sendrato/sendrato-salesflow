@@ -158,7 +158,7 @@ function textToHtml(text: string): string {
     // Convert URLs to links
     const withLinks = escapeHtml(clean).replace(
       /https?:\/\/[^\s<>"']+/g,
-      (url) => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`
+      url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`
     );
     parts.push(withLinks + "<br>");
   }

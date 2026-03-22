@@ -21,9 +21,7 @@ export function LoginForm() {
     setLoading(true);
 
     try {
-      const endpoint = isSetup
-        ? "/api/auth/register"
-        : "/api/auth/login";
+      const endpoint = isSetup ? "/api/auth/register" : "/api/auth/login";
 
       const body: Record<string, string> = { email, password };
       if (isSetup && name) body.name = name;
@@ -78,7 +76,7 @@ export function LoginForm() {
                 type="text"
                 placeholder="Your name"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={e => setName(e.target.value)}
               />
             </div>
           )}
@@ -90,7 +88,7 @@ export function LoginForm() {
               type="email"
               placeholder="you@example.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               required
             />
           </div>
@@ -102,7 +100,7 @@ export function LoginForm() {
               type="password"
               placeholder={isSetup ? "Min. 8 characters" : "Your password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={e => setPassword(e.target.value)}
               required
               minLength={isSetup ? 8 : undefined}
             />

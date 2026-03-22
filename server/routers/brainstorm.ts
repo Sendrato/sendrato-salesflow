@@ -155,10 +155,7 @@ Notes: ${lead.notes ?? "N/A"}`;
       const webContext =
         sources.length > 0
           ? sources
-              .map(
-                (s) =>
-                  `\n### Source: ${s.title}\nURL: ${s.url}\n${s.snippet}`
-              )
+              .map(s => `\n### Source: ${s.title}\nURL: ${s.url}\n${s.snippet}`)
               .join("\n\n")
           : "No web data was retrievable. Use your general knowledge.";
 

@@ -41,12 +41,22 @@ vi.mock("./db", () => ({
   getContactMoments: vi.fn().mockResolvedValue([]),
   getRecentContactMoments: vi.fn().mockResolvedValue([]),
   getRecentContactMomentsWithLeads: vi.fn().mockResolvedValue([]),
-  createContactMoment: vi.fn().mockResolvedValue({ id: 1, type: "email", leadId: 1 }),
+  createContactMoment: vi
+    .fn()
+    .mockResolvedValue({ id: 1, type: "email", leadId: 1 }),
   updateContactMoment: vi.fn().mockResolvedValue({ id: 1, type: "email" }),
   deleteContactMoment: vi.fn().mockResolvedValue(undefined),
-  getContactMomentStats: vi.fn().mockResolvedValue({ typeCounts: [], outcomeCounts: [], recentActivity: [] }),
+  getContactMomentStats: vi
+    .fn()
+    .mockResolvedValue({
+      typeCounts: [],
+      outcomeCounts: [],
+      recentActivity: [],
+    }),
   getLeadDocuments: vi.fn().mockResolvedValue([]),
-  createLeadDocument: vi.fn().mockResolvedValue({ id: 1, leadId: 1, fileName: "test.pdf" }),
+  createLeadDocument: vi
+    .fn()
+    .mockResolvedValue({ id: 1, leadId: 1, fileName: "test.pdf" }),
   deleteLeadDocument: vi.fn().mockResolvedValue(undefined),
   upsertUser: vi.fn().mockResolvedValue(undefined),
   getUserByOpenId: vi.fn().mockResolvedValue(undefined),
@@ -297,7 +307,12 @@ describe("documentRag", () => {
   it("indexDocument is called on document creation", async () => {
     const { indexDocument } = await import("./documentRag");
     await indexDocument(1, 1, "Test content for indexing", "test.pdf");
-    expect(indexDocument).toHaveBeenCalledWith(1, 1, "Test content for indexing", "test.pdf");
+    expect(indexDocument).toHaveBeenCalledWith(
+      1,
+      1,
+      "Test content for indexing",
+      "test.pdf"
+    );
   });
 });
 
@@ -354,7 +369,9 @@ describe("settings", () => {
 
   it("updateLLMConfig requires authentication", async () => {
     const caller = appRouter.createCaller(createPublicCtx());
-    await expect(caller.settings.updateLLMConfig({ provider: "openai" })).rejects.toThrow();
+    await expect(
+      caller.settings.updateLLMConfig({ provider: "openai" })
+    ).rejects.toThrow();
   });
 
   it("updateLLMConfig succeeds for authenticated user", async () => {

@@ -27,13 +27,14 @@ async function localPut(
   const key = relKey.replace(/^\/+/, "");
   const filePath = path.join(UPLOADS_DIR, key);
   ensureDir(filePath);
-  fs.writeFileSync(filePath, typeof data === "string" ? data : Buffer.from(data));
+  fs.writeFileSync(
+    filePath,
+    typeof data === "string" ? data : Buffer.from(data)
+  );
   return { key, url: `/uploads/${key}` };
 }
 
-async function localGet(
-  relKey: string
-): Promise<{ key: string; url: string }> {
+async function localGet(relKey: string): Promise<{ key: string; url: string }> {
   const key = relKey.replace(/^\/+/, "");
   return { key, url: `/uploads/${key}` };
 }
@@ -87,9 +88,7 @@ async function forgePut(
   return { key, url };
 }
 
-async function forgeGet(
-  relKey: string
-): Promise<{ key: string; url: string }> {
+async function forgeGet(relKey: string): Promise<{ key: string; url: string }> {
   const baseUrl = ENV.forgeApiUrl.replace(/\/+$/, "");
   const apiKey = ENV.forgeApiKey;
   const key = normalizeKey(relKey);

@@ -41,10 +41,11 @@ export async function getBrainstorms(opts: {
       createdBy: brainstorms.createdBy,
       createdAt: brainstorms.createdAt,
       updatedAt: brainstorms.updatedAt,
-      leadName:
-        sql<string | null>`(SELECT "companyName" FROM leads WHERE leads.id = ${brainstorms.leadId})`.as(
-          "leadName"
-        ),
+      leadName: sql<
+        string | null
+      >`(SELECT "companyName" FROM leads WHERE leads.id = ${brainstorms.leadId})`.as(
+        "leadName"
+      ),
     })
     .from(brainstorms)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
@@ -134,9 +135,7 @@ export async function getBrainstormDocuments(brainstormId: number) {
     .orderBy(desc(brainstormDocuments.createdAt));
 }
 
-export async function createBrainstormDocument(
-  data: InsertBrainstormDocument
-) {
+export async function createBrainstormDocument(data: InsertBrainstormDocument) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   const [result] = await db
@@ -149,7 +148,5 @@ export async function createBrainstormDocument(
 export async function deleteBrainstormDocument(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
-  await db
-    .delete(brainstormDocuments)
-    .where(eq(brainstormDocuments.id, id));
+  await db.delete(brainstormDocuments).where(eq(brainstormDocuments.id, id));
 }

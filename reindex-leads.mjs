@@ -22,27 +22,38 @@ for (const lead of leads) {
   let attrText = "";
   if (lead.leadAttributes) {
     try {
-      const attrs = typeof lead.leadAttributes === "string"
-        ? JSON.parse(lead.leadAttributes)
-        : lead.leadAttributes;
+      const attrs =
+        typeof lead.leadAttributes === "string"
+          ? JSON.parse(lead.leadAttributes)
+          : lead.leadAttributes;
       const attrParts = [];
-      if (attrs.visitorCount) attrParts.push(`Visitor Count: ${attrs.visitorCount.toLocaleString()}`);
-      if (attrs.eventDurationDays) attrParts.push(`Event Duration: ${attrs.eventDurationDays} days`);
-      if (attrs.typicalDates) attrParts.push(`Typical Dates: ${attrs.typicalDates}`);
+      if (attrs.visitorCount)
+        attrParts.push(`Visitor Count: ${attrs.visitorCount.toLocaleString()}`);
+      if (attrs.eventDurationDays)
+        attrParts.push(`Event Duration: ${attrs.eventDurationDays} days`);
+      if (attrs.typicalDates)
+        attrParts.push(`Typical Dates: ${attrs.typicalDates}`);
       if (attrs.region) attrParts.push(`Region: ${attrs.region}`);
-      if (attrs.hotelNeedScore) attrParts.push(`Hotel Need Score: ${attrs.hotelNeedScore}`);
-      if (attrs.revenueEngineFit) attrParts.push(`Revenue Engine Fit: ${attrs.revenueEngineFit}`);
-      if (attrs.outreachTier) attrParts.push(`Outreach Tier: ${attrs.outreachTier}`);
+      if (attrs.hotelNeedScore)
+        attrParts.push(`Hotel Need Score: ${attrs.hotelNeedScore}`);
+      if (attrs.revenueEngineFit)
+        attrParts.push(`Revenue Engine Fit: ${attrs.revenueEngineFit}`);
+      if (attrs.outreachTier)
+        attrParts.push(`Outreach Tier: ${attrs.outreachTier}`);
       if (attrs.whyTarget) attrParts.push(`Why Target: ${attrs.whyTarget}`);
-      if (attrs.venueCapacity) attrParts.push(`Venue Capacity: ${attrs.venueCapacity}`);
-      if (attrs.eventCategory) attrParts.push(`Event Category: ${attrs.eventCategory}`);
+      if (attrs.venueCapacity)
+        attrParts.push(`Venue Capacity: ${attrs.venueCapacity}`);
+      if (attrs.eventCategory)
+        attrParts.push(`Event Category: ${attrs.eventCategory}`);
       attrText = attrParts.join("\n");
     } catch {}
   }
 
   const text = [
     `Company: ${lead.companyName}`,
-    lead.leadType && lead.leadType !== "default" ? `Lead Type: ${lead.leadType}` : null,
+    lead.leadType && lead.leadType !== "default"
+      ? `Lead Type: ${lead.leadType}`
+      : null,
     lead.website ? `Website: ${lead.website}` : null,
     lead.industry ? `Industry: ${lead.industry}` : null,
     lead.contactPerson ? `Contact: ${lead.contactPerson}` : null,
@@ -52,11 +63,15 @@ for (const lead of leads) {
     lead.priority ? `Priority: ${lead.priority}` : null,
     lead.location ? `Location: ${lead.location}` : null,
     lead.painPoints ? `Pain Points: ${lead.painPoints}` : null,
-    lead.futureOpportunities ? `Opportunities: ${lead.futureOpportunities}` : null,
+    lead.futureOpportunities
+      ? `Opportunities: ${lead.futureOpportunities}`
+      : null,
     lead.revenueModel ? `Revenue Model: ${lead.revenueModel}` : null,
     lead.notes ? `Notes: ${lead.notes}` : null,
     attrText || null,
-  ].filter(Boolean).join("\n");
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   // Generate embedding
   let embeddingVector = null;
@@ -78,7 +93,8 @@ for (const lead of leads) {
     [lead.id, embeddingVector, text]
   );
   indexed++;
-  if (indexed % 10 === 0) console.log(`  Indexed ${indexed}/${leads.length} leads...`);
+  if (indexed % 10 === 0)
+    console.log(`  Indexed ${indexed}/${leads.length} leads...`);
 }
 
 console.log(`Indexed ${indexed} leads with embeddings`);

@@ -32,7 +32,8 @@ export async function extractTextFromBuffer(
 
   // Word (.docx)
   if (
-    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     name.endsWith(".docx")
   ) {
     try {
@@ -50,18 +51,27 @@ export async function extractTextFromBuffer(
     try {
       const { parse } = await import("node-html-parser");
       const root = parse(buffer.toString("utf-8"));
-      root.querySelectorAll("script, style, noscript").forEach((el) => el.remove());
+      root
+        .querySelectorAll("script, style, noscript")
+        .forEach(el => el.remove());
       const text = root.textContent.replace(/\s+/g, " ").trim();
       return { text };
     } catch (e) {
       console.error("[DocumentRAG] HTML parse error:", e);
-      return { text: buffer.toString("utf-8").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() };
+      return {
+        text: buffer
+          .toString("utf-8")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim(),
+      };
     }
   }
 
   // Excel (.xlsx / .xls)
   if (
-    mime === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+    mime ===
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
     mime === "application/vnd.ms-excel" ||
     name.endsWith(".xlsx") ||
     name.endsWith(".xls")
@@ -83,7 +93,11 @@ export async function extractTextFromBuffer(
   }
 
   // Plain text fallback
-  if (mime.startsWith("text/") || name.endsWith(".txt") || name.endsWith(".md")) {
+  if (
+    mime.startsWith("text/") ||
+    name.endsWith(".txt") ||
+    name.endsWith(".md")
+  ) {
     return { text: buffer.toString("utf-8") };
   }
 
@@ -124,7 +138,9 @@ export async function indexDocument(
   }
 
   // Delete existing chunks for this document
-  await pool.query('DELETE FROM document_chunks WHERE "documentId" = $1', [documentId]);
+  await pool.query('DELETE FROM document_chunks WHERE "documentId" = $1', [
+    documentId,
+  ]);
 
   const { text } = await extractTextFromBuffer(buffer, mimeType, fileName);
   if (!text || text.trim().length === 0) {
@@ -144,7 +160,10 @@ export async function indexDocument(
     });
     embeddings = result.embeddings;
   } catch (err) {
-    console.error("[DocumentRAG] Embedding generation failed, storing chunks without embeddings:", err);
+    console.error(
+      "[DocumentRAG] Embedding generation failed, storing chunks without embeddings:",
+      err
+    );
   }
 
   for (let i = 0; i < chunks.length; i++) {
@@ -156,7 +175,9 @@ export async function indexDocument(
     );
   }
 
-  console.log(`[DocumentRAG] Indexed doc ${documentId}: ${chunks.length} chunks, ${text.length} chars`);
+  console.log(
+    `[DocumentRAG] Indexed doc ${documentId}: ${chunks.length} chunks, ${text.length} chars`
+  );
   return { chunksIndexed: chunks.length, textLength: text.length };
 }
 
@@ -199,16 +220,11 @@ export async function indexCompetitorDocument(
     });
     embeddings = result.embeddings;
   } catch (err) {
-    console.error(
-      "[DocumentRAG] Competitor doc embedding failed:",
-      err
-    );
+    console.error("[DocumentRAG] Competitor doc embedding failed:", err);
   }
 
   for (let i = 0; i < chunks.length; i++) {
-    const embeddingValue = embeddings[i]
-      ? JSON.stringify(embeddings[i])
-      : null;
+    const embeddingValue = embeddings[i] ? JSON.stringify(embeddings[i]) : null;
     await pool.query(
       `INSERT INTO document_chunks ("documentId", "leadId", "competitorDocumentId", "competitorId", "chunkIndex", "textContent", embedding, "createdAt")
        VALUES (0, 0, $1, $2, $3, $4, $5::vector, NOW())`,
@@ -284,15 +300,28 @@ export async function computePriorityScore(leadId: number): Promise<number> {
   let score = 0;
 
   const statusScores: Record<string, number> = {
-    new: 10, contacted: 15, qualified: 20, proposal: 25, negotiation: 30, won: 5, lost: 0, on_hold: 5,
+    new: 10,
+    contacted: 15,
+    qualified: 20,
+    proposal: 25,
+    negotiation: 30,
+    won: 5,
+    lost: 0,
+    on_hold: 5,
   };
   score += statusScores[lead.status] ?? 10;
 
-  const priorityScores: Record<string, number> = { low: 5, medium: 10, high: 20 };
+  const priorityScores: Record<string, number> = {
+    low: 5,
+    medium: 10,
+    high: 20,
+  };
   score += priorityScores[lead.priority] ?? 10;
 
   if (lead.lastContactedAt) {
-    const daysSince = (Date.now() - new Date(lead.lastContactedAt).getTime()) / (1000 * 60 * 60 * 24);
+    const daysSince =
+      (Date.now() - new Date(lead.lastContactedAt).getTime()) /
+      (1000 * 60 * 60 * 24);
     if (daysSince < 7) score += 20;
     else if (daysSince < 30) score += 15;
     else if (daysSince < 90) score += 8;
@@ -340,7 +369,10 @@ export async function updateAllPriorityScores(): Promise<void> {
   const { rows } = await pool.query("SELECT id FROM leads");
   for (const row of rows) {
     const score = await computePriorityScore(row.id);
-    await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, row.id]);
+    await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [
+      score,
+      row.id,
+    ]);
   }
   console.log(`[PriorityScore] Updated ${rows.length} leads`);
 }

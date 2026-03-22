@@ -7,50 +7,103 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  Users, Search, Plus, Linkedin, Mail, Phone, Building2,
-  ExternalLink, Tag, Clock, Link2, UserPlus, Trash2, Loader2,
+  Users,
+  Search,
+  Plus,
+  Linkedin,
+  Mail,
+  Phone,
+  Building2,
+  ExternalLink,
+  Tag,
+  Clock,
+  Link2,
+  UserPlus,
+  Trash2,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
 
-const PERSON_TYPE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  prospect:   { label: "Prospect",   color: "text-slate-700",  bg: "bg-slate-100" },
-  contact:    { label: "Contact",    color: "text-blue-700",   bg: "bg-blue-100" },
-  partner:    { label: "Partner",    color: "text-green-700",  bg: "bg-green-100" },
-  reseller:   { label: "Reseller",   color: "text-purple-700", bg: "bg-purple-100" },
-  influencer: { label: "Influencer", color: "text-orange-700", bg: "bg-orange-100" },
-  investor:   { label: "Investor",   color: "text-yellow-700", bg: "bg-yellow-100" },
-  other:      { label: "Other",      color: "text-gray-700",   bg: "bg-gray-100" },
+const PERSON_TYPE_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  prospect: { label: "Prospect", color: "text-slate-700", bg: "bg-slate-100" },
+  contact: { label: "Contact", color: "text-blue-700", bg: "bg-blue-100" },
+  partner: { label: "Partner", color: "text-green-700", bg: "bg-green-100" },
+  reseller: {
+    label: "Reseller",
+    color: "text-purple-700",
+    bg: "bg-purple-100",
+  },
+  influencer: {
+    label: "Influencer",
+    color: "text-orange-700",
+    bg: "bg-orange-100",
+  },
+  investor: {
+    label: "Investor",
+    color: "text-yellow-700",
+    bg: "bg-yellow-100",
+  },
+  other: { label: "Other", color: "text-gray-700", bg: "bg-gray-100" },
 };
 
 function PersonTypeBadge({ type }: { type: string }) {
   const cfg = PERSON_TYPE_CONFIG[type] ?? PERSON_TYPE_CONFIG.other;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.color}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.color}`}
+    >
       {cfg.label}
     </span>
   );
 }
 
 function getInitials(name: string) {
-  return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
+  return name
+    .split(" ")
+    .map(n => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
 }
 
 function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
@@ -68,7 +121,10 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
   // LinkedIn AI import state
   const [linkedInImportUrl, setLinkedInImportUrl] = useState("");
   const [isImporting, setIsImporting] = useState(false);
-  const [importResult, setImportResult] = useState<{ fetchedProfile: boolean; pageTextLength: number } | null>(null);
+  const [importResult, setImportResult] = useState<{
+    fetchedProfile: boolean;
+    pageTextLength: number;
+  } | null>(null);
 
   const createMutation = trpc.persons.create.useMutation({
     onSuccess: () => {
@@ -81,9 +137,17 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
   });
 
   function resetForm() {
-    setName(""); setEmail(""); setPhone(""); setLinkedInUrl("");
-    setPersonType("prospect"); setCompany(""); setTitle(""); setNotes("");
-    setSource("linkedin"); setLinkedInImportUrl(""); setImportResult(null);
+    setName("");
+    setEmail("");
+    setPhone("");
+    setLinkedInUrl("");
+    setPersonType("prospect");
+    setCompany("");
+    setTitle("");
+    setNotes("");
+    setSource("linkedin");
+    setLinkedInImportUrl("");
+    setImportResult(null);
   }
 
   async function handleLinkedInImport() {
@@ -99,26 +163,40 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
       });
-      const json = await resp.json() as { success?: boolean; data?: Record<string, string | null>; error?: string };
+      const json = (await resp.json()) as {
+        success?: boolean;
+        data?: Record<string, string | null>;
+        error?: string;
+      };
       if (!json.success || !json.data) {
-        toast.error(json.error ?? "Import failed — please fill in details manually");
+        toast.error(
+          json.error ?? "Import failed — please fill in details manually"
+        );
         return;
       }
       const d = json.data;
-      if (d.name)       setName(d.name);
-      if (d.title)      setTitle(d.title);
-      if (d.company)    setCompany(d.company);
-      if (d.email)      setEmail(d.email);
-      if (d.phone)      setPhone(d.phone);
+      if (d.name) setName(d.name);
+      if (d.title) setTitle(d.title);
+      if (d.company) setCompany(d.company);
+      if (d.email) setEmail(d.email);
+      if (d.phone) setPhone(d.phone);
       if (d.personType) setPersonType(d.personType);
       if (d.linkedInUrl) setLinkedInUrl(d.linkedInUrl);
-      if (d.summary)    setNotes((prev) => prev ? prev : d.summary ?? "");
+      if (d.summary) setNotes(prev => (prev ? prev : (d.summary ?? "")));
       setSource("linkedin");
-      setImportResult({ fetchedProfile: d.fetchedProfile === "true" || (d as any).fetchedProfile === true, pageTextLength: Number(d.pageTextLength ?? 0) });
+      setImportResult({
+        fetchedProfile:
+          d.fetchedProfile === "true" || (d as any).fetchedProfile === true,
+        pageTextLength: Number(d.pageTextLength ?? 0),
+      });
       if ((d as any).fetchedProfile) {
-        toast.success("Profile imported — please review and edit the pre-filled fields");
+        toast.success(
+          "Profile imported — please review and edit the pre-filled fields"
+        );
       } else {
-        toast.warning("LinkedIn requires login to view full profiles. Fields pre-filled from URL — please complete manually.");
+        toast.warning(
+          "LinkedIn requires login to view full profiles. Fields pre-filled from URL — please complete manually."
+        );
       }
     } catch {
       toast.error("Network error during import");
@@ -153,10 +231,10 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
             <div className="flex gap-2">
               <Input
                 value={linkedInImportUrl}
-                onChange={(e) => setLinkedInImportUrl(e.target.value)}
+                onChange={e => setLinkedInImportUrl(e.target.value)}
                 placeholder="https://linkedin.com/in/firstname-lastname"
                 className="text-sm bg-white"
-                onKeyDown={(e) => e.key === "Enter" && handleLinkedInImport()}
+                onKeyDown={e => e.key === "Enter" && handleLinkedInImport()}
               />
               <Button
                 size="sm"
@@ -166,8 +244,13 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
                 onClick={handleLinkedInImport}
               >
                 {isImporting ? (
-                  <span className="flex items-center gap-1"><span className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" />Importing...</span>
-                ) : "Import"}
+                  <span className="flex items-center gap-1">
+                    <span className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full" />
+                    Importing...
+                  </span>
+                ) : (
+                  "Import"
+                )}
               </Button>
             </div>
             {importResult && (
@@ -177,7 +260,10 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
                   : "⚠️ LinkedIn requires login for full profiles. URL-based hints applied — please complete fields manually."}
               </p>
             )}
-            <p className="text-xs text-blue-600 opacity-75">Paste a LinkedIn profile URL and click Import to auto-fill the form using AI.</p>
+            <p className="text-xs text-blue-600 opacity-75">
+              Paste a LinkedIn profile URL and click Import to auto-fill the
+              form using AI.
+            </p>
           </div>
 
           {/* Manual LinkedIn URL field */}
@@ -188,7 +274,7 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
             </Label>
             <Input
               value={linkedInUrl}
-              onChange={(e) => setLinkedInUrl(e.target.value)}
+              onChange={e => setLinkedInUrl(e.target.value)}
               placeholder="https://linkedin.com/in/firstname-lastname"
               className="text-sm"
             />
@@ -199,7 +285,7 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
               <Label className="text-sm">Full Name *</Label>
               <Input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={e => setName(e.target.value)}
                 placeholder="Jane Smith"
                 className="text-sm"
               />
@@ -212,7 +298,9 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(PERSON_TYPE_CONFIG).map(([val, cfg]) => (
-                    <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+                    <SelectItem key={val} value={val}>
+                      {cfg.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -224,7 +312,7 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
               <Label className="text-sm">Title / Role</Label>
               <Input
                 value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                onChange={e => setTitle(e.target.value)}
                 placeholder="Head of Events"
                 className="text-sm"
               />
@@ -233,7 +321,7 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
               <Label className="text-sm">Company / Organisation</Label>
               <Input
                 value={company}
-                onChange={(e) => setCompany(e.target.value)}
+                onChange={e => setCompany(e.target.value)}
                 placeholder="Royal Welsh Show"
                 className="text-sm"
               />
@@ -246,7 +334,7 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
               <Input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
                 placeholder="jane@example.com"
                 className="text-sm"
               />
@@ -255,7 +343,7 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
               <Label className="text-sm">Phone</Label>
               <Input
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={e => setPhone(e.target.value)}
                 placeholder="+44 7700 900000"
                 className="text-sm"
               />
@@ -283,14 +371,16 @@ function AddPersonDialog({ onSuccess }: { onSuccess: () => void }) {
             <Label className="text-sm">Notes</Label>
             <Textarea
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={e => setNotes(e.target.value)}
               placeholder="Why is this person interesting? What did you discuss?"
               className="text-sm min-h-[70px]"
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button
               size="sm"
               disabled={!name.trim() || createMutation.isPending}
@@ -332,7 +422,8 @@ export default function PersonsPage() {
   const { data, isLoading, refetch } = trpc.persons.list.useQuery({
     search: debouncedSearch || undefined,
     personType: personType !== "all" ? personType : undefined,
-    assignedTo: assignedToFilter !== "all" ? Number(assignedToFilter) : undefined,
+    assignedTo:
+      assignedToFilter !== "all" ? Number(assignedToFilter) : undefined,
     limit: 100,
   });
 
@@ -340,19 +431,22 @@ export default function PersonsPage() {
   const total = data?.total ?? 0;
 
   const bulkDeleteMutation = trpc.persons.bulkDelete.useMutation({
-    onSuccess: (result) => {
-      toast.success(`${result.deleted} person${result.deleted > 1 ? "s" : ""} deleted`);
+    onSuccess: result => {
+      toast.success(
+        `${result.deleted} person${result.deleted > 1 ? "s" : ""} deleted`
+      );
       setSelectedIds(new Set());
       refetch();
     },
     onError: () => toast.error("Failed to delete persons"),
   });
 
-  const allSelected = persons.length > 0 && persons.every((p) => selectedIds.has(p.id));
+  const allSelected =
+    persons.length > 0 && persons.every(p => selectedIds.has(p.id));
   const someSelected = selectedIds.size > 0;
 
   function toggleSelect(id: number) {
-    setSelectedIds((prev) => {
+    setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -362,15 +456,15 @@ export default function PersonsPage() {
 
   function toggleSelectAll() {
     if (allSelected) {
-      setSelectedIds((prev) => {
+      setSelectedIds(prev => {
         const next = new Set(prev);
-        persons.forEach((p) => next.delete(p.id));
+        persons.forEach(p => next.delete(p.id));
         return next;
       });
     } else {
-      setSelectedIds((prev) => {
+      setSelectedIds(prev => {
         const next = new Set(prev);
-        persons.forEach((p) => next.add(p.id));
+        persons.forEach(p => next.add(p.id));
         return next;
       });
     }
@@ -379,7 +473,10 @@ export default function PersonsPage() {
   function handleSearchChange(val: string) {
     setSearch(val);
     clearTimeout((window as any)._personSearchTimer);
-    (window as any)._personSearchTimer = setTimeout(() => setDebouncedSearch(val), 300);
+    (window as any)._personSearchTimer = setTimeout(
+      () => setDebouncedSearch(val),
+      300
+    );
   }
 
   return (
@@ -393,7 +490,8 @@ export default function PersonsPage() {
               People
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              LinkedIn contacts, partners, resellers, and other people in your network
+              LinkedIn contacts, partners, resellers, and other people in your
+              network
             </p>
           </div>
           <AddPersonDialog onSuccess={refetch} />
@@ -401,17 +499,21 @@ export default function PersonsPage() {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {Object.entries(PERSON_TYPE_CONFIG).slice(0, 4).map(([type, cfg]) => {
-            const count = persons.filter((p) => p.personType === type).length;
-            return (
-              <Card key={type} className="border shadow-sm">
-                <CardContent className="p-3">
-                  <div className="text-2xl font-bold">{count}</div>
-                  <div className={`text-xs font-medium ${cfg.color}`}>{cfg.label}s</div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {Object.entries(PERSON_TYPE_CONFIG)
+            .slice(0, 4)
+            .map(([type, cfg]) => {
+              const count = persons.filter(p => p.personType === type).length;
+              return (
+                <Card key={type} className="border shadow-sm">
+                  <CardContent className="p-3">
+                    <div className="text-2xl font-bold">{count}</div>
+                    <div className={`text-xs font-medium ${cfg.color}`}>
+                      {cfg.label}s
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
 
         {/* Filters */}
@@ -421,7 +523,7 @@ export default function PersonsPage() {
             <Input
               placeholder="Search by name, company, email..."
               value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
               className="pl-9 h-9 text-sm"
             />
           </div>
@@ -432,7 +534,9 @@ export default function PersonsPage() {
             <SelectContent>
               <SelectItem value="all">All types</SelectItem>
               {Object.entries(PERSON_TYPE_CONFIG).map(([val, cfg]) => (
-                <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+                <SelectItem key={val} value={val}>
+                  {cfg.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -442,8 +546,10 @@ export default function PersonsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Owners</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={String(u.id)}>{u.name || u.email}</SelectItem>
+              {users.map(u => (
+                <SelectItem key={u.id} value={String(u.id)}>
+                  {u.name || u.email}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -452,7 +558,9 @@ export default function PersonsPage() {
         {/* Selection bar */}
         {someSelected && (
           <div className="flex items-center gap-3 px-4 py-2 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <span className="text-sm font-medium">
+              {selectedIds.size} selected
+            </span>
             <Button
               variant="destructive"
               size="sm"
@@ -476,11 +584,15 @@ export default function PersonsPage() {
         <Card className="border shadow-sm">
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="p-8 text-center text-muted-foreground text-sm">Loading...</div>
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                Loading...
+              </div>
             ) : persons.length === 0 ? (
               <div className="p-12 text-center">
                 <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-sm font-medium text-muted-foreground">No people yet</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  No people yet
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Add LinkedIn contacts, partners, and resellers to your network
                 </p>
@@ -496,24 +608,38 @@ export default function PersonsPage() {
                         aria-label="Select all"
                       />
                     </TableHead>
-                    <TableHead className="text-xs font-semibold">Person</TableHead>
-                    <TableHead className="text-xs font-semibold">Type</TableHead>
-                    <TableHead className="text-xs font-semibold">Company</TableHead>
-                    <TableHead className="text-xs font-semibold">Contact</TableHead>
-                    <TableHead className="text-xs font-semibold">Owner</TableHead>
-                    <TableHead className="text-xs font-semibold">Last Contact</TableHead>
-                    <TableHead className="text-xs font-semibold">Source</TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Person
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Type
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Company
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Contact
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Owner
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Last Contact
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Source
+                    </TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {persons.map((person) => (
+                  {persons.map(person => (
                     <TableRow
                       key={person.id}
                       className={`cursor-pointer hover:bg-muted/40 transition-colors ${selectedIds.has(person.id) ? "bg-primary/5" : ""}`}
                       onClick={() => navigate(`/persons/${person.id}`)}
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell onClick={e => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedIds.has(person.id)}
                           onCheckedChange={() => toggleSelect(person.id)}
@@ -528,9 +654,13 @@ export default function PersonsPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="font-medium text-sm">{person.name}</div>
+                            <div className="font-medium text-sm">
+                              {person.name}
+                            </div>
                             {person.title && (
-                              <div className="text-xs text-muted-foreground">{person.title}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {person.title}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -548,7 +678,7 @@ export default function PersonsPage() {
                           {person.email && (
                             <a
                               href={`mailto:${person.email}`}
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={e => e.stopPropagation()}
                               className="text-muted-foreground hover:text-primary"
                             >
                               <Mail className="h-3.5 w-3.5" />
@@ -557,7 +687,7 @@ export default function PersonsPage() {
                           {person.phone && (
                             <a
                               href={`tel:${person.phone}`}
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={e => e.stopPropagation()}
                               className="text-muted-foreground hover:text-primary"
                             >
                               <Phone className="h-3.5 w-3.5" />
@@ -568,7 +698,7 @@ export default function PersonsPage() {
                               href={person.linkedInUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={e => e.stopPropagation()}
                               className="text-blue-500 hover:text-blue-700"
                             >
                               <Linkedin className="h-3.5 w-3.5" />
@@ -578,18 +708,28 @@ export default function PersonsPage() {
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          const owner = (person as any).assignedTo ? users.find((u) => u.id === (person as any).assignedTo) : null;
+                          const owner = (person as any).assignedTo
+                            ? users.find(
+                                u => u.id === (person as any).assignedTo
+                              )
+                            : null;
                           return owner ? (
                             <div className="flex items-center gap-1.5">
                               <Avatar className="h-5 w-5">
                                 <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
-                                  {getInitials(owner.name || owner.email || "?")}
+                                  {getInitials(
+                                    owner.name || owner.email || "?"
+                                  )}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-xs truncate max-w-[80px]">{owner.name || owner.email}</span>
+                              <span className="text-xs truncate max-w-[80px]">
+                                {owner.name || owner.email}
+                              </span>
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
                           );
                         })()}
                       </TableCell>
@@ -623,12 +763,20 @@ export default function PersonsPage() {
         )}
 
         {/* Delete confirmation */}
-        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete {selectedIds.size} person{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
+              <AlertDialogTitle>
+                Delete {selectedIds.size} person
+                {selectedIds.size > 1 ? "s" : ""}?
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently remove the selected person{selectedIds.size > 1 ? "s" : ""} and all associated data (lead links, contact moments, etc.). This action cannot be undone.
+                This will permanently remove the selected person
+                {selectedIds.size > 1 ? "s" : ""} and all associated data (lead
+                links, contact moments, etc.). This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -641,7 +789,9 @@ export default function PersonsPage() {
                   setDeleteConfirmOpen(false);
                 }}
               >
-                {bulkDeleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {bulkDeleteMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>

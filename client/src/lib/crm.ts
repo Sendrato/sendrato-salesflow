@@ -1,9 +1,29 @@
 // CRM utility types and helpers
 
-export type LeadStatus = "new" | "contacted" | "qualified" | "proposal" | "negotiation" | "won" | "lost" | "on_hold";
+export type LeadStatus =
+  | "new"
+  | "contacted"
+  | "qualified"
+  | "proposal"
+  | "negotiation"
+  | "won"
+  | "lost"
+  | "on_hold";
 export type LeadPriority = "low" | "medium" | "high";
-export type ContactType = "email" | "phone" | "meeting" | "linkedin" | "slack" | "demo" | "proposal" | "other";
-export type ContactOutcome = "positive" | "neutral" | "negative" | "no_response";
+export type ContactType =
+  | "email"
+  | "phone"
+  | "meeting"
+  | "linkedin"
+  | "slack"
+  | "demo"
+  | "proposal"
+  | "other";
+export type ContactOutcome =
+  | "positive"
+  | "neutral"
+  | "negative"
+  | "no_response";
 
 export const STATUS_LABELS: Record<LeadStatus, string> = {
   new: "New",
@@ -52,10 +72,20 @@ export const OUTCOME_COLORS: Record<ContactOutcome, string> = {
 };
 
 export const PIPELINE_ORDER: LeadStatus[] = [
-  "new", "contacted", "qualified", "proposal", "negotiation", "won", "lost", "on_hold"
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "won",
+  "lost",
+  "on_hold",
 ];
 
-export function formatCurrency(value: number | null | undefined, currency = "USD"): string {
+export function formatCurrency(
+  value: number | null | undefined,
+  currency = "USD"
+): string {
   if (!value) return "—";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -101,7 +131,10 @@ export function buildGoogleCalendarUrl(params: {
   const { title, start, durationMinutes = 60, details } = params;
   const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
   const fmt = (d: Date) =>
-    d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    d
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}/, "");
   const url = new URL("https://calendar.google.com/calendar/render");
   url.searchParams.set("action", "TEMPLATE");
   url.searchParams.set("text", title);
@@ -110,7 +143,9 @@ export function buildGoogleCalendarUrl(params: {
   return url.toString();
 }
 
-export function formatRelativeTime(date: Date | string | null | undefined): string {
+export function formatRelativeTime(
+  date: Date | string | null | undefined
+): string {
   if (!date) return "Never";
   const d = new Date(date);
   const now = new Date();
@@ -128,13 +163,36 @@ export function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
   return name
     .split(" ")
-    .map((n) => n[0])
+    .map(n => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
 }
 
-export const ALL_STATUSES: LeadStatus[] = ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost", "on_hold"];
+export const ALL_STATUSES: LeadStatus[] = [
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "won",
+  "lost",
+  "on_hold",
+];
 export const ALL_PRIORITIES: LeadPriority[] = ["high", "medium", "low"];
-export const ALL_CONTACT_TYPES: ContactType[] = ["email", "phone", "meeting", "linkedin", "slack", "demo", "proposal", "other"];
-export const ALL_OUTCOMES: ContactOutcome[] = ["positive", "neutral", "negative", "no_response"];
+export const ALL_CONTACT_TYPES: ContactType[] = [
+  "email",
+  "phone",
+  "meeting",
+  "linkedin",
+  "slack",
+  "demo",
+  "proposal",
+  "other",
+];
+export const ALL_OUTCOMES: ContactOutcome[] = [
+  "positive",
+  "neutral",
+  "negative",
+  "no_response",
+];

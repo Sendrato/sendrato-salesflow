@@ -78,7 +78,7 @@ async function startServer() {
     // Start IMAP email polling (non-blocking)
     import("../imapPoller")
       .then(({ startImapPolling }) => startImapPolling())
-      .catch((err) => console.warn("[IMAP] Failed to start polling:", err));
+      .catch(err => console.warn("[IMAP] Failed to start polling:", err));
   });
 }
 

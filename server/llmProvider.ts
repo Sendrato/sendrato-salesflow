@@ -62,7 +62,8 @@ export async function getLLMProvider(): Promise<LLMProvider> {
 
   // Custom provider configured — use the correct SDK
   const chatModelId = settings.chatModel || defaultChatModel(settings.provider);
-  const enrichModelId = settings.enrichModel || defaultEnrichModel(settings.provider);
+  const enrichModelId =
+    settings.enrichModel || defaultEnrichModel(settings.provider);
 
   switch (settings.provider) {
     case "anthropic": {
@@ -121,18 +122,26 @@ export async function getEmbeddingModel(): Promise<EmbeddingModel> {
 
 function defaultChatModel(provider: string): string {
   switch (provider) {
-    case "anthropic": return "claude-sonnet-4-5";
-    case "google": return "gemini-2.5-flash";
-    case "openai": return "gpt-4o";
-    default: return "gpt-4o";
+    case "anthropic":
+      return "claude-sonnet-4-5";
+    case "google":
+      return "gemini-2.5-flash";
+    case "openai":
+      return "gpt-4o";
+    default:
+      return "gpt-4o";
   }
 }
 
 function defaultEnrichModel(provider: string): string {
   switch (provider) {
-    case "anthropic": return "claude-sonnet-4-5";
-    case "google": return "gemini-2.5-flash";
-    case "openai": return "gpt-4o";
-    default: return "gpt-4o";
+    case "anthropic":
+      return "claude-sonnet-4-5";
+    case "google":
+      return "gemini-2.5-flash";
+    case "openai":
+      return "gpt-4o";
+    default:
+      return "gpt-4o";
   }
 }

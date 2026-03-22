@@ -131,7 +131,14 @@ export const personsRouter = router({
         personId: z.number(),
         leadId: z.number(),
         relationship: z
-          .enum(["contact_at", "introduced_by", "decision_maker", "champion", "partner", "other"])
+          .enum([
+            "contact_at",
+            "introduced_by",
+            "decision_maker",
+            "champion",
+            "partner",
+            "other",
+          ])
           .optional()
           .default("contact_at"),
         notes: z.string().optional(),
@@ -160,11 +167,26 @@ export const personsRouter = router({
       z.object({
         personId: z.number(),
         leadId: z.number().optional(),
-        type: z.enum(["email", "phone", "meeting", "linkedin", "slack", "demo", "proposal", "other"]),
-        direction: z.enum(["inbound", "outbound"]).optional().default("outbound"),
+        type: z.enum([
+          "email",
+          "phone",
+          "meeting",
+          "linkedin",
+          "slack",
+          "demo",
+          "proposal",
+          "other",
+        ]),
+        direction: z
+          .enum(["inbound", "outbound"])
+          .optional()
+          .default("outbound"),
         subject: z.string().optional(),
         notes: z.string().optional(),
-        outcome: z.enum(["positive", "neutral", "negative", "no_response"]).optional().default("neutral"),
+        outcome: z
+          .enum(["positive", "neutral", "negative", "no_response"])
+          .optional()
+          .default("neutral"),
         occurredAt: z.string().optional(),
         followUpAt: z.string().optional(),
       })
@@ -173,16 +195,21 @@ export const personsRouter = router({
       const db = await getDb();
       if (!db) throw new Error("DB not available");
       const { occurredAt, followUpAt, ...rest } = input;
-      const [result] = await db.insert(contactMoments).values({
-        ...rest,
-        leadId: rest.leadId ?? 0, // 0 = person-only moment
-        userId: ctx.user.id,
-        source: "manual",
-        occurredAt: occurredAt ? new Date(occurredAt) : new Date(),
-        followUpAt: followUpAt ? new Date(followUpAt) : undefined,
-      }).returning({ id: contactMoments.id });
+      const [result] = await db
+        .insert(contactMoments)
+        .values({
+          ...rest,
+          leadId: rest.leadId ?? 0, // 0 = person-only moment
+          userId: ctx.user.id,
+          source: "manual",
+          occurredAt: occurredAt ? new Date(occurredAt) : new Date(),
+          followUpAt: followUpAt ? new Date(followUpAt) : undefined,
+        })
+        .returning({ id: contactMoments.id });
       // Update person lastContactedAt
-      await updatePerson(input.personId, { lastContactedAt: occurredAt ? new Date(occurredAt) : new Date() });
+      await updatePerson(input.personId, {
+        lastContactedAt: occurredAt ? new Date(occurredAt) : new Date(),
+      });
       return { id: result.id };
     }),
 });

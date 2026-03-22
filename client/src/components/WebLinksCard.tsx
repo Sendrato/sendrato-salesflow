@@ -179,7 +179,7 @@ export default function WebLinksCard({
         </CardTitle>
         <Dialog
           open={addOpen}
-          onOpenChange={(o) => {
+          onOpenChange={o => {
             setAddOpen(o);
             if (!o) {
               setEditingLink(null);
@@ -203,7 +203,7 @@ export default function WebLinksCard({
                 <Label className="text-sm">URL *</Label>
                 <Input
                   value={url}
-                  onChange={(e) => setUrl(e.target.value)}
+                  onChange={e => setUrl(e.target.value)}
                   placeholder="https://..."
                   className="text-sm"
                 />
@@ -212,7 +212,7 @@ export default function WebLinksCard({
                 <Label className="text-sm">Title</Label>
                 <Input
                   value={title}
-                  onChange={(e) => setTitle(e.target.value)}
+                  onChange={e => setTitle(e.target.value)}
                   placeholder="Link title"
                   className="text-sm"
                 />
@@ -221,7 +221,7 @@ export default function WebLinksCard({
                 <Label className="text-sm">Description</Label>
                 <Textarea
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={e => setDescription(e.target.value)}
                   placeholder="Brief description..."
                   className="text-sm min-h-[60px]"
                 />
@@ -233,7 +233,7 @@ export default function WebLinksCard({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {ALL_CATEGORIES.map((c) => (
+                    {ALL_CATEGORIES.map(c => (
                       <SelectItem key={c} value={c}>
                         {CATEGORY_CONFIG[c].label}
                       </SelectItem>
@@ -340,9 +340,7 @@ export default function WebLinksCard({
                         className="h-7 w-7 p-0"
                         title="Re-scrape content"
                         disabled={rescrapeMutation.isPending}
-                        onClick={() =>
-                          rescrapeMutation.mutate({ id: link.id })
-                        }
+                        onClick={() => rescrapeMutation.mutate({ id: link.id })}
                       >
                         <RefreshCw
                           className={`h-3.5 w-3.5 ${rescrapeMutation.isPending ? "animate-spin" : ""}`}
@@ -360,9 +358,7 @@ export default function WebLinksCard({
                         variant="ghost"
                         size="sm"
                         className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                        onClick={() =>
-                          deleteMutation.mutate({ id: link.id })
-                        }
+                        onClick={() => deleteMutation.mutate({ id: link.id })}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

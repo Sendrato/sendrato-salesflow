@@ -42,7 +42,7 @@ async function main() {
   }
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error("Enum migration failed:", err);
   process.exit(1);
 });

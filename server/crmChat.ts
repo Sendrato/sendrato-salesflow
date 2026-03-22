@@ -3,7 +3,17 @@
  * Uses pgvector for semantic search over lead embeddings.
  */
 
-import { streamText, stepCountIs, tool, generateText, embed, createUIMessageStream, pipeUIMessageStreamToResponse, convertToModelMessages, generateId } from "ai";
+import {
+  streamText,
+  stepCountIs,
+  tool,
+  generateText,
+  embed,
+  createUIMessageStream,
+  pipeUIMessageStreamToResponse,
+  convertToModelMessages,
+  generateId,
+} from "ai";
 import type { Express } from "express";
 import { z } from "zod/v4";
 import { getLLMProvider, getEmbeddingModel } from "./llmProvider";
@@ -32,16 +42,23 @@ export function buildLeadText(lead: Record<string, unknown>): string {
     lead.priority ? `Priority: ${lead.priority}` : null,
     lead.location ? `Location: ${lead.location}` : null,
     lead.painPoints ? `Pain Points: ${lead.painPoints}` : null,
-    lead.futureOpportunities ? `Opportunities: ${lead.futureOpportunities}` : null,
+    lead.futureOpportunities
+      ? `Opportunities: ${lead.futureOpportunities}`
+      : null,
     lead.revenueModel ? `Revenue Model: ${lead.revenueModel}` : null,
     lead.notes ? `Notes: ${lead.notes}` : null,
-    lead.tags && Array.isArray(lead.tags) ? `Tags: ${(lead.tags as string[]).join(", ")}` : null,
+    lead.tags && Array.isArray(lead.tags)
+      ? `Tags: ${(lead.tags as string[]).join(", ")}`
+      : null,
   ].filter(Boolean);
   return parts.join("\n");
 }
 
 // Semantic search using pgvector cosine distance
-async function semanticSearch(query: string, topK = 8): Promise<Array<{ leadId: number; score: number }>> {
+async function semanticSearch(
+  query: string,
+  topK = 8
+): Promise<Array<{ leadId: number; score: number }>> {
   try {
     const embeddingModel = await getEmbeddingModel();
     const { embedding: queryEmbedding } = await embed({
@@ -93,7 +110,9 @@ export async function indexLead(lead: Record<string, unknown>) {
 }
 
 // Enrich a lead using LLM
-export async function enrichLead(leadId: number): Promise<Record<string, unknown> | null> {
+export async function enrichLead(
+  leadId: number
+): Promise<Record<string, unknown> | null> {
   const lead = await getLeadById(leadId);
   if (!lead) return null;
 
@@ -149,33 +168,45 @@ export function registerCrmChatRoutes(app: Express) {
     try {
       const { messages: uiMessages, chatId } = req.body;
 
-      if (!uiMessages || !Array.isArray(uiMessages) || uiMessages.length === 0) {
+      if (
+        !uiMessages ||
+        !Array.isArray(uiMessages) ||
+        uiMessages.length === 0
+      ) {
         res.status(400).json({ error: "messages array is required" });
         return;
       }
 
       // Extract last user message for semantic search
-      const lastUserMessage = [...uiMessages].reverse().find((m: { role: string }) => m.role === "user");
-      const userQuery = lastUserMessage?.parts?.find((p: { type: string }) => p.type === "text")?.text ?? "";
+      const lastUserMessage = [...uiMessages]
+        .reverse()
+        .find((m: { role: string }) => m.role === "user");
+      const userQuery =
+        lastUserMessage?.parts?.find((p: { type: string }) => p.type === "text")
+          ?.text ?? "";
 
       // Perform semantic search to get relevant leads
       let contextLeads: Array<Record<string, unknown>> = [];
       if (userQuery) {
         const searchResults = await semanticSearch(userQuery, 5);
         if (searchResults.length > 0) {
-          const leadIds = searchResults.map((r) => r.leadId);
-          contextLeads = await getLeadsByIds(leadIds) as Array<Record<string, unknown>>;
+          const leadIds = searchResults.map(r => r.leadId);
+          contextLeads = (await getLeadsByIds(leadIds)) as Array<
+            Record<string, unknown>
+          >;
         }
       }
 
       // Build RAG context
-      const ragContext = contextLeads.length > 0
-        ? `\n\nRELEVANT LEADS FROM DATABASE:\n${contextLeads.map((l) => buildLeadText(l)).join("\n---\n")}`
-        : "";
+      const ragContext =
+        contextLeads.length > 0
+          ? `\n\nRELEVANT LEADS FROM DATABASE:\n${contextLeads.map(l => buildLeadText(l)).join("\n---\n")}`
+          : "";
 
       const crmTools = {
         searchLeads: tool({
-          description: "Search for leads by company name, contact, status, or any criteria",
+          description:
+            "Search for leads by company name, contact, status, or any criteria",
           inputSchema: z.object({
             query: z.string().describe("Search query"),
             status: z.string().optional().describe("Filter by status"),
@@ -183,7 +214,7 @@ export function registerCrmChatRoutes(app: Express) {
           }),
           execute: async ({ query, status, limit }) => {
             const result = await getLeads({ search: query, status, limit });
-            return result.items.map((l) => ({
+            return result.items.map(l => ({
               id: l.id,
               companyName: l.companyName,
               contactPerson: l.contactPerson,
@@ -197,7 +228,8 @@ export function registerCrmChatRoutes(app: Express) {
         }),
 
         getLeadDetails: tool({
-          description: "Get full details of a specific lead including contact history",
+          description:
+            "Get full details of a specific lead including contact history",
           inputSchema: z.object({
             leadId: z.number().describe("The lead ID"),
           }),
@@ -214,8 +246,12 @@ export function registerCrmChatRoutes(app: Express) {
           description: "Get overall CRM statistics and pipeline overview",
           inputSchema: z.object({}),
           execute: async () => {
-            const { getLeadStats, getContactMomentStats } = await import("./db");
-            const [leadStats, momentStats] = await Promise.all([getLeadStats(), getContactMomentStats()]);
+            const { getLeadStats, getContactMomentStats } =
+              await import("./db");
+            const [leadStats, momentStats] = await Promise.all([
+              getLeadStats(),
+              getContactMomentStats(),
+            ]);
             return { leadStats, momentStats };
           },
         }),
@@ -223,12 +259,16 @@ export function registerCrmChatRoutes(app: Express) {
         semanticSearchLeads: tool({
           description: "Find leads using semantic/meaning-based search",
           inputSchema: z.object({
-            query: z.string().describe("Natural language description of what you're looking for"),
+            query: z
+              .string()
+              .describe(
+                "Natural language description of what you're looking for"
+              ),
           }),
           execute: async ({ query }) => {
             const results = await semanticSearch(query, 8);
             if (results.length === 0) return [];
-            const leads = await getLeadsByIds(results.map((r) => r.leadId));
+            const leads = await getLeadsByIds(results.map(r => r.leadId));
             return leads.map((l, i) => ({
               ...l,
               relevanceScore: results[i]?.score ?? 0,
@@ -237,14 +277,15 @@ export function registerCrmChatRoutes(app: Express) {
         }),
 
         searchDocuments: tool({
-          description: "Search across all uploaded documents (PDFs, presentations, proposals, contracts, Excel files, Word docs) for relevant content",
+          description:
+            "Search across all uploaded documents (PDFs, presentations, proposals, contracts, Excel files, Word docs) for relevant content",
           inputSchema: z.object({
             query: z.string().describe("What to search for in documents"),
             limit: z.number().optional().default(5),
           }),
           execute: async ({ query, limit }) => {
             const results = await searchDocumentChunks(query, limit ?? 5);
-            return results.map((r) => ({
+            return results.map(r => ({
               documentId: r.documentId,
               leadId: r.leadId,
               leadName: r.leadName,
@@ -256,23 +297,40 @@ export function registerCrmChatRoutes(app: Express) {
         }),
 
         updateLead: tool({
-          description: "Update a lead's fields directly. Use this when the user asks to change status, priority, notes, contact info, estimated value, follow-up date, or any other lead field.",
+          description:
+            "Update a lead's fields directly. Use this when the user asks to change status, priority, notes, contact info, estimated value, follow-up date, or any other lead field.",
           inputSchema: z.object({
             leadId: z.number().describe("The ID of the lead to update"),
-            updates: z.object({
-              status: z.enum(["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost", "on_hold"]).optional(),
-              priority: z.enum(["low", "medium", "high"]).optional(),
-              notes: z.string().optional(),
-              contactPerson: z.string().optional(),
-              contactTitle: z.string().optional(),
-              email: z.string().optional(),
-              phone: z.string().optional(),
-              estimatedValue: z.number().optional(),
-              nextFollowUpAt: z.string().optional().describe("ISO date string for next follow-up"),
-              tags: z.array(z.string()).optional(),
-              painPoints: z.string().optional(),
-              futureOpportunities: z.string().optional(),
-            }).describe("Fields to update on the lead"),
+            updates: z
+              .object({
+                status: z
+                  .enum([
+                    "new",
+                    "contacted",
+                    "qualified",
+                    "proposal",
+                    "negotiation",
+                    "won",
+                    "lost",
+                    "on_hold",
+                  ])
+                  .optional(),
+                priority: z.enum(["low", "medium", "high"]).optional(),
+                notes: z.string().optional(),
+                contactPerson: z.string().optional(),
+                contactTitle: z.string().optional(),
+                email: z.string().optional(),
+                phone: z.string().optional(),
+                estimatedValue: z.number().optional(),
+                nextFollowUpAt: z
+                  .string()
+                  .optional()
+                  .describe("ISO date string for next follow-up"),
+                tags: z.array(z.string()).optional(),
+                painPoints: z.string().optional(),
+                futureOpportunities: z.string().optional(),
+              })
+              .describe("Fields to update on the lead"),
           }),
           execute: async ({ leadId, updates }) => {
             const lead = await getLeadById(leadId);
@@ -287,29 +345,74 @@ export function registerCrmChatRoutes(app: Express) {
 
             // Re-index the lead
             const updated = await getLeadById(leadId);
-            if (updated) await indexLead(updated as unknown as Record<string, unknown>);
+            if (updated)
+              await indexLead(updated as unknown as Record<string, unknown>);
 
             // Refresh priority score
             const score = await computePriorityScore(leadId);
             const pool = await getRawPool();
-            if (pool) await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
+            if (pool)
+              await pool.query(
+                'UPDATE leads SET "priorityScore" = $1 WHERE id = $2',
+                [score, leadId]
+              );
 
-            return { success: true, leadId, updatedFields: Object.keys(updates), newPriorityScore: score };
+            return {
+              success: true,
+              leadId,
+              updatedFields: Object.keys(updates),
+              newPriorityScore: score,
+            };
           },
         }),
 
         addContactMoment: tool({
-          description: "Log a new contact moment (interaction) for a lead. Use this when the user says they called, emailed, met with, or had any interaction with a lead.",
+          description:
+            "Log a new contact moment (interaction) for a lead. Use this when the user says they called, emailed, met with, or had any interaction with a lead.",
           inputSchema: z.object({
             leadId: z.number().describe("The ID of the lead"),
-            type: z.enum(["email", "phone", "meeting", "linkedin", "slack", "demo", "proposal", "other"]).describe("Type of interaction"),
-            subject: z.string().optional().describe("Subject or title of the interaction"),
-            notes: z.string().optional().describe("Notes about what was discussed"),
-            outcome: z.enum(["positive", "neutral", "negative", "no_response"]).optional().default("neutral"),
-            direction: z.enum(["inbound", "outbound"]).optional().default("outbound"),
-            followUpAt: z.string().optional().describe("ISO date string for follow-up reminder"),
+            type: z
+              .enum([
+                "email",
+                "phone",
+                "meeting",
+                "linkedin",
+                "slack",
+                "demo",
+                "proposal",
+                "other",
+              ])
+              .describe("Type of interaction"),
+            subject: z
+              .string()
+              .optional()
+              .describe("Subject or title of the interaction"),
+            notes: z
+              .string()
+              .optional()
+              .describe("Notes about what was discussed"),
+            outcome: z
+              .enum(["positive", "neutral", "negative", "no_response"])
+              .optional()
+              .default("neutral"),
+            direction: z
+              .enum(["inbound", "outbound"])
+              .optional()
+              .default("outbound"),
+            followUpAt: z
+              .string()
+              .optional()
+              .describe("ISO date string for follow-up reminder"),
           }),
-          execute: async ({ leadId, type, subject, notes, outcome, direction, followUpAt }) => {
+          execute: async ({
+            leadId,
+            type,
+            subject,
+            notes,
+            outcome,
+            direction,
+            followUpAt,
+          }) => {
             const lead = await getLeadById(leadId);
             if (!lead) return { success: false, error: "Lead not found" };
 
@@ -327,9 +430,19 @@ export function registerCrmChatRoutes(app: Express) {
             // Refresh priority score
             const score = await computePriorityScore(leadId);
             const pool = await getRawPool();
-            if (pool) await pool.query('UPDATE leads SET "priorityScore" = $1 WHERE id = $2', [score, leadId]);
+            if (pool)
+              await pool.query(
+                'UPDATE leads SET "priorityScore" = $1 WHERE id = $2',
+                [score, leadId]
+              );
 
-            return { success: true, momentId: moment, leadName: lead.companyName, type, newPriorityScore: score };
+            return {
+              success: true,
+              momentId: moment,
+              leadName: lead.companyName,
+              type,
+              newPriorityScore: score,
+            };
           },
         }),
       };

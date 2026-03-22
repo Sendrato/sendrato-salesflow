@@ -5,12 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { AIChatBox } from "@/components/AIChatBox";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -64,10 +59,8 @@ export default function BrainstormDetailPage() {
     refetch,
   } = trpc.brainstorm.get.useQuery({ id: brainstormId });
 
-  const {
-    data: documents,
-    refetch: refetchDocs,
-  } = trpc.brainstorm.listDocuments.useQuery({ brainstormId });
+  const { data: documents, refetch: refetchDocs } =
+    trpc.brainstorm.listDocuments.useQuery({ brainstormId });
 
   const { data: leadsData } = trpc.leads.list.useQuery(
     { search: leadSearch || undefined, limit: 20 },
@@ -96,8 +89,7 @@ export default function BrainstormDetailPage() {
       refetch();
       toast.success("Enrichment complete");
     },
-    onError: (err) =>
-      toast.error(err.message ?? "Enrichment failed"),
+    onError: err => toast.error(err.message ?? "Enrichment failed"),
   });
 
   const saveChatMutation = trpc.brainstorm.saveChatMessages.useMutation();
@@ -275,7 +267,7 @@ export default function BrainstormDetailPage() {
                     <Label className="text-sm">Title</Label>
                     <Input
                       value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
+                      onChange={e => setEditTitle(e.target.value)}
                       className="text-sm"
                     />
                   </div>
@@ -283,7 +275,7 @@ export default function BrainstormDetailPage() {
                     <Label className="text-sm">Description</Label>
                     <Textarea
                       value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
+                      onChange={e => setEditContent(e.target.value)}
                       className="text-sm min-h-[200px]"
                     />
                   </div>
@@ -291,7 +283,7 @@ export default function BrainstormDetailPage() {
                     <Label className="text-sm">Link to Lead (optional)</Label>
                     <Select
                       value={editLeadId?.toString() ?? "none"}
-                      onValueChange={(v) =>
+                      onValueChange={v =>
                         setEditLeadId(v === "none" ? null : parseInt(v))
                       }
                     >
@@ -303,12 +295,12 @@ export default function BrainstormDetailPage() {
                           <Input
                             placeholder="Search leads..."
                             value={leadSearch}
-                            onChange={(e) => setLeadSearch(e.target.value)}
+                            onChange={e => setLeadSearch(e.target.value)}
                             className="text-sm h-8"
                           />
                         </div>
                         <SelectItem value="none">No linked lead</SelectItem>
-                        {(leadsData?.items ?? []).map((l) => (
+                        {(leadsData?.items ?? []).map(l => (
                           <SelectItem key={l.id} value={l.id.toString()}>
                             {l.companyName}
                           </SelectItem>
@@ -321,9 +313,7 @@ export default function BrainstormDetailPage() {
                       size="sm"
                       className="gap-1.5"
                       onClick={saveEdit}
-                      disabled={
-                        !editTitle.trim() || updateMutation.isPending
-                      }
+                      disabled={!editTitle.trim() || updateMutation.isPending}
                     >
                       <Save className="h-3.5 w-3.5" />
                       {updateMutation.isPending ? "Saving..." : "Save"}
@@ -345,16 +335,12 @@ export default function BrainstormDetailPage() {
                   {brainstorm.leadId && (
                     <div className="flex items-center gap-2 text-sm">
                       <Link2 className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-muted-foreground">
-                        Linked to:
-                      </span>
+                      <span className="text-muted-foreground">Linked to:</span>
                       <Button
                         variant="link"
                         size="sm"
                         className="p-0 h-auto text-sm"
-                        onClick={() =>
-                          navigate(`/leads/${brainstorm.leadId}`)
-                        }
+                        onClick={() => navigate(`/leads/${brainstorm.leadId}`)}
                       >
                         Lead #{brainstorm.leadId}
                       </Button>
@@ -369,7 +355,7 @@ export default function BrainstormDetailPage() {
                   </div>
                   {(brainstorm.tags ?? []).length > 0 && (
                     <div className="flex gap-1 flex-wrap pt-2">
-                      {(brainstorm.tags as string[]).map((tag) => (
+                      {(brainstorm.tags as string[]).map(tag => (
                         <Badge
                           key={tag}
                           variant="secondary"
@@ -415,16 +401,14 @@ export default function BrainstormDetailPage() {
               <CardContent className="pt-0 space-y-3">
                 {documents && documents.length > 0 && (
                   <ul className="space-y-2">
-                    {documents.map((doc) => (
+                    {documents.map(doc => (
                       <li
                         key={doc.id}
                         className="flex items-center justify-between text-sm border rounded-md px-3 py-2"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="truncate">
-                            {doc.fileName}
-                          </span>
+                          <span className="truncate">{doc.fileName}</span>
                           {doc.fileSize && (
                             <span className="text-xs text-muted-foreground shrink-0">
                               {formatFileSize(doc.fileSize)}
@@ -469,8 +453,8 @@ export default function BrainstormDetailPage() {
                     {uploading ? "Uploading..." : "Upload Document"}
                   </Button>
                   <p className="text-xs text-muted-foreground mt-1.5">
-                    PDF, Word, Excel, PowerPoint, or text files.
-                    Content is available to the AI chat.
+                    PDF, Word, Excel, PowerPoint, or text files. Content is
+                    available to the AI chat.
                   </p>
                 </div>
               </CardContent>
@@ -487,14 +471,12 @@ export default function BrainstormDetailPage() {
                     Not enriched yet
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Click &quot;Enrich with AI&quot; on the Idea tab to
-                    generate an analysis
+                    Click &quot;Enrich with AI&quot; on the Idea tab to generate
+                    an analysis
                   </p>
                   <Button
                     className="gap-2 mt-4"
-                    onClick={() =>
-                      enrichMutation.mutate({ id: brainstormId })
-                    }
+                    onClick={() => enrichMutation.mutate({ id: brainstormId })}
                     disabled={enrichMutation.isPending}
                   >
                     {enrichMutation.isPending ? (
@@ -524,9 +506,7 @@ export default function BrainstormDetailPage() {
                   <EnrichmentCard
                     icon={<SearchIcon className="h-4 w-4" />}
                     title="Related Opportunities"
-                    content={
-                      enrichment.relatedOpportunities as string
-                    }
+                    content={enrichment.relatedOpportunities as string}
                   />
                   <EnrichmentCard
                     icon={<ShieldAlert className="h-4 w-4" />}
@@ -621,9 +601,7 @@ export default function BrainstormDetailPage() {
                     variant="outline"
                     size="sm"
                     className="gap-2"
-                    onClick={() =>
-                      enrichMutation.mutate({ id: brainstormId })
-                    }
+                    onClick={() => enrichMutation.mutate({ id: brainstormId })}
                     disabled={enrichMutation.isPending}
                   >
                     {enrichMutation.isPending ? (
@@ -639,30 +617,29 @@ export default function BrainstormDetailPage() {
           </TabsContent>
 
           {/* Chat Tab */}
-          <TabsContent
-            value="chat"
-            className="h-[calc(100vh-280px)] flex flex-col"
-          >
-            <AIChatBox
-              api="/api/brainstorm-chat"
-              chatId={`brainstorm-${brainstormId}`}
-              initialMessages={chatMessages}
-              onFinish={(messages) => {
-                saveChatMutation.mutate({
-                  id: brainstormId,
-                  chatMessages: messages,
-                });
-                refetch();
-              }}
-              placeholder="Ask follow-up questions about your idea..."
-              emptyStateMessage="Start a conversation to refine your idea further"
-              suggestedPrompts={[
-                "What are the biggest risks with this idea?",
-                "How could we validate this with minimal investment?",
-                "Who are the potential early adopters?",
-                "What's the competitive moat here?",
-              ]}
-            />
+          <TabsContent value="chat" className="mt-0">
+            <div className="flex flex-col h-[calc(100vh-280px)]">
+              <AIChatBox
+                api="/api/brainstorm-chat"
+                chatId={`brainstorm-${brainstormId}`}
+                initialMessages={chatMessages}
+                onFinish={messages => {
+                  saveChatMutation.mutate({
+                    id: brainstormId,
+                    chatMessages: messages,
+                  });
+                  refetch();
+                }}
+                placeholder="Ask follow-up questions about your idea..."
+                emptyStateMessage="Start a conversation to refine your idea further"
+                suggestedPrompts={[
+                  "What are the biggest risks with this idea?",
+                  "How could we validate this with minimal investment?",
+                  "Who are the potential early adopters?",
+                  "What's the competitive moat here?",
+                ]}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

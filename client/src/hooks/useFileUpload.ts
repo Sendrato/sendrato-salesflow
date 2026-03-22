@@ -132,16 +132,16 @@ export function useFileUpload({
 
       try {
         const uploadedUrl = await uploadFn(pendingFile.file);
-        setFiles((prev) =>
-          prev.map((f) =>
+        setFiles(prev =>
+          prev.map(f =>
             f.id === pendingFile.id
               ? { ...f, status: "success" as const, uploadedUrl }
               : f
           )
         );
       } catch (err) {
-        setFiles((prev) =>
-          prev.map((f) =>
+        setFiles(prev =>
+          prev.map(f =>
             f.id === pendingFile.id
               ? {
                   ...f,
@@ -167,7 +167,9 @@ export function useFileUpload({
         // Check file type
         const isAccepted =
           accept.includes(file.type) ||
-          accept.some((a) => a.endsWith("/*") && file.type.startsWith(a.replace("/*", "/")));
+          accept.some(
+            a => a.endsWith("/*") && file.type.startsWith(a.replace("/*", "/"))
+          );
 
         if (!isAccepted) {
           console.warn(`File type ${file.type} not accepted`);
@@ -189,7 +191,7 @@ export function useFileUpload({
       }
 
       if (newFiles.length > 0) {
-        setFiles((prev) => [...prev, ...newFiles]);
+        setFiles(prev => [...prev, ...newFiles]);
         newFiles.forEach(uploadFile);
       }
     },
@@ -198,22 +200,24 @@ export function useFileUpload({
 
   // Remove a file
   const removeFile = useCallback((id: string) => {
-    setFiles((prev) => {
-      const file = prev.find((f) => f.id === id);
+    setFiles(prev => {
+      const file = prev.find(f => f.id === id);
       if (file) URL.revokeObjectURL(file.previewUrl);
-      return prev.filter((f) => f.id !== id);
+      return prev.filter(f => f.id !== id);
     });
   }, []);
 
   // Retry a failed upload
   const retryUpload = useCallback(
     (id: string) => {
-      const file = files.find((f) => f.id === id);
+      const file = files.find(f => f.id === id);
       if (!file) return;
 
-      setFiles((prev) =>
-        prev.map((f) =>
-          f.id === id ? { ...f, status: "uploading" as const, error: undefined } : f
+      setFiles(prev =>
+        prev.map(f =>
+          f.id === id
+            ? { ...f, status: "uploading" as const, error: undefined }
+            : f
         )
       );
       uploadFile({ ...file, status: "uploading" });
@@ -223,15 +227,15 @@ export function useFileUpload({
 
   // Clear all files
   const clearFiles = useCallback(() => {
-    files.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+    files.forEach(f => URL.revokeObjectURL(f.previewUrl));
     setFiles([]);
   }, [files]);
 
   // Get uploaded files as FileUIPart[]
   const getUploadedFiles = useCallback((): FileUIPart[] => {
     return files
-      .filter((f) => f.status === "success" && f.uploadedUrl)
-      .map((f) => ({
+      .filter(f => f.status === "success" && f.uploadedUrl)
+      .map(f => ({
         type: "file" as const,
         url: f.uploadedUrl!,
         mediaType: f.file.type,
@@ -240,9 +244,10 @@ export function useFileUpload({
   }, [files]);
 
   // Computed boolean states
-  const isUploading = files.some((f) => f.status === "uploading");
-  const hasErrors = files.some((f) => f.status === "error");
-  const isComplete = files.length > 0 && files.every((f) => f.status === "success");
+  const isUploading = files.some(f => f.status === "uploading");
+  const hasErrors = files.some(f => f.status === "error");
+  const isComplete =
+    files.length > 0 && files.every(f => f.status === "success");
   const isEmpty = files.length === 0;
 
   return {

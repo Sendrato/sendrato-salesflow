@@ -125,10 +125,9 @@ export async function deleteCompetitor(id: number) {
   // Cascade: delete document chunks via raw SQL
   const pool = await getRawPool();
   if (pool) {
-    await pool.query(
-      'DELETE FROM document_chunks WHERE "competitorId" = $1',
-      [id]
-    );
+    await pool.query('DELETE FROM document_chunks WHERE "competitorId" = $1', [
+      id,
+    ]);
   }
   // Cascade: delete document access entries for competitor docs
   const compDocs = await db
@@ -292,9 +291,7 @@ export async function getCompetitorDocuments(
     .orderBy(desc(competitorDocuments.createdAt));
 }
 
-export async function createCompetitorDocument(
-  data: InsertCompetitorDocument
-) {
+export async function createCompetitorDocument(data: InsertCompetitorDocument) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");
   const [inserted] = await db
@@ -316,17 +313,14 @@ export async function deleteCompetitorDocument(id: number) {
   }
   const { deleteDocumentAccess } = await import("./documentAccessDb");
   await deleteDocumentAccess("competitor", id);
-  await db
-    .delete(competitorDocuments)
-    .where(eq(competitorDocuments.id, id));
+  await db.delete(competitorDocuments).where(eq(competitorDocuments.id, id));
 }
 
 // ─── Stats ───────────────────────────────────────────────────────────────────
 
 export async function getCompetitorStats() {
   const db = await getDb();
-  if (!db)
-    return { total: 0, threatCounts: [], upcomingContractEnds: 0 };
+  if (!db) return { total: 0, threatCounts: [], upcomingContractEnds: 0 };
 
   const [totalRow] = await db
     .select({ count: sql<number>`count(*)` })
@@ -341,9 +335,7 @@ export async function getCompetitorStats() {
     .groupBy(competitors.threatLevel);
 
   const now = new Date();
-  const ninetyDays = new Date(
-    now.getTime() + 90 * 24 * 60 * 60 * 1000
-  );
+  const ninetyDays = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
   const [contractRow] = await db
     .select({ count: sql<number>`count(*)` })
     .from(competitorLeadLinks)

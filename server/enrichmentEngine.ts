@@ -59,13 +59,19 @@ export function stripHtml(html: string): string {
   return text.slice(0, 4000); // cap at 4k chars
 }
 
-export async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<string> {
+export async function fetchWithTimeout(
+  url: string,
+  timeoutMs = 8000
+): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { "User-Agent": USER_AGENT, Accept: "text/html,application/xhtml+xml,*/*" },
+      headers: {
+        "User-Agent": USER_AGENT,
+        Accept: "text/html,application/xhtml+xml,*/*",
+      },
     });
     if (!res.ok) return "";
     const html = await res.text();
@@ -105,7 +111,7 @@ export async function fetchWikipedia(
     setTimeout(() => controller.abort(), 6000);
     const searchRes = await fetch(searchUrl, { signal: controller.signal });
     if (!searchRes.ok) return null;
-    const searchData = await searchRes.json() as {
+    const searchData = (await searchRes.json()) as {
       query: { search: Array<{ title: string }> };
     };
     const firstResult = searchData?.query?.search?.[0];
@@ -117,7 +123,7 @@ export async function fetchWikipedia(
     setTimeout(() => controller2.abort(), 6000);
     const summaryRes = await fetch(summaryUrl, { signal: controller2.signal });
     if (!summaryRes.ok) return null;
-    const summaryData = await summaryRes.json() as {
+    const summaryData = (await summaryRes.json()) as {
       title: string;
       extract: string;
       content_urls: { desktop: { page: string } };
@@ -152,9 +158,11 @@ export async function fetchGoogleNews(
 
     // Parse RSS items
     const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    const titleRegex = /<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/;
+    const titleRegex =
+      /<title><!\[CDATA\[(.*?)\]\]><\/title>|<title>(.*?)<\/title>/;
     const linkRegex = /<link>(.*?)<\/link>/;
-    const descRegex = /<description><!\[CDATA\[(.*?)\]\]><\/description>|<description>(.*?)<\/description>/;
+    const descRegex =
+      /<description><!\[CDATA\[(.*?)\]\]><\/description>|<description>(.*?)<\/description>/;
     const dateRegex = /<pubDate>(.*?)<\/pubDate>/;
 
     const sources: EnrichmentSource[] = [];
@@ -168,7 +176,10 @@ export async function fetchGoogleNews(
 
       const title = (titleMatch?.[1] ?? titleMatch?.[2] ?? "").trim();
       const link = (linkMatch?.[1] ?? "").trim();
-      const desc = stripHtml(descMatch?.[1] ?? descMatch?.[2] ?? "").slice(0, 300);
+      const desc = stripHtml(descMatch?.[1] ?? descMatch?.[2] ?? "").slice(
+        0,
+        300
+      );
       const date = (dateMatch?.[1] ?? "").slice(0, 16);
 
       if (title && link) {
@@ -233,11 +244,12 @@ Notes: ${lead.notes ?? "N/A"}
 ${lead.leadAttributes ? `Event/Type Attributes: ${JSON.stringify(lead.leadAttributes)}` : ""}
 `.trim();
 
-  const webContext = sources.length > 0
-    ? sources
-        .map((s) => `\n### Source: ${s.title}\nURL: ${s.url}\n${s.snippet}`)
-        .join("\n\n")
-    : "No web data was retrievable. Use your general knowledge about this company/industry.";
+  const webContext =
+    sources.length > 0
+      ? sources
+          .map(s => `\n### Source: ${s.title}\nURL: ${s.url}\n${s.snippet}`)
+          .join("\n\n")
+      : "No web data was retrievable. Use your general knowledge about this company/industry.";
 
   const prompt = `You are a B2B sales intelligence analyst. You have been given CRM data about a lead plus fresh web research. Synthesise this into a structured intelligence report.
 

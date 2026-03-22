@@ -22,12 +22,17 @@ export default function SharedPresentation() {
   useEffect(() => {
     if (!token) return;
     fetch(`/api/share-info/${token}`)
-      .then((r) => {
-        if (!r.ok) throw new Error(r.status === 404 ? "This link is no longer active or does not exist." : "Failed to load presentation.");
+      .then(r => {
+        if (!r.ok)
+          throw new Error(
+            r.status === 404
+              ? "This link is no longer active or does not exist."
+              : "Failed to load presentation."
+          );
         return r.json();
       })
       .then(setData)
-      .catch((e) => setError(e.message))
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -36,7 +41,9 @@ export default function SharedPresentation() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Loading presentation...</p>
+          <p className="text-sm text-muted-foreground">
+            Loading presentation...
+          </p>
         </div>
       </div>
     );
@@ -48,13 +55,18 @@ export default function SharedPresentation() {
         <div className="text-center max-w-sm">
           <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
           <h2 className="text-lg font-semibold mb-1">Presentation Not Found</h2>
-          <p className="text-sm text-muted-foreground">{error ?? "This presentation link is no longer available."}</p>
+          <p className="text-sm text-muted-foreground">
+            {error ?? "This presentation link is no longer available."}
+          </p>
         </div>
       </div>
     );
   }
 
-  const isHtml = data.mimeType === "text/html" || data.fileName.endsWith(".html") || data.fileName.endsWith(".htm");
+  const isHtml =
+    data.mimeType === "text/html" ||
+    data.fileName.endsWith(".html") ||
+    data.fileName.endsWith(".htm");
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950">
@@ -63,7 +75,9 @@ export default function SharedPresentation() {
         <div>
           <h1 className="font-semibold text-sm">{data.title}</h1>
           {data.leadName && (
-            <p className="text-xs text-muted-foreground">Shared by SalesFlow CRM</p>
+            <p className="text-xs text-muted-foreground">
+              Shared by SalesFlow CRM
+            </p>
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -85,7 +99,9 @@ export default function SharedPresentation() {
         ) : (
           <div className="flex items-center justify-center h-full min-h-[calc(100vh-57px)]">
             <div className="text-center">
-              <p className="text-muted-foreground mb-4">This file type is best viewed by downloading.</p>
+              <p className="text-muted-foreground mb-4">
+                This file type is best viewed by downloading.
+              </p>
               <a
                 href={data.fileUrl}
                 download={data.fileName}

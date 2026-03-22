@@ -71,10 +71,31 @@ import {
 
 // Map icon names to components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  Users, Calendar, CalendarDays, MapPin, Hotel, TrendingUp, TrendingDown,
-  Building2, Building, Tag, Ticket, Music, Award, Mic, Star, Server,
-  BarChart, DollarSign, Code, Plug, Store, ShoppingCart, CreditCard,
-  BedDouble, Tent,
+  Users,
+  Calendar,
+  CalendarDays,
+  MapPin,
+  Hotel,
+  TrendingUp,
+  TrendingDown,
+  Building2,
+  Building,
+  Tag,
+  Ticket,
+  Music,
+  Award,
+  Mic,
+  Star,
+  Server,
+  BarChart,
+  DollarSign,
+  Code,
+  Plug,
+  Store,
+  ShoppingCart,
+  CreditCard,
+  BedDouble,
+  Tent,
 };
 
 interface LeadAttributeEditorProps {
@@ -116,9 +137,11 @@ function AttributeValue({
           {num >= 1_000_000
             ? `${(num / 1_000_000).toFixed(1)}M`
             : num >= 1_000
-            ? `${(num / 1_000).toFixed(0)}K`
-            : num.toLocaleString()}{" "}
-          <span className="text-muted-foreground font-normal">{field.unit}</span>
+              ? `${(num / 1_000).toFixed(0)}K`
+              : num.toLocaleString()}{" "}
+          <span className="text-muted-foreground font-normal">
+            {field.unit}
+          </span>
         </span>
       );
     }
@@ -146,7 +169,9 @@ function AttributeValue({
     };
     const color = colorMap[displayValue] ?? "bg-slate-100 text-slate-700";
     return (
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${color}`}>
+      <span
+        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${color}`}
+      >
         {displayValue}
       </span>
     );
@@ -173,7 +198,7 @@ function AttributeInput({
           <SelectValue placeholder={`Select ${field.label.toLowerCase()}`} />
         </SelectTrigger>
         <SelectContent>
-          {field.options.map((opt) => (
+          {field.options.map(opt => (
             <SelectItem key={opt} value={opt}>
               {opt}
             </SelectItem>
@@ -187,7 +212,7 @@ function AttributeInput({
     return (
       <Textarea
         value={strVal}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={e => onChange(e.target.value)}
         placeholder={field.placeholder}
         className="text-sm min-h-[60px]"
       />
@@ -199,8 +224,14 @@ function AttributeInput({
       <Input
         type={field.type === "number" ? "number" : "text"}
         value={strVal}
-        onChange={(e) =>
-          onChange(field.type === "number" ? (e.target.value === "" ? "" : Number(e.target.value)) : e.target.value)
+        onChange={e =>
+          onChange(
+            field.type === "number"
+              ? e.target.value === ""
+                ? ""
+                : Number(e.target.value)
+              : e.target.value
+          )
         }
         placeholder={field.placeholder}
         className="h-8 text-sm pr-12"
@@ -224,7 +255,9 @@ export function LeadAttributeEditor({
   compact = false,
 }: LeadAttributeEditorProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [localAttrs, setLocalAttrs] = useState<Record<string, unknown>>(attributes ?? {});
+  const [localAttrs, setLocalAttrs] = useState<Record<string, unknown>>(
+    attributes ?? {}
+  );
   const [localType, setLocalType] = useState(leadType);
 
   const schema = getLeadTypeSchema(localType);
@@ -232,7 +265,10 @@ export function LeadAttributeEditor({
 
   const hasAttributes = schema.fields.length > 0;
   const populatedFields = schema.fields.filter(
-    (f) => attributes?.[f.key] !== undefined && attributes?.[f.key] !== null && attributes?.[f.key] !== ""
+    f =>
+      attributes?.[f.key] !== undefined &&
+      attributes?.[f.key] !== null &&
+      attributes?.[f.key] !== ""
   );
 
   function handleSave() {
@@ -252,7 +288,7 @@ export function LeadAttributeEditor({
   }
 
   function handleAttrChange(key: string, val: unknown) {
-    setLocalAttrs((prev) => ({ ...prev, [key]: val }));
+    setLocalAttrs(prev => ({ ...prev, [key]: val }));
   }
 
   // Compact mode: just show key stats as inline badges (for lead list/card)
@@ -260,12 +296,15 @@ export function LeadAttributeEditor({
     const keyFields = populatedFields.slice(0, 4);
     return (
       <div className="flex flex-wrap gap-1.5 mt-1">
-        {keyFields.map((field) => (
+        {keyFields.map(field => (
           <div
             key={field.key}
             className="flex items-center gap-1 text-xs bg-muted rounded px-1.5 py-0.5"
           >
-            <FieldIcon name={field.icon} className="h-3 w-3 text-muted-foreground" />
+            <FieldIcon
+              name={field.icon}
+              className="h-3 w-3 text-muted-foreground"
+            />
             <span className="text-muted-foreground">{field.label}:</span>
             <AttributeValue field={field} value={attributes?.[field.key]} />
           </div>
@@ -328,13 +367,15 @@ export function LeadAttributeEditor({
         {/* Lead type selector (edit mode only) */}
         {isEditing && (
           <div className="mb-4">
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Lead Type</Label>
+            <Label className="text-xs text-muted-foreground mb-1.5 block">
+              Lead Type
+            </Label>
             <Select value={localType} onValueChange={setLocalType}>
               <SelectTrigger className="h-8 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {typeOptions.map((opt) => (
+                {typeOptions.map(opt => (
                   <SelectItem key={opt.value} value={opt.value}>
                     <div>
                       <span className="font-medium">{opt.label}</span>
@@ -365,11 +406,19 @@ export function LeadAttributeEditor({
 
         {hasAttributes && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {(isEditing ? getLeadTypeSchema(localType).fields : schema.fields).map((field) => (
+            {(isEditing
+              ? getLeadTypeSchema(localType).fields
+              : schema.fields
+            ).map(field => (
               <div key={field.key} className="space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <FieldIcon name={field.icon} className="h-3.5 w-3.5 text-muted-foreground" />
-                  <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                  <FieldIcon
+                    name={field.icon}
+                    className="h-3.5 w-3.5 text-muted-foreground"
+                  />
+                  <Label className="text-xs text-muted-foreground">
+                    {field.label}
+                  </Label>
                   {field.description && (
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -385,10 +434,13 @@ export function LeadAttributeEditor({
                   <AttributeInput
                     field={field}
                     value={localAttrs[field.key]}
-                    onChange={(val) => handleAttrChange(field.key, val)}
+                    onChange={val => handleAttrChange(field.key, val)}
                   />
                 ) : (
-                  <AttributeValue field={field} value={attributes?.[field.key]} />
+                  <AttributeValue
+                    field={field}
+                    value={attributes?.[field.key]}
+                  />
                 )}
               </div>
             ))}

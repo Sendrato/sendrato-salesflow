@@ -30,7 +30,7 @@ export const appRouter = router({
   settings: settingsRouter,
 
   auth: router({
-    me: publicProcedure.query((opts) => {
+    me: publicProcedure.query(opts => {
       if (!opts.ctx.user) return null;
       const { passwordHash: _, ...user } = opts.ctx.user;
       return user;

@@ -2,16 +2,40 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import DashboardLayout from "@/components/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -41,15 +65,21 @@ import {
   Trash2,
 } from "lucide-react";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatRelativeTime } from "@/lib/crm";
 
 function countryCodeToFlag(code: string): string {
   const upper = code.toUpperCase();
   return Array.from(upper)
-    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .map(c => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
     .join("");
 }
 
@@ -57,7 +87,8 @@ const PROVIDERS = [
   {
     value: "forge",
     label: "Forge (Default)",
-    description: "Built-in AI gateway — uses BUILT_IN_FORGE_API_URL from server env",
+    description:
+      "Built-in AI gateway — uses BUILT_IN_FORGE_API_URL from server env",
     models: ["gemini-2.5-flash", "claude-sonnet-4-5", "gpt-4o", "gpt-4o-mini"],
     requiresKey: false,
   },
@@ -74,7 +105,11 @@ const PROVIDERS = [
     value: "anthropic",
     label: "Anthropic",
     description: "Claude Sonnet, Haiku, and Opus models",
-    models: ["claude-sonnet-4-5", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
+    models: [
+      "claude-sonnet-4-5",
+      "claude-3-5-haiku-20241022",
+      "claude-3-opus-20240229",
+    ],
     requiresKey: true,
     keyHint: "sk-ant-...",
     docsUrl: "https://console.anthropic.com/settings/keys",
@@ -91,7 +126,8 @@ const PROVIDERS = [
   {
     value: "custom",
     label: "Custom / Self-hosted",
-    description: "Any OpenAI-compatible endpoint (Ollama, Groq, Together, etc.)",
+    description:
+      "Any OpenAI-compatible endpoint (Ollama, Groq, Together, etc.)",
     models: [],
     requiresKey: false,
     needsBaseUrl: true,
@@ -106,12 +142,17 @@ function ChangePasswordCard() {
   async function handleChangePassword(e: React.FormEvent) {
     e.preventDefault();
     try {
-      await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
+      await changePasswordMutation.mutateAsync({
+        currentPassword,
+        newPassword,
+      });
       setCurrentPassword("");
       setNewPassword("");
       toast.success("Password changed successfully");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to change password");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to change password"
+      );
     }
   }
 
@@ -132,7 +173,7 @@ function ChangePasswordCard() {
               id="currentPassword"
               type="password"
               value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
+              onChange={e => setCurrentPassword(e.target.value)}
               required
             />
           </div>
@@ -142,7 +183,7 @@ function ChangePasswordCard() {
               id="newPassword"
               type="password"
               value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
+              onChange={e => setNewPassword(e.target.value)}
               required
               minLength={8}
               placeholder="Min. 8 characters"
@@ -162,9 +203,12 @@ function ChangePasswordCard() {
 
 function UserManagementCard() {
   const { user } = useAuth();
-  const { data: userList, isLoading } = trpc.auth.listUsers.useQuery(undefined, {
-    enabled: user?.role === "admin",
-  });
+  const { data: userList, isLoading } = trpc.auth.listUsers.useQuery(
+    undefined,
+    {
+      enabled: user?.role === "admin",
+    }
+  );
   const utils = trpc.useUtils();
   const reinviteMutation = trpc.auth.reinviteUser.useMutation({
     onSuccess: () => {
@@ -186,9 +230,12 @@ function UserManagementCard() {
       setDeleteUserId(null);
       toast.success("User deleted");
     },
-    onError: (err) => toast.error(err.message ?? "Failed to delete user"),
+    onError: err => toast.error(err.message ?? "Failed to delete user"),
   });
-  const [reinviteResult, setReinviteResult] = useState<{ email: string | null; tempPassword: string } | null>(null);
+  const [reinviteResult, setReinviteResult] = useState<{
+    email: string | null;
+    tempPassword: string;
+  } | null>(null);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
   const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
@@ -202,13 +249,15 @@ function UserManagementCard() {
       setReinviteResult(result);
       toast.success("New temporary password generated");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to re-invite user");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to re-invite user"
+      );
     }
   }
 
   const now = new Date();
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const deleteTarget = (userList ?? []).find((u) => u.id === deleteUserId);
+  const deleteTarget = (userList ?? []).find(u => u.id === deleteUserId);
 
   return (
     <Card>
@@ -238,8 +287,9 @@ function UserManagementCard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {(userList ?? []).map((u) => {
-                const isActive = u.lastSignedIn && new Date(u.lastSignedIn) > thirtyDaysAgo;
+              {(userList ?? []).map(u => {
+                const isActive =
+                  u.lastSignedIn && new Date(u.lastSignedIn) > thirtyDaysAgo;
                 return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">
@@ -247,10 +297,13 @@ function UserManagementCard() {
                         <div className="flex items-center gap-1.5">
                           <Input
                             value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
-                            onKeyDown={(e) => {
+                            onChange={e => setEditingName(e.target.value)}
+                            onKeyDown={e => {
                               if (e.key === "Enter" && editingName.trim()) {
-                                updateUserMutation.mutate({ userId: u.id, name: editingName.trim() });
+                                updateUserMutation.mutate({
+                                  userId: u.id,
+                                  name: editingName.trim(),
+                                });
                               }
                               if (e.key === "Escape") setEditingUserId(null);
                             }}
@@ -261,28 +314,53 @@ function UserManagementCard() {
                             variant="ghost"
                             size="sm"
                             className="h-7 w-7 p-0"
-                            disabled={!editingName.trim() || updateUserMutation.isPending}
-                            onClick={() => updateUserMutation.mutate({ userId: u.id, name: editingName.trim() })}
+                            disabled={
+                              !editingName.trim() ||
+                              updateUserMutation.isPending
+                            }
+                            onClick={() =>
+                              updateUserMutation.mutate({
+                                userId: u.id,
+                                name: editingName.trim(),
+                              })
+                            }
                           >
-                            {updateUserMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />}
+                            {updateUserMutation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            )}
                           </Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setEditingUserId(null)}>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => setEditingUserId(null)}
+                          >
                             <X className="h-3.5 w-3.5" />
                           </Button>
                         </div>
                       ) : (
                         <span
                           className="cursor-pointer hover:text-primary transition-colors"
-                          onClick={() => { setEditingUserId(u.id); setEditingName(u.name || ""); }}
+                          onClick={() => {
+                            setEditingUserId(u.id);
+                            setEditingName(u.name || "");
+                          }}
                           title="Click to edit name"
                         >
                           {u.name || "—"}
                         </span>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{u.email}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {u.email}
+                    </TableCell>
                     <TableCell>
-                      <Badge variant={u.role === "admin" ? "default" : "outline"} className="text-xs capitalize">
+                      <Badge
+                        variant={u.role === "admin" ? "default" : "outline"}
+                        className="text-xs capitalize"
+                      >
                         {u.role}
                       </Badge>
                     </TableCell>
@@ -308,7 +386,10 @@ function UserManagementCard() {
                           variant="ghost"
                           size="sm"
                           className="gap-1.5 text-xs"
-                          onClick={() => { setEditingUserId(u.id); setEditingName(u.name || ""); }}
+                          onClick={() => {
+                            setEditingUserId(u.id);
+                            setEditingName(u.name || "");
+                          }}
                           title="Edit name"
                         >
                           <Pencil className="h-3.5 w-3.5" />
@@ -350,7 +431,10 @@ function UserManagementCard() {
           <Alert>
             <Key className="h-4 w-4" />
             <AlertDescription className="space-y-2">
-              <p>New temporary password for <strong>{reinviteResult.email}</strong>:</p>
+              <p>
+                New temporary password for{" "}
+                <strong>{reinviteResult.email}</strong>:
+              </p>
               <div className="flex items-center gap-2">
                 <code className="bg-muted px-2 py-1 rounded font-mono text-sm">
                   {reinviteResult.tempPassword}
@@ -368,17 +452,27 @@ function UserManagementCard() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Share this password with the user. They should change it after login.
+                Share this password with the user. They should change it after
+                login.
               </p>
             </AlertDescription>
           </Alert>
         )}
-        <AlertDialog open={!!deleteUserId} onOpenChange={(open) => { if (!open) setDeleteUserId(null); }}>
+        <AlertDialog
+          open={!!deleteUserId}
+          onOpenChange={open => {
+            if (!open) setDeleteUserId(null);
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete user {deleteTarget?.name || deleteTarget?.email}?</AlertDialogTitle>
+              <AlertDialogTitle>
+                Delete user {deleteTarget?.name || deleteTarget?.email}?
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently remove this user account. Any leads or persons assigned to them will keep the assignment reference but the user will no longer exist. This action cannot be undone.
+                This will permanently remove this user account. Any leads or
+                persons assigned to them will keep the assignment reference but
+                the user will no longer exist. This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -387,10 +481,13 @@ function UserManagementCard() {
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 disabled={deleteUserMutation.isPending}
                 onClick={() => {
-                  if (deleteUserId) deleteUserMutation.mutate({ userId: deleteUserId });
+                  if (deleteUserId)
+                    deleteUserMutation.mutate({ userId: deleteUserId });
                 }}
               >
-                {deleteUserMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {deleteUserMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -414,7 +511,10 @@ function InviteUserCard() {
     e.preventDefault();
     setTempPassword(null);
     try {
-      const result = await inviteMutation.mutateAsync({ email, name: name || undefined });
+      const result = await inviteMutation.mutateAsync({
+        email,
+        name: name || undefined,
+      });
       setTempPassword(result.tempPassword);
       setEmail("");
       setName("");
@@ -431,7 +531,9 @@ function InviteUserCard() {
           <UserPlus className="h-5 w-5 text-primary" />
           <CardTitle>Invite User</CardTitle>
         </div>
-        <CardDescription>Create a new user account. Share the temporary password with them.</CardDescription>
+        <CardDescription>
+          Create a new user account. Share the temporary password with them.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <form onSubmit={handleInvite} className="space-y-4 max-w-sm">
@@ -441,7 +543,7 @@ function InviteUserCard() {
               id="inviteEmail"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={e => setEmail(e.target.value)}
               placeholder="user@example.com"
               required
             />
@@ -452,7 +554,7 @@ function InviteUserCard() {
               id="inviteName"
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               placeholder="John Doe"
             />
           </div>
@@ -497,7 +599,11 @@ function InviteUserCard() {
 }
 
 function ImapSettingsCard() {
-  const { data: imapConfig, isLoading, refetch } = trpc.settings.getImapConfig.useQuery();
+  const {
+    data: imapConfig,
+    isLoading,
+    refetch,
+  } = trpc.settings.getImapConfig.useQuery();
   const updateMutation = trpc.settings.updateImapConfig.useMutation();
   const testMutation = trpc.settings.testImapConnection.useMutation();
   const syncMutation = trpc.settings.syncImapNow.useMutation();
@@ -589,8 +695,9 @@ function ImapSettingsCard() {
           <CardTitle>Email Integration (IMAP)</CardTitle>
         </div>
         <CardDescription>
-          Connect to a mailbox to automatically ingest emails and match them with
-          leads and contacts. Supports direct emails and forwarded messages.
+          Connect to a mailbox to automatically ingest emails and match them
+          with leads and contacts. Supports direct emails and forwarded
+          messages.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -606,7 +713,7 @@ function ImapSettingsCard() {
           </div>
           <Switch
             checked={enabled}
-            onCheckedChange={(v) => {
+            onCheckedChange={v => {
               setEnabled(v);
               markImapChanged();
             }}
@@ -622,7 +729,7 @@ function ImapSettingsCard() {
             <Input
               id="imapHost"
               value={host}
-              onChange={(e) => {
+              onChange={e => {
                 setHost(e.target.value);
                 markImapChanged();
               }}
@@ -635,7 +742,7 @@ function ImapSettingsCard() {
               id="imapPort"
               type="number"
               value={port}
-              onChange={(e) => {
+              onChange={e => {
                 setPort(e.target.value);
                 markImapChanged();
               }}
@@ -648,7 +755,7 @@ function ImapSettingsCard() {
           <Switch
             id="imapSecure"
             checked={secure}
-            onCheckedChange={(v) => {
+            onCheckedChange={v => {
               setSecure(v);
               markImapChanged();
             }}
@@ -662,7 +769,7 @@ function ImapSettingsCard() {
             <Input
               id="imapUser"
               value={user}
-              onChange={(e) => {
+              onChange={e => {
                 setUser(e.target.value);
                 markImapChanged();
               }}
@@ -676,7 +783,7 @@ function ImapSettingsCard() {
                 id="imapPassword"
                 type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={(e) => {
+                onChange={e => {
                   setPassword(e.target.value);
                   markImapChanged();
                 }}
@@ -708,14 +815,15 @@ function ImapSettingsCard() {
             <Input
               id="imapFolder"
               value={folder}
-              onChange={(e) => {
+              onChange={e => {
                 setFolder(e.target.value);
                 markImapChanged();
               }}
               placeholder="INBOX"
             />
             <p className="text-xs text-muted-foreground">
-              Comma-separated for multiple folders, e.g. <code className="bg-muted px-1 rounded">INBOX, Sent</code>
+              Comma-separated for multiple folders, e.g.{" "}
+              <code className="bg-muted px-1 rounded">INBOX, Sent</code>
             </p>
           </div>
           <div className="space-y-2">
@@ -725,7 +833,7 @@ function ImapSettingsCard() {
               type="number"
               min="1"
               value={pollInterval}
-              onChange={(e) => {
+              onChange={e => {
                 setPollInterval(e.target.value);
                 markImapChanged();
               }}
@@ -863,11 +971,16 @@ function UnmatchedEmailsCard() {
 
   const { data: leadResults } = trpc.leads.list.useQuery(
     { search: matchSearch, limit: 10 },
-    { enabled: matchDialogOpen && matchTab === "lead" && matchSearch.length > 1 }
+    {
+      enabled: matchDialogOpen && matchTab === "lead" && matchSearch.length > 1,
+    }
   );
   const { data: personResults } = trpc.persons.list.useQuery(
     { search: matchSearch, limit: 10 },
-    { enabled: matchDialogOpen && matchTab === "person" && matchSearch.length > 1 }
+    {
+      enabled:
+        matchDialogOpen && matchTab === "person" && matchSearch.length > 1,
+    }
   );
 
   if (!data || data.count === 0) return null;
@@ -881,21 +994,27 @@ function UnmatchedEmailsCard() {
 
   return (
     <>
-      <Card id="unmatched-emails" className="border border-orange-200 dark:border-orange-900">
+      <Card
+        id="unmatched-emails"
+        className="border border-orange-200 dark:border-orange-900"
+      >
         <CardHeader>
           <div className="flex items-center gap-2">
             <MailWarning className="h-5 w-5 text-orange-500" />
             <CardTitle>Unmatched Emails ({data.count})</CardTitle>
           </div>
           <CardDescription>
-            Incoming emails that could not be matched to a Lead or Person. Click a row to view email content, then match or dismiss.
+            Incoming emails that could not be matched to a Lead or Person. Click
+            a row to view email content, then match or dismiss.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-0">
           <div className="divide-y rounded-md border">
-            {data.emails.map((email) => {
+            {data.emails.map(email => {
               const isExpanded = expandedId === email.id;
-              const details = isExpanded ? parseEmailPayload(email.rawPayload) : null;
+              const details = isExpanded
+                ? parseEmailPayload(email.rawPayload)
+                : null;
               const bodyText = details?.text || null;
 
               return (
@@ -912,7 +1031,10 @@ function UnmatchedEmailsCard() {
                       <div className="text-sm text-muted-foreground truncate">
                         {email.parsedSubject || "—"}
                       </div>
-                      <Badge variant="outline" className="text-xs capitalize shrink-0">
+                      <Badge
+                        variant="outline"
+                        className="text-xs capitalize shrink-0"
+                      >
                         {email.source || "webhook"}
                       </Badge>
                       <span className="text-xs text-muted-foreground shrink-0">
@@ -924,7 +1046,7 @@ function UnmatchedEmailsCard() {
                         variant="outline"
                         size="sm"
                         className="gap-1.5 text-xs"
-                        onClick={(e) => {
+                        onClick={e => {
                           e.stopPropagation();
                           openMatchDialog({
                             id: email.id,
@@ -942,7 +1064,7 @@ function UnmatchedEmailsCard() {
                         variant="ghost"
                         size="sm"
                         className="gap-1.5 text-xs text-muted-foreground"
-                        onClick={(e) => {
+                        onClick={e => {
                           e.stopPropagation();
                           dismissMutation.mutate({ ingestId: email.id });
                         }}
@@ -958,24 +1080,38 @@ function UnmatchedEmailsCard() {
                     <div className="px-4 pb-4 pt-1 bg-muted/20 border-t">
                       <div className="rounded-lg border bg-background p-4 space-y-3 text-sm">
                         <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-                          <span className="font-medium text-muted-foreground">From:</span>
-                          <span>{details?.from || email.parsedFrom || "—"}</span>
-                          <span className="font-medium text-muted-foreground">To:</span>
+                          <span className="font-medium text-muted-foreground">
+                            From:
+                          </span>
+                          <span>
+                            {details?.from || email.parsedFrom || "—"}
+                          </span>
+                          <span className="font-medium text-muted-foreground">
+                            To:
+                          </span>
                           <span>{details?.to || email.parsedTo || "—"}</span>
                           {details?.cc && (
                             <>
-                              <span className="font-medium text-muted-foreground">CC:</span>
+                              <span className="font-medium text-muted-foreground">
+                                CC:
+                              </span>
                               <span>{details.cc}</span>
                             </>
                           )}
                           {details?.bcc && (
                             <>
-                              <span className="font-medium text-muted-foreground">BCC:</span>
+                              <span className="font-medium text-muted-foreground">
+                                BCC:
+                              </span>
                               <span>{details.bcc}</span>
                             </>
                           )}
-                          <span className="font-medium text-muted-foreground">Subject:</span>
-                          <span className="font-medium">{email.parsedSubject || "—"}</span>
+                          <span className="font-medium text-muted-foreground">
+                            Subject:
+                          </span>
+                          <span className="font-medium">
+                            {email.parsedSubject || "—"}
+                          </span>
                         </div>
                         {bodyText ? (
                           <>
@@ -1010,32 +1146,41 @@ function UnmatchedEmailsCard() {
           <DialogHeader>
             <DialogTitle>Match Email</DialogTitle>
           </DialogHeader>
-          {matchingEmail && (() => {
-            const parsed = parseEmailPayload(matchingEmail.rawPayload);
-            return (
-              <div className="space-y-1.5 text-sm text-muted-foreground border-b pb-3">
-                <p>
-                  <span className="font-medium text-foreground">From:</span>{" "}
-                  {parsed?.from || matchingEmail.parsedFrom || "Unknown"}
-                </p>
-                <p>
-                  <span className="font-medium text-foreground">To:</span>{" "}
-                  {parsed?.to || matchingEmail.parsedTo || "Unknown"}
-                </p>
-                {parsed?.cc && (
+          {matchingEmail &&
+            (() => {
+              const parsed = parseEmailPayload(matchingEmail.rawPayload);
+              return (
+                <div className="space-y-1.5 text-sm text-muted-foreground border-b pb-3">
                   <p>
-                    <span className="font-medium text-foreground">CC:</span>{" "}
-                    {parsed.cc}
+                    <span className="font-medium text-foreground">From:</span>{" "}
+                    {parsed?.from || matchingEmail.parsedFrom || "Unknown"}
                   </p>
-                )}
-                <p>
-                  <span className="font-medium text-foreground">Subject:</span>{" "}
-                  {matchingEmail.parsedSubject || "No subject"}
-                </p>
-              </div>
-            );
-          })()}
-          <Tabs value={matchTab} onValueChange={(v) => { setMatchTab(v as "lead" | "person"); setMatchSearch(""); }}>
+                  <p>
+                    <span className="font-medium text-foreground">To:</span>{" "}
+                    {parsed?.to || matchingEmail.parsedTo || "Unknown"}
+                  </p>
+                  {parsed?.cc && (
+                    <p>
+                      <span className="font-medium text-foreground">CC:</span>{" "}
+                      {parsed.cc}
+                    </p>
+                  )}
+                  <p>
+                    <span className="font-medium text-foreground">
+                      Subject:
+                    </span>{" "}
+                    {matchingEmail.parsedSubject || "No subject"}
+                  </p>
+                </div>
+              );
+            })()}
+          <Tabs
+            value={matchTab}
+            onValueChange={v => {
+              setMatchTab(v as "lead" | "person");
+              setMatchSearch("");
+            }}
+          >
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="lead">Match to Lead</TabsTrigger>
               <TabsTrigger value="person">Match to Person</TabsTrigger>
@@ -1046,17 +1191,19 @@ function UnmatchedEmailsCard() {
                 <Input
                   placeholder="Search leads..."
                   value={matchSearch}
-                  onChange={(e) => setMatchSearch(e.target.value)}
+                  onChange={e => setMatchSearch(e.target.value)}
                   className="pl-9"
                 />
               </div>
               <div className="max-h-60 overflow-y-auto divide-y rounded-md border">
                 {(leadResults?.items ?? []).length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
-                    {matchSearch.length > 1 ? "No leads found" : "Type to search leads"}
+                    {matchSearch.length > 1
+                      ? "No leads found"
+                      : "Type to search leads"}
                   </div>
                 ) : (
-                  (leadResults?.items ?? []).map((lead) => (
+                  (leadResults?.items ?? []).map(lead => (
                     <div
                       key={lead.id}
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer"
@@ -1068,7 +1215,9 @@ function UnmatchedEmailsCard() {
                       }
                     >
                       <div>
-                        <div className="text-sm font-medium">{lead.companyName}</div>
+                        <div className="text-sm font-medium">
+                          {lead.companyName}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           {lead.email || lead.contactPerson || "—"}
                         </div>
@@ -1087,17 +1236,19 @@ function UnmatchedEmailsCard() {
                 <Input
                   placeholder="Search persons..."
                   value={matchSearch}
-                  onChange={(e) => setMatchSearch(e.target.value)}
+                  onChange={e => setMatchSearch(e.target.value)}
                   className="pl-9"
                 />
               </div>
               <div className="max-h-60 overflow-y-auto divide-y rounded-md border">
                 {(personResults?.persons ?? []).length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
-                    {matchSearch.length > 1 ? "No persons found" : "Type to search persons"}
+                    {matchSearch.length > 1
+                      ? "No persons found"
+                      : "Type to search persons"}
                   </div>
                 ) : (
-                  (personResults?.persons ?? []).map((person) => (
+                  (personResults?.persons ?? []).map(person => (
                     <div
                       key={person.id}
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 cursor-pointer"
@@ -1154,7 +1305,11 @@ export default function SettingsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const { data: config, isLoading, refetch } = trpc.settings.getLLMConfig.useQuery();
+  const {
+    data: config,
+    isLoading,
+    refetch,
+  } = trpc.settings.getLLMConfig.useQuery();
   const updateMutation = trpc.settings.updateLLMConfig.useMutation();
   const clearKeyMutation = trpc.settings.clearApiKey.useMutation();
   const testMutation = trpc.settings.testConnection.useMutation();
@@ -1185,7 +1340,9 @@ export default function SettingsPage() {
     setInitialised(true);
   }
 
-  const selectedProvider = PROVIDERS.find((p) => p.value === (provider || config?.provider || "forge"));
+  const selectedProvider = PROVIDERS.find(
+    p => p.value === (provider || config?.provider || "forge")
+  );
 
   function markChanged() {
     setHasUnsavedChanges(true);
@@ -1234,7 +1391,10 @@ export default function SettingsPage() {
       });
       setTestResult(result);
     } catch (err) {
-      setTestResult({ success: false, error: err instanceof Error ? err.message : "Connection failed" });
+      setTestResult({
+        success: false,
+        error: err instanceof Error ? err.message : "Connection failed",
+      });
     } finally {
       setIsTesting(false);
     }
@@ -1260,7 +1420,9 @@ export default function SettingsPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Settings</h1>
-            <p className="text-muted-foreground text-sm">Configure AI providers and application preferences</p>
+            <p className="text-muted-foreground text-sm">
+              Configure AI providers and application preferences
+            </p>
           </div>
         </div>
 
@@ -1272,9 +1434,11 @@ export default function SettingsPage() {
               <CardTitle>AI Provider Configuration</CardTitle>
             </div>
             <CardDescription>
-              Choose which LLM provider powers the AI chat, lead enrichment, and LinkedIn import features.
-              Choose which LLM provider powers the AI chat, lead enrichment, and LinkedIn import features.
-              Configure your own API key here, or use the built-in Forge API if configured on the server.
+              Choose which LLM provider powers the AI chat, lead enrichment, and
+              LinkedIn import features. Choose which LLM provider powers the AI
+              chat, lead enrichment, and LinkedIn import features. Configure
+              your own API key here, or use the built-in Forge API if configured
+              on the server.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -1300,7 +1464,9 @@ export default function SettingsPage() {
                 </p>
               </div>
               {config?.hasApiKey && (
-                <Badge variant="secondary" className="flex-shrink-0">Custom Key</Badge>
+                <Badge variant="secondary" className="flex-shrink-0">
+                  Custom Key
+                </Badge>
               )}
             </div>
 
@@ -1311,9 +1477,9 @@ export default function SettingsPage() {
               <Label htmlFor="provider">Provider</Label>
               <Select
                 value={provider || config?.provider || "forge"}
-                onValueChange={(v) => {
+                onValueChange={v => {
                   setProvider(v);
-                  const p = PROVIDERS.find((x) => x.value === v);
+                  const p = PROVIDERS.find(x => x.value === v);
                   if (p?.models.length) {
                     setChatModel(p.models[0]);
                     setEnrichModel(p.models[0]);
@@ -1325,7 +1491,7 @@ export default function SettingsPage() {
                   <SelectValue placeholder="Select provider" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PROVIDERS.map((p) => (
+                  {PROVIDERS.map(p => (
                     <SelectItem key={p.value} value={p.value}>
                       <div className="flex flex-col">
                         <span className="font-medium">{p.label}</span>
@@ -1335,7 +1501,9 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
               {selectedProvider && (
-                <p className="text-xs text-muted-foreground">{selectedProvider.description}</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedProvider.description}
+                </p>
               )}
             </div>
 
@@ -1346,14 +1514,19 @@ export default function SettingsPage() {
                 {selectedProvider?.models.length ? (
                   <Select
                     value={chatModel || config?.chatModel}
-                    onValueChange={(v) => { setChatModel(v); markChanged(); }}
+                    onValueChange={v => {
+                      setChatModel(v);
+                      markChanged();
+                    }}
                   >
                     <SelectTrigger id="chatModel">
                       <SelectValue placeholder="Select model" />
                     </SelectTrigger>
                     <SelectContent>
-                      {selectedProvider.models.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      {selectedProvider.models.map(m => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1361,11 +1534,16 @@ export default function SettingsPage() {
                   <Input
                     id="chatModel"
                     value={chatModel || config?.chatModel || ""}
-                    onChange={(e) => { setChatModel(e.target.value); markChanged(); }}
+                    onChange={e => {
+                      setChatModel(e.target.value);
+                      markChanged();
+                    }}
                     placeholder="e.g. llama3.2, mixtral-8x7b"
                   />
                 )}
-                <p className="text-xs text-muted-foreground">Used for AI chat conversations</p>
+                <p className="text-xs text-muted-foreground">
+                  Used for AI chat conversations
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -1373,14 +1551,19 @@ export default function SettingsPage() {
                 {selectedProvider?.models.length ? (
                   <Select
                     value={enrichModel || config?.enrichModel}
-                    onValueChange={(v) => { setEnrichModel(v); markChanged(); }}
+                    onValueChange={v => {
+                      setEnrichModel(v);
+                      markChanged();
+                    }}
                   >
                     <SelectTrigger id="enrichModel">
                       <SelectValue placeholder="Select model" />
                     </SelectTrigger>
                     <SelectContent>
-                      {selectedProvider.models.map((m) => (
-                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      {selectedProvider.models.map(m => (
+                        <SelectItem key={m} value={m}>
+                          {m}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -1388,11 +1571,16 @@ export default function SettingsPage() {
                   <Input
                     id="enrichModel"
                     value={enrichModel || config?.enrichModel || ""}
-                    onChange={(e) => { setEnrichModel(e.target.value); markChanged(); }}
+                    onChange={e => {
+                      setEnrichModel(e.target.value);
+                      markChanged();
+                    }}
                     placeholder="e.g. llama3.2, mixtral-8x7b"
                   />
                 )}
-                <p className="text-xs text-muted-foreground">Used for lead enrichment & LinkedIn import</p>
+                <p className="text-xs text-muted-foreground">
+                  Used for lead enrichment & LinkedIn import
+                </p>
               </div>
             </div>
 
@@ -1426,11 +1614,14 @@ export default function SettingsPage() {
                     id="apiKey"
                     type={showKey ? "text" : "password"}
                     value={apiKey}
-                    onChange={(e) => { setApiKey(e.target.value); markChanged(); }}
+                    onChange={e => {
+                      setApiKey(e.target.value);
+                      markChanged();
+                    }}
                     placeholder={
                       config?.hasApiKey
                         ? "••••••••••••••••••••••• (key set — enter new key to replace)"
-                        : selectedProvider?.keyHint ?? "Enter your API key"
+                        : (selectedProvider?.keyHint ?? "Enter your API key")
                     }
                     className="pr-10 font-mono text-sm"
                   />
@@ -1439,7 +1630,11 @@ export default function SettingsPage() {
                     onClick={() => setShowKey(!showKey)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showKey ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
                 {selectedProvider?.docsUrl && (
@@ -1459,7 +1654,8 @@ export default function SettingsPage() {
             )}
 
             {/* Base URL (for custom providers) */}
-            {(selectedProvider?.value === "custom" || selectedProvider?.needsBaseUrl) && (
+            {(selectedProvider?.value === "custom" ||
+              selectedProvider?.needsBaseUrl) && (
               <div className="space-y-2">
                 <Label htmlFor="baseUrl" className="flex items-center gap-1.5">
                   <Globe className="h-3.5 w-3.5" />
@@ -1468,12 +1664,18 @@ export default function SettingsPage() {
                 <Input
                   id="baseUrl"
                   value={baseUrl || config?.baseUrl || ""}
-                  onChange={(e) => { setBaseUrl(e.target.value); markChanged(); }}
+                  onChange={e => {
+                    setBaseUrl(e.target.value);
+                    markChanged();
+                  }}
                   placeholder="https://api.openai.com/v1 or http://localhost:11434/v1"
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Must be an OpenAI-compatible endpoint. For Ollama: <code className="bg-muted px-1 rounded">http://localhost:11434/v1</code>
+                  Must be an OpenAI-compatible endpoint. For Ollama:{" "}
+                  <code className="bg-muted px-1 rounded">
+                    http://localhost:11434/v1
+                  </code>
                 </p>
               </div>
             )}
@@ -1481,7 +1683,10 @@ export default function SettingsPage() {
             {/* Embedding API Key (Mistral) */}
             <Separator />
             <div className="space-y-2">
-              <Label htmlFor="embeddingApiKey" className="flex items-center gap-1.5">
+              <Label
+                htmlFor="embeddingApiKey"
+                className="flex items-center gap-1.5"
+              >
                 <Key className="h-3.5 w-3.5" />
                 Embedding API Key (Mistral)
               </Label>
@@ -1490,7 +1695,10 @@ export default function SettingsPage() {
                   id="embeddingApiKey"
                   type={showEmbeddingKey ? "text" : "password"}
                   value={embeddingApiKey}
-                  onChange={(e) => { setEmbeddingApiKey(e.target.value); markChanged(); }}
+                  onChange={e => {
+                    setEmbeddingApiKey(e.target.value);
+                    markChanged();
+                  }}
                   placeholder={
                     config?.hasEmbeddingKey
                       ? "••••••••••••••••••••••• (key set — enter new key to replace)"
@@ -1503,11 +1711,16 @@ export default function SettingsPage() {
                   onClick={() => setShowEmbeddingKey(!showEmbeddingKey)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showEmbeddingKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showEmbeddingKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Used for document and lead embeddings (semantic search). Get a key at{" "}
+                Used for document and lead embeddings (semantic search). Get a
+                key at{" "}
                 <a
                   href="https://console.mistral.ai/api-keys"
                   target="_blank"
@@ -1587,37 +1800,50 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <p className="text-muted-foreground">
-              SalesFlow CRM is designed to be self-hosted on any Node.js-compatible platform.
-              Configure your preferred LLM provider above for AI-powered features.
+              SalesFlow CRM is designed to be self-hosted on any
+              Node.js-compatible platform. Configure your preferred LLM provider
+              above for AI-powered features.
             </p>
             <div className="space-y-3">
               <div className="rounded-lg border p-3 space-y-1">
                 <p className="font-medium">1. Database</p>
                 <p className="text-muted-foreground text-xs">
-                  Set <code className="bg-muted px-1 rounded">DATABASE_URL</code> to a MySQL or TiDB connection string.
-                  Run <code className="bg-muted px-1 rounded">pnpm db:push</code> to apply the schema.
+                  Set{" "}
+                  <code className="bg-muted px-1 rounded">DATABASE_URL</code> to
+                  a MySQL or TiDB connection string. Run{" "}
+                  <code className="bg-muted px-1 rounded">pnpm db:push</code> to
+                  apply the schema.
                 </p>
               </div>
               <div className="rounded-lg border p-3 space-y-1">
                 <p className="font-medium">2. LLM API Key</p>
                 <p className="text-muted-foreground text-xs">
-                  Configure your preferred provider above (OpenAI, Anthropic, Google, or any OpenAI-compatible endpoint).
-                  The key is stored obfuscated in the database and used for all AI features.
+                  Configure your preferred provider above (OpenAI, Anthropic,
+                  Google, or any OpenAI-compatible endpoint). The key is stored
+                  obfuscated in the database and used for all AI features.
                 </p>
               </div>
               <div className="rounded-lg border p-3 space-y-1">
                 <p className="font-medium">3. File Storage</p>
                 <p className="text-muted-foreground text-xs">
-                  Set <code className="bg-muted px-1 rounded">S3_BUCKET</code>, <code className="bg-muted px-1 rounded">S3_ACCESS_KEY</code>,
-                  and <code className="bg-muted px-1 rounded">S3_SECRET_KEY</code> for document storage.
-                  Compatible with AWS S3, DigitalOcean Spaces, or MinIO.
+                  Set <code className="bg-muted px-1 rounded">S3_BUCKET</code>,{" "}
+                  <code className="bg-muted px-1 rounded">S3_ACCESS_KEY</code>,
+                  and{" "}
+                  <code className="bg-muted px-1 rounded">S3_SECRET_KEY</code>{" "}
+                  for document storage. Compatible with AWS S3, DigitalOcean
+                  Spaces, or MinIO.
                 </p>
               </div>
               <div className="rounded-lg border p-3 space-y-1">
                 <p className="font-medium">4. Start the server</p>
                 <p className="text-muted-foreground text-xs">
-                  Run <code className="bg-muted px-1 rounded">pnpm build && pnpm start</code>.
-                  The app listens on <code className="bg-muted px-1 rounded">PORT</code> (default: 3000).
+                  Run{" "}
+                  <code className="bg-muted px-1 rounded">
+                    pnpm build && pnpm start
+                  </code>
+                  . The app listens on{" "}
+                  <code className="bg-muted px-1 rounded">PORT</code> (default:
+                  3000).
                 </p>
               </div>
             </div>

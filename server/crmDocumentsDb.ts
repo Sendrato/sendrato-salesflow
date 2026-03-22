@@ -6,14 +6,16 @@ import {
   type InsertCrmDocument,
 } from "@shared/../drizzle/schema";
 
-export async function getCrmDocuments(opts: {
-  search?: string;
-  category?: string;
-  limit?: number;
-  offset?: number;
-  userId?: number;
-  isAdmin?: boolean;
-} = {}) {
+export async function getCrmDocuments(
+  opts: {
+    search?: string;
+    category?: string;
+    limit?: number;
+    offset?: number;
+    userId?: number;
+    isAdmin?: boolean;
+  } = {}
+) {
   const db = await getDb();
   if (!db) return [];
 

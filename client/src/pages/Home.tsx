@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { Streamdown } from "streamdown";
 
 export default function Home() {
   let { user, loading, error, isAuthenticated, logout } = useAuth();

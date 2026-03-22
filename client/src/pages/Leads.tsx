@@ -5,25 +5,68 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Plus, Search, Filter, Building2, ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Trash2, Loader2, Tag, UserCircle, XCircle, FileText } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Plus,
+  Search,
+  Filter,
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  TrendingUp,
+  Trash2,
+  Loader2,
+  Tag,
+  UserCircle,
+  XCircle,
+  FileText,
+} from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { toast } from "sonner";
 import {
-  STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, ALL_STATUSES, ALL_PRIORITIES, formatRelativeTime, getInitials
+  STATUS_LABELS,
+  STATUS_COLORS,
+  PRIORITY_COLORS,
+  ALL_STATUSES,
+  ALL_PRIORITIES,
+  formatRelativeTime,
+  getInitials,
 } from "@/lib/crm";
-import { getLeadTypeOptions, LEAD_TYPE_SCHEMAS } from "@shared/leadAttributeSchemas";
+import {
+  getLeadTypeOptions,
+  LEAD_TYPE_SCHEMAS,
+} from "@shared/leadAttributeSchemas";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const PAGE_SIZE = 20;
@@ -35,19 +78,33 @@ export default function Leads() {
   const initialParams = useMemo(() => new URLSearchParams(searchString), []);
 
   const [search, setSearch] = useState(initialParams.get("search") ?? "");
-  const [status, setStatus] = useState<string>(initialParams.get("status") ?? "all");
-  const [priority, setPriority] = useState<string>(initialParams.get("priority") ?? "all");
-  const [country, setCountry] = useState<string>(initialParams.get("country") ?? "all");
-  const [leadType, setLeadType] = useState<string>(initialParams.get("leadType") ?? "all");
-  const [label, setLabel] = useState<string>(initialParams.get("label") ?? "all");
-  const [assignedToFilter, setAssignedToFilter] = useState<string>(initialParams.get("assignedTo") ?? "all");
+  const [status, setStatus] = useState<string>(
+    initialParams.get("status") ?? "all"
+  );
+  const [priority, setPriority] = useState<string>(
+    initialParams.get("priority") ?? "all"
+  );
+  const [country, setCountry] = useState<string>(
+    initialParams.get("country") ?? "all"
+  );
+  const [leadType, setLeadType] = useState<string>(
+    initialParams.get("leadType") ?? "all"
+  );
+  const [label, setLabel] = useState<string>(
+    initialParams.get("label") ?? "all"
+  );
+  const [assignedToFilter, setAssignedToFilter] = useState<string>(
+    initialParams.get("assignedTo") ?? "all"
+  );
   const [page, setPage] = useState(Number(initialParams.get("page") ?? 0));
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [bulkLabelOpen, setBulkLabelOpen] = useState(false);
   const [bulkLabelValue, setBulkLabelValue] = useState("");
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
-  const [sizeFilter, setSizeFilter] = useState<string>(initialParams.get("size") ?? "all");
+  const [sizeFilter, setSizeFilter] = useState<string>(
+    initialParams.get("size") ?? "all"
+  );
 
   // Sync filter state to URL search params so back navigation preserves filters
   useEffect(() => {
@@ -64,7 +121,17 @@ export default function Leads() {
     const qs = params.toString();
     const newUrl = qs ? `/leads?${qs}` : "/leads";
     window.history.replaceState(null, "", newUrl);
-  }, [search, status, priority, country, leadType, label, assignedToFilter, page, sizeFilter]);
+  }, [
+    search,
+    status,
+    priority,
+    country,
+    leadType,
+    label,
+    assignedToFilter,
+    page,
+    sizeFilter,
+  ]);
 
   const { data: userList } = trpc.auth.listUsers.useQuery();
   const users = userList ?? [];
@@ -76,9 +143,38 @@ export default function Leads() {
     country: country === "all" ? undefined : country,
     leadType: leadType === "all" ? undefined : leadType,
     label: label === "all" ? undefined : label,
-    assignedTo: assignedToFilter === "all" ? undefined : Number(assignedToFilter),
-    sizeMin: sizeFilter === "small" ? undefined : sizeFilter === "medium" ? 100 : sizeFilter === "large" ? 1000 : sizeFilter === "10k-20k" ? 10000 : sizeFilter === "20k-30k" ? 20000 : sizeFilter === "30k-45k" ? 30000 : sizeFilter === "45k+" ? 45000 : undefined,
-    sizeMax: sizeFilter === "small" ? 99 : sizeFilter === "medium" ? 999 : sizeFilter === "large" ? 9999 : sizeFilter === "10k-20k" ? 19999 : sizeFilter === "20k-30k" ? 29999 : sizeFilter === "30k-45k" ? 44999 : undefined,
+    assignedTo:
+      assignedToFilter === "all" ? undefined : Number(assignedToFilter),
+    sizeMin:
+      sizeFilter === "small"
+        ? undefined
+        : sizeFilter === "medium"
+          ? 100
+          : sizeFilter === "large"
+            ? 1000
+            : sizeFilter === "10k-20k"
+              ? 10000
+              : sizeFilter === "20k-30k"
+                ? 20000
+                : sizeFilter === "30k-45k"
+                  ? 30000
+                  : sizeFilter === "45k+"
+                    ? 45000
+                    : undefined,
+    sizeMax:
+      sizeFilter === "small"
+        ? 99
+        : sizeFilter === "medium"
+          ? 999
+          : sizeFilter === "large"
+            ? 9999
+            : sizeFilter === "10k-20k"
+              ? 19999
+              : sizeFilter === "20k-30k"
+                ? 29999
+                : sizeFilter === "30k-45k"
+                  ? 44999
+                  : undefined,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
@@ -86,10 +182,18 @@ export default function Leads() {
   // Fetch all leads (without filters) to extract distinct countries for the filter dropdown
   const { data: allLeadsData } = trpc.leads.list.useQuery({ limit: 1000 });
   const countries = Array.from(
-    new Set((allLeadsData?.items ?? []).map((l) => l.country?.trim()).filter(Boolean) as string[])
+    new Set(
+      (allLeadsData?.items ?? [])
+        .map(l => l.country?.trim())
+        .filter(Boolean) as string[]
+    )
   ).sort();
   const labels = Array.from(
-    new Set((allLeadsData?.items ?? []).map((l) => ((l as any).label as string | null)?.trim()).filter(Boolean) as string[])
+    new Set(
+      (allLeadsData?.items ?? [])
+        .map(l => ((l as any).label as string | null)?.trim())
+        .filter(Boolean) as string[]
+    )
   ).sort();
 
   const leads = data?.items ?? [];
@@ -97,8 +201,10 @@ export default function Leads() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const bulkDeleteMutation = trpc.leads.bulkDelete.useMutation({
-    onSuccess: (result) => {
-      toast.success(`${result.deleted} lead${result.deleted > 1 ? "s" : ""} deleted`);
+    onSuccess: result => {
+      toast.success(
+        `${result.deleted} lead${result.deleted > 1 ? "s" : ""} deleted`
+      );
       setSelectedIds(new Set());
       refetch();
     },
@@ -106,8 +212,10 @@ export default function Leads() {
   });
 
   const bulkAssignMutation = trpc.leads.bulkUpdateAssignedTo.useMutation({
-    onSuccess: (result) => {
-      toast.success(`${result.updated} lead${result.updated > 1 ? "s" : ""} reassigned`);
+    onSuccess: result => {
+      toast.success(
+        `${result.updated} lead${result.updated > 1 ? "s" : ""} reassigned`
+      );
       setSelectedIds(new Set());
       setBulkAssignOpen(false);
       refetch();
@@ -116,8 +224,10 @@ export default function Leads() {
   });
 
   const bulkLabelMutation = trpc.leads.bulkUpdateLabel.useMutation({
-    onSuccess: (result) => {
-      toast.success(`${result.updated} lead${result.updated > 1 ? "s" : ""} updated`);
+    onSuccess: result => {
+      toast.success(
+        `${result.updated} lead${result.updated > 1 ? "s" : ""} updated`
+      );
       setSelectedIds(new Set());
       setBulkLabelOpen(false);
       setBulkLabelValue("");
@@ -126,11 +236,12 @@ export default function Leads() {
     onError: () => toast.error("Failed to update labels"),
   });
 
-  const allOnPageSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l.id));
+  const allOnPageSelected =
+    leads.length > 0 && leads.every(l => selectedIds.has(l.id));
   const someSelected = selectedIds.size > 0;
 
   function toggleSelect(id: number) {
-    setSelectedIds((prev) => {
+    setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -140,15 +251,15 @@ export default function Leads() {
 
   function toggleSelectAll() {
     if (allOnPageSelected) {
-      setSelectedIds((prev) => {
+      setSelectedIds(prev => {
         const next = new Set(prev);
-        leads.forEach((l) => next.delete(l.id));
+        leads.forEach(l => next.delete(l.id));
         return next;
       });
     } else {
-      setSelectedIds((prev) => {
+      setSelectedIds(prev => {
         const next = new Set(prev);
-        leads.forEach((l) => next.add(l.id));
+        leads.forEach(l => next.add(l.id));
         return next;
       });
     }
@@ -164,7 +275,11 @@ export default function Leads() {
             <p className="text-sm text-muted-foreground">{total} total leads</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setLocation("/import")} className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setLocation("/import")}
+              className="gap-2"
+            >
               <Filter className="h-4 w-4" />
               Import
             </Button>
@@ -184,79 +299,136 @@ export default function Leads() {
                 <Input
                   placeholder="Search by company, contact, email..."
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+                  onChange={e => {
+                    setSearch(e.target.value);
+                    setPage(0);
+                  }}
                   className="pl-9"
                 />
               </div>
-              <Select value={status} onValueChange={(v) => { setStatus(v); setPage(0); }}>
+              <Select
+                value={status}
+                onValueChange={v => {
+                  setStatus(v);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  {ALL_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+                  {ALL_STATUSES.map(s => (
+                    <SelectItem key={s} value={s}>
+                      {STATUS_LABELS[s]}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={priority} onValueChange={(v) => { setPriority(v); setPage(0); }}>
+              <Select
+                value={priority}
+                onValueChange={v => {
+                  setPriority(v);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="All Priorities" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Priorities</SelectItem>
-                  {ALL_PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                  {ALL_PRIORITIES.map(p => (
+                    <SelectItem key={p} value={p} className="capitalize">
+                      {p}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={leadType} onValueChange={(v) => { setLeadType(v); setPage(0); }}>
+              <Select
+                value={leadType}
+                onValueChange={v => {
+                  setLeadType(v);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="All Lead Types" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Lead Types</SelectItem>
-                  {leadTypeOptions.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                  {leadTypeOptions.map(opt => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {countries.length > 0 && (
-                <Select value={country} onValueChange={(v) => { setCountry(v); setPage(0); }}>
+                <Select
+                  value={country}
+                  onValueChange={v => {
+                    setCountry(v);
+                    setPage(0);
+                  }}
+                >
                   <SelectTrigger className="w-full sm:w-[160px]">
                     <SelectValue placeholder="All Countries" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Countries</SelectItem>
-                    {countries.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {countries.map(c => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               )}
-              <Select value={label} onValueChange={(v) => { setLabel(v); setPage(0); }}>
+              <Select
+                value={label}
+                onValueChange={v => {
+                  setLabel(v);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="All Labels" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Labels</SelectItem>
-                  {labels.map((l) => (
-                    <SelectItem key={l} value={l}>{l}</SelectItem>
+                  {labels.map(l => (
+                    <SelectItem key={l} value={l}>
+                      {l}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={assignedToFilter} onValueChange={(v) => { setAssignedToFilter(v); setPage(0); }}>
+              <Select
+                value={assignedToFilter}
+                onValueChange={v => {
+                  setAssignedToFilter(v);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-[160px]">
                   <SelectValue placeholder="All Owners" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Owners</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={String(u.id)}>{u.name || u.email}</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.name || u.email}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select value={sizeFilter} onValueChange={(v) => { setSizeFilter(v); setPage(0); }}>
+              <Select
+                value={sizeFilter}
+                onValueChange={v => {
+                  setSizeFilter(v);
+                  setPage(0);
+                }}
+              >
                 <SelectTrigger className="w-full sm:w-[140px]">
                   <SelectValue placeholder="All Sizes" />
                 </SelectTrigger>
@@ -271,7 +443,14 @@ export default function Leads() {
                   <SelectItem value="45k+">45K+</SelectItem>
                 </SelectContent>
               </Select>
-              {(search || status !== "all" || priority !== "all" || country !== "all" || leadType !== "all" || label !== "all" || assignedToFilter !== "all" || sizeFilter !== "all") && (
+              {(search ||
+                status !== "all" ||
+                priority !== "all" ||
+                country !== "all" ||
+                leadType !== "all" ||
+                label !== "all" ||
+                assignedToFilter !== "all" ||
+                sizeFilter !== "all") && (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -299,7 +478,9 @@ export default function Leads() {
         {/* Selection bar */}
         {someSelected && (
           <div className="flex items-center gap-3 px-4 py-2 bg-muted border rounded-lg">
-            <span className="text-sm font-medium">{selectedIds.size} selected</span>
+            <span className="text-sm font-medium">
+              {selectedIds.size} selected
+            </span>
             <Popover open={bulkLabelOpen} onOpenChange={setBulkLabelOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5">
@@ -309,30 +490,44 @@ export default function Leads() {
               </PopoverTrigger>
               <PopoverContent className="w-64 p-3" align="start">
                 <div className="space-y-2">
-                  <div className="text-sm font-medium">Assign label to {selectedIds.size} lead{selectedIds.size > 1 ? "s" : ""}</div>
+                  <div className="text-sm font-medium">
+                    Assign label to {selectedIds.size} lead
+                    {selectedIds.size > 1 ? "s" : ""}
+                  </div>
                   <Input
                     value={bulkLabelValue}
-                    onChange={(e) => setBulkLabelValue(e.target.value)}
+                    onChange={e => setBulkLabelValue(e.target.value)}
                     placeholder="Type label or leave empty to clear"
                     className="text-sm"
                     list="bulk-label-suggestions"
                     autoFocus
                   />
                   <datalist id="bulk-label-suggestions">
-                    {labels.map((l) => (
+                    {labels.map(l => (
                       <option key={l} value={l} />
                     ))}
                   </datalist>
                   <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setBulkLabelOpen(false)}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setBulkLabelOpen(false)}
+                    >
                       Cancel
                     </Button>
                     <Button
                       size="sm"
                       disabled={bulkLabelMutation.isPending}
-                      onClick={() => bulkLabelMutation.mutate({ ids: Array.from(selectedIds), label: bulkLabelValue.trim() })}
+                      onClick={() =>
+                        bulkLabelMutation.mutate({
+                          ids: Array.from(selectedIds),
+                          label: bulkLabelValue.trim(),
+                        })
+                      }
                     >
-                      {bulkLabelMutation.isPending && <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />}
+                      {bulkLabelMutation.isPending && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                      )}
                       Apply
                     </Button>
                   </div>
@@ -349,14 +544,19 @@ export default function Leads() {
               <PopoverContent className="w-56 p-3" align="start">
                 <div className="space-y-2">
                   <div className="text-sm font-medium">Assign owner</div>
-                  {users.map((u) => (
+                  {users.map(u => (
                     <Button
                       key={u.id}
                       variant="ghost"
                       size="sm"
                       className="w-full justify-start gap-2 text-sm"
                       disabled={bulkAssignMutation.isPending}
-                      onClick={() => bulkAssignMutation.mutate({ ids: Array.from(selectedIds), assignedTo: u.id })}
+                      onClick={() =>
+                        bulkAssignMutation.mutate({
+                          ids: Array.from(selectedIds),
+                          assignedTo: u.id,
+                        })
+                      }
                     >
                       <Avatar className="h-5 w-5">
                         <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
@@ -371,7 +571,12 @@ export default function Leads() {
                     size="sm"
                     className="w-full justify-start text-sm text-muted-foreground"
                     disabled={bulkAssignMutation.isPending}
-                    onClick={() => bulkAssignMutation.mutate({ ids: Array.from(selectedIds), assignedTo: null })}
+                    onClick={() =>
+                      bulkAssignMutation.mutate({
+                        ids: Array.from(selectedIds),
+                        assignedTo: null,
+                      })
+                    }
                   >
                     Unassign
                   </Button>
@@ -415,7 +620,9 @@ export default function Leads() {
                   <TableHead>Status</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead className="w-[90px]">
-                    <span className="flex items-center gap-1"><TrendingUp className="h-3.5 w-3.5" /> Score</span>
+                    <span className="flex items-center gap-1">
+                      <TrendingUp className="h-3.5 w-3.5" /> Score
+                    </span>
                   </TableHead>
                   <TableHead>Size</TableHead>
                   <TableHead>Label</TableHead>
@@ -440,23 +647,33 @@ export default function Leads() {
                   ))
                 ) : leads.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={13} className="text-center py-16 text-muted-foreground">
+                    <TableCell
+                      colSpan={13}
+                      className="text-center py-16 text-muted-foreground"
+                    >
                       <Building2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
                       <p>No leads found</p>
-                      {search && <p className="text-sm mt-1">Try adjusting your search</p>}
+                      {search && (
+                        <p className="text-sm mt-1">
+                          Try adjusting your search
+                        </p>
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  leads.map((lead) => (
+                  leads.map(lead => (
                     <TableRow
                       key={lead.id}
                       className={`cursor-pointer hover:bg-muted/30 transition-colors ${selectedIds.has(lead.id) ? "bg-primary/5" : ""}`}
                       onClick={() => {
-                        sessionStorage.setItem("leadsReturnUrl", window.location.pathname + window.location.search);
+                        sessionStorage.setItem(
+                          "leadsReturnUrl",
+                          window.location.pathname + window.location.search
+                        );
                         setLocation(`/leads/${lead.id}`);
                       }}
                     >
-                      <TableCell onClick={(e) => e.stopPropagation()}>
+                      <TableCell onClick={e => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedIds.has(lead.id)}
                           onCheckedChange={() => toggleSelect(lead.id)}
@@ -471,27 +688,39 @@ export default function Leads() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="min-w-0">
-                            <div className="font-medium text-sm truncate max-w-[180px]">{lead.companyName}</div>
+                            <div className="font-medium text-sm truncate max-w-[180px]">
+                              {lead.companyName}
+                            </div>
                             {lead.website && (
-                              <div className="text-xs text-muted-foreground truncate max-w-[180px]">{lead.website}</div>
+                              <div className="text-xs text-muted-foreground truncate max-w-[180px]">
+                                {lead.website}
+                              </div>
                             )}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
                         {(() => {
-                          const owner = lead.assignedTo ? users.find((u) => u.id === lead.assignedTo) : null;
+                          const owner = lead.assignedTo
+                            ? users.find(u => u.id === lead.assignedTo)
+                            : null;
                           return owner ? (
                             <div className="flex items-center gap-1.5">
                               <Avatar className="h-5 w-5">
                                 <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-medium">
-                                  {getInitials(owner.name || owner.email || "?")}
+                                  {getInitials(
+                                    owner.name || owner.email || "?"
+                                  )}
                                 </AvatarFallback>
                               </Avatar>
-                              <span className="text-xs truncate max-w-[80px]">{owner.name || owner.email}</span>
+                              <span className="text-xs truncate max-w-[80px]">
+                                {owner.name || owner.email}
+                              </span>
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
+                            <span className="text-xs text-muted-foreground">
+                              —
+                            </span>
                           );
                         })()}
                       </TableCell>
@@ -500,7 +729,9 @@ export default function Leads() {
                           className={`text-xs border ${STATUS_COLORS[lead.status as keyof typeof STATUS_COLORS] ?? ""}`}
                           variant="outline"
                         >
-                          {STATUS_LABELS[lead.status as keyof typeof STATUS_LABELS] ?? lead.status}
+                          {STATUS_LABELS[
+                            lead.status as keyof typeof STATUS_LABELS
+                          ] ?? lead.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -517,16 +748,25 @@ export default function Leads() {
                             <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full transition-all ${
-                                  (lead as any).priorityScore >= 70 ? "bg-emerald-500" :
-                                  (lead as any).priorityScore >= 40 ? "bg-amber-500" : "bg-red-400"
+                                  (lead as any).priorityScore >= 70
+                                    ? "bg-emerald-500"
+                                    : (lead as any).priorityScore >= 40
+                                      ? "bg-amber-500"
+                                      : "bg-red-400"
                                 }`}
-                                style={{ width: `${Math.min(100, (lead as any).priorityScore)}%` }}
+                                style={{
+                                  width: `${Math.min(100, (lead as any).priorityScore)}%`,
+                                }}
                               />
                             </div>
-                            <span className="text-xs font-medium tabular-nums">{(lead as any).priorityScore}</span>
+                            <span className="text-xs font-medium tabular-nums">
+                              {(lead as any).priorityScore}
+                            </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -540,33 +780,50 @@ export default function Leads() {
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
                         {(lead as any).label ? (
-                          <Badge variant="secondary" className="text-xs">{(lead as any).label}</Badge>
+                          <Badge variant="secondary" className="text-xs">
+                            {(lead as any).label}
+                          </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
                         {LEAD_TYPE_SCHEMAS[lead.leadType] ? (
-                          <Badge variant="outline" className={`text-xs border ${LEAD_TYPE_SCHEMAS[lead.leadType].color}`}>
+                          <Badge
+                            variant="outline"
+                            className={`text-xs border ${LEAD_TYPE_SCHEMAS[lead.leadType].color}`}
+                          >
                             {LEAD_TYPE_SCHEMAS[lead.leadType].label}
                           </Badge>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground">{lead.country ?? "—"}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {lead.country ?? "—"}
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground capitalize">{lead.source ?? "—"}</span>
+                        <span className="text-xs text-muted-foreground capitalize">
+                          {lead.source ?? "—"}
+                        </span>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs text-muted-foreground">{formatRelativeTime(lead.lastContactedAt)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatRelativeTime(lead.lastContactedAt)}
+                        </span>
                       </TableCell>
                       <TableCell>
                         {Number((lead as any).documentCount) > 0 ? (
@@ -575,7 +832,9 @@ export default function Leads() {
                             {(lead as any).documentCount}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>
@@ -583,9 +842,12 @@ export default function Leads() {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation();
-                            sessionStorage.setItem("leadsReturnUrl", window.location.pathname + window.location.search);
+                            sessionStorage.setItem(
+                              "leadsReturnUrl",
+                              window.location.pathname + window.location.search
+                            );
                             setLocation(`/leads/${lead.id}`);
                           }}
                         >
@@ -603,13 +865,14 @@ export default function Leads() {
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-6 py-3 border-t bg-muted/20">
               <span className="text-sm text-muted-foreground">
-                Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, total)} of {total}
+                Showing {page * PAGE_SIZE + 1}–
+                {Math.min((page + 1) * PAGE_SIZE, total)} of {total}
               </span>
               <div className="flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  onClick={() => setPage(p => Math.max(0, p - 1))}
                   disabled={page === 0}
                   className="gap-1"
                 >
@@ -619,7 +882,7 @@ export default function Leads() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
                   className="gap-1"
                 >
@@ -631,12 +894,20 @@ export default function Leads() {
           )}
         </Card>
         {/* Delete confirmation */}
-        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialog
+          open={deleteConfirmOpen}
+          onOpenChange={setDeleteConfirmOpen}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete {selectedIds.size} lead{selectedIds.size > 1 ? "s" : ""}?</AlertDialogTitle>
+              <AlertDialogTitle>
+                Delete {selectedIds.size} lead{selectedIds.size > 1 ? "s" : ""}?
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                This will permanently remove the selected lead{selectedIds.size > 1 ? "s" : ""} and all associated data (contact moments, documents, persons links, competitor links, etc.). This action cannot be undone.
+                This will permanently remove the selected lead
+                {selectedIds.size > 1 ? "s" : ""} and all associated data
+                (contact moments, documents, persons links, competitor links,
+                etc.). This action cannot be undone.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -649,7 +920,9 @@ export default function Leads() {
                   setDeleteConfirmOpen(false);
                 }}
               >
-                {bulkDeleteMutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                {bulkDeleteMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
                 Delete
               </AlertDialogAction>
             </AlertDialogFooter>

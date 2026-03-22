@@ -27,7 +27,10 @@ export function registerBrainstormChatRoutes(app: Express) {
         !Array.isArray(uiMessages) ||
         uiMessages.length === 0
       ) {
-        console.error("[brainstorm-chat] Invalid messages:", { uiMessages, chatId });
+        console.error("[brainstorm-chat] Invalid messages:", {
+          uiMessages,
+          chatId,
+        });
         res.status(400).json({ error: "messages array is required" });
         return;
       }
@@ -69,8 +72,7 @@ Description: ${brainstorm.content ?? "No description provided."}`;
           context += `\nRelated Opportunities: ${enrichment.relatedOpportunities}`;
         if (enrichment.competitiveAnalysis)
           context += `\nCompetitive Analysis: ${enrichment.competitiveAnalysis}`;
-        if (enrichment.risks)
-          context += `\nRisks: ${enrichment.risks}`;
+        if (enrichment.risks) context += `\nRisks: ${enrichment.risks}`;
         if (enrichment.potentialValue)
           context += `\nPotential Value: ${enrichment.potentialValue}`;
         if (
@@ -132,19 +134,15 @@ Opportunities: ${lead.futureOpportunities ?? "N/A"}`;
               .array(z.string())
               .optional()
               .describe("Updated action items list"),
-            risks: z
-              .string()
-              .optional()
-              .describe("Updated risks assessment"),
+            risks: z.string().optional().describe("Updated risks assessment"),
             potentialValue: z
               .string()
               .optional()
               .describe("Updated potential value estimate"),
           }),
-          execute: async (updates) => {
+          execute: async updates => {
             const current =
-              (brainstorm.enrichmentData as Record<string, unknown>) ??
-              {};
+              (brainstorm.enrichmentData as Record<string, unknown>) ?? {};
             const merged = { ...current };
             for (const [key, value] of Object.entries(updates)) {
               if (value !== undefined) {
@@ -161,7 +159,7 @@ Opportunities: ${lead.futureOpportunities ?? "N/A"}`;
             return {
               success: true,
               updatedFields: Object.keys(updates).filter(
-                (k) => (updates as Record<string, unknown>)[k] !== undefined
+                k => (updates as Record<string, unknown>)[k] !== undefined
               ),
             };
           },
@@ -181,7 +179,13 @@ ${context}
 - Be direct and practical — avoid generic advice
 - When you discover significant new insights from documents or conversation that should be captured, use the updateEnrichment tool to update the enrichment analysis`;
 
-      console.log("[brainstorm-chat] Processing request for brainstorm", brainstormId, "with", uiMessages.length, "messages");
+      console.log(
+        "[brainstorm-chat] Processing request for brainstorm",
+        brainstormId,
+        "with",
+        uiMessages.length,
+        "messages"
+      );
 
       const modelMessages = await convertToModelMessages(uiMessages);
       const llm = await getLLMProvider();
@@ -201,9 +205,11 @@ ${context}
           result.consumeStream();
           writer.merge(result.toUIMessageStream({ sendStart: false }));
         },
-        onError: (error) => {
+        onError: error => {
           console.error("[brainstorm-chat] Stream error:", error);
-          return error instanceof Error ? error.message : "Stream processing failed";
+          return error instanceof Error
+            ? error.message
+            : "Stream processing failed";
         },
       });
 

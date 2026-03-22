@@ -47,9 +47,8 @@ export const webLinksRouter = router({
           competitorId: z.number().optional(),
         })
         .refine(
-          (d) =>
-            [d.leadId, d.personId, d.competitorId].filter(Boolean).length ===
-            1,
+          d =>
+            [d.leadId, d.personId, d.competitorId].filter(Boolean).length === 1,
           {
             message:
               "Exactly one of leadId, personId, or competitorId must be provided",

@@ -4,11 +4,12 @@
 
 ## Related Documentation
 
-| Topic | Document |
-|-------|----------|
+| Topic                                                    | Document                                         |
+| -------------------------------------------------------- | ------------------------------------------------ |
 | React Query integration, chat persistence, cache updates | [`ai-sdk-react-query.md`](ai-sdk-react-query.md) |
 
 **Useful Components:**
+
 - [`client/src/components/AIChatBox.tsx`](../client/src/components/AIChatBox.tsx) - Pre-built chat interface
 - [`client/src/hooks/useFileUpload.ts`](../client/src/hooks/useFileUpload.ts) - File upload hook for attachments
 
@@ -25,18 +26,17 @@ When you need up-to-date information about the AI SDK:
 Use this for current API details, examples, and usage patterns.
 
 When no results found, read the source types directly:
+
 - Glob `node_modules/ai/**/*.d.ts` to understand the API
 - Prefer reading the actual types over web search results
 
 The AI SDK provides a few different tools for building AI-powered applications. Here are a few patterns that are commonly used. We have examples below that you should refer to.
 
-| Pattern | Hook | Server | Use Case |
-|---------|------|--------|----------|
-| `useChat` | Multi-turn chat | `createUIMessageStream` | Chatbots, assistants |
-| `useCompletion` | Single prompt | `pipeTextStreamToResponse` | Stories, readings, summaries |
-| `useObject` | Structured streaming | `streamObject` | Analysis, suggestions |
-
-
+| Pattern         | Hook                 | Server                     | Use Case                     |
+| --------------- | -------------------- | -------------------------- | ---------------------------- |
+| `useChat`       | Multi-turn chat      | `createUIMessageStream`    | Chatbots, assistants         |
+| `useCompletion` | Single prompt        | `pipeTextStreamToResponse` | Stories, readings, summaries |
+| `useObject`     | Structured streaming | `streamObject`             | Analysis, suggestions        |
 
 ## Setup
 
@@ -46,8 +46,8 @@ import { createPatchedFetch } from "./patchedFetch";
 
 const openai = createOpenAI({
   apiKey: process.env.BUILT_IN_FORGE_API_KEY,
-  baseURL: `${process.env.BUILT_IN_FORGE_API_URL}/v1`,  // Must include /v1
-  fetch: createPatchedFetch(),  // Required for Forge API compatibility
+  baseURL: `${process.env.BUILT_IN_FORGE_API_URL}/v1`, // Must include /v1
+  fetch: createPatchedFetch(), // Required for Forge API compatibility
 });
 
 const model = openai.chat("gemini-2.5-flash");
@@ -57,10 +57,10 @@ const model = openai.chat("gemini-2.5-flash");
 
 ## Message Formats
 
-| Format | Used By | Structure |
-|--------|---------|-----------|
-| **UIMessage** | Frontend, persistence, useChat | `{ id, role, parts: [...] }` |
-| **ModelMessage** | LLM APIs (streamText, generateText) | `{ role, content }` |
+| Format           | Used By                             | Structure                    |
+| ---------------- | ----------------------------------- | ---------------------------- |
+| **UIMessage**    | Frontend, persistence, useChat      | `{ id, role, parts: [...] }` |
+| **ModelMessage** | LLM APIs (streamText, generateText) | `{ role, content }`          |
 
 Convert before sending to LLM:
 
@@ -80,12 +80,12 @@ interface UIMessage {
   parts: Array<
     | { type: "text"; text: string }
     | { type: "file"; url: string; mediaType: string }
-    | { 
-        type: `tool-${string}`;  // e.g., "tool-getWeather"
+    | {
+        type: `tool-${string}`; // e.g., "tool-getWeather"
         toolCallId: string;
         state: ToolInvocationState;
-        input?: unknown;   // Tool arguments (NOT `args`)
-        output?: unknown;  // Tool result (NOT `result`)
+        input?: unknown; // Tool arguments (NOT `args`)
+        output?: unknown; // Tool result (NOT `result`)
         errorText?: string;
       }
   >;
@@ -146,7 +146,7 @@ Store `UIMessage` objects as JSON with an explicit ordering column:
 export const messages = mysqlTable("messages", {
   id: varchar("id", { length: 36 }).primaryKey(),
   chatId: varchar("chatId", { length: 36 }).notNull(),
-  content: json("content").notNull(),  // Full UIMessage object
+  content: json("content").notNull(), // Full UIMessage object
   ordering: int("ordering").notNull(), // Explicit order, not timestamp
   createdAt: timestamp("createdAt").defaultNow(),
 });
@@ -163,8 +163,12 @@ Use Express for streaming (tRPC doesn't handle SSE well). Always prefer streamin
 ```ts
 import { Router } from "express";
 import {
-  streamText, convertToModelMessages, pipeUIMessageStreamToResponse,
-  createUIMessageStream, generateId, stepCountIs,
+  streamText,
+  convertToModelMessages,
+  pipeUIMessageStreamToResponse,
+  createUIMessageStream,
+  generateId,
+  stepCountIs,
 } from "ai";
 
 const router = Router();
@@ -233,12 +237,12 @@ export const tools = {
 
 ## Tool States
 
-| State | Meaning | UI |
-|-------|---------|-----|
-| `input-streaming` | Arguments being streamed | Loading |
-| `input-available` | Arguments ready, executing | Loading |
-| `output-available` | Completed successfully | Render `output` |
-| `output-error` | Failed | Show `errorText` |
+| State              | Meaning                    | UI               |
+| ------------------ | -------------------------- | ---------------- |
+| `input-streaming`  | Arguments being streamed   | Loading          |
+| `input-available`  | Arguments ready, executing | Loading          |
+| `output-available` | Completed successfully     | Render `output`  |
+| `output-error`     | Failed                     | Show `errorText` |
 
 Output is in `output` property (not `result`):
 
@@ -260,16 +264,18 @@ if (state === "output-available") {
 
 Two distinct phases:
 
-| Phase | Condition | Meaning |
-|-------|-----------|---------|
-| 1 | `status === "submitted"` | Request sent, waiting for server |
-| 2 | `status === "streaming"` with empty parts | Stream started, content arriving |
+| Phase | Condition                                 | Meaning                          |
+| ----- | ----------------------------------------- | -------------------------------- |
+| 1     | `status === "submitted"`                  | Request sent, waiting for server |
+| 2     | `status === "streaming"` with empty parts | Stream started, content arriving |
 
 ```tsx
 const isWaiting = status === "submitted";
 
 // Phase 1: Show after all messages
-{isWaiting && <ThinkingIndicator />}
+{
+  isWaiting && <ThinkingIndicator />;
+}
 
 // Phase 2: Handle in MessageBubble for empty text parts
 if (part.type === "text" && !part.text && isStreaming) {
@@ -316,7 +322,7 @@ import { useCompletion } from "@ai-sdk/react";
 function TarotReading({ readingId }) {
   const { completion, isLoading, complete } = useCompletion({
     api: "/api/interpretation",
-    streamProtocol: "text",  // Required for pipeTextStreamToResponse!
+    streamProtocol: "text", // Required for pipeTextStreamToResponse!
   });
 
   const generateReading = async () => {
@@ -335,6 +341,7 @@ function TarotReading({ readingId }) {
 ```
 
 **Key points:**
+
 - `streamProtocol: "text"` is required when using `pipeTextStreamToResponse`
 - Pass extra data via `body` in the `complete()` call
 - `completion` updates in real-time as text streams in
@@ -399,7 +406,7 @@ function QuestionAnalyzer() {
 
   return (
     <div>
-      <textarea value={question} onChange={(e) => setQuestion(e.target.value)} />
+      <textarea value={question} onChange={e => setQuestion(e.target.value)} />
       <Button onClick={() => submit({ question })} disabled={isLoading}>
         Analyze
       </Button>
@@ -409,17 +416,21 @@ function QuestionAnalyzer() {
         <div>
           <Badge>{object.category}</Badge>
           <Badge>{object.mood}</Badge>
-          
+
           {/* Arrays stream item by item */}
           <div className="flex gap-2">
-            {object.themes?.map((t) => <Badge key={t}>{t}</Badge>)}
+            {object.themes?.map(t => (
+              <Badge key={t}>{t}</Badge>
+            ))}
           </div>
-          
+
           {/* Strings stream character by character */}
           <p>{object.insight}</p>
-          
+
           <ul>
-            {object.relatedQuestions?.map((q) => <li key={q}>{q}</li>)}
+            {object.relatedQuestions?.map(q => (
+              <li key={q}>{q}</li>
+            ))}
           </ul>
         </div>
       )}
@@ -429,24 +440,24 @@ function QuestionAnalyzer() {
 ```
 
 **Key points:**
+
 - Schema must be defined on both client and server
 - Arrays stream item by item (each item appears as it's generated)
 - Strings stream character by character
 - Use optional chaining (`object?.field`) since object builds up progressively
 
-
 ---
 
 ## v6 Migration
 
-| v5 | v6 |
-|----|-----|
-| `tool({ parameters })` | `tool({ inputSchema })` |
-| Tool `result` property | Tool `output` property |
+| v5                                       | v6                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------- |
+| `tool({ parameters })`                   | `tool({ inputSchema })`                                          |
+| Tool `result` property                   | Tool `output` property                                           |
 | States: `partial-call`, `call`, `result` | States: `input-streaming`, `input-available`, `output-available` |
-| `maxToolRoundtrips` | `stopWhen: stepCountIs(n)` |
-| `result.toAIStream()` | `result.toUIMessageStream()` |
-| `pipeDataStreamToResponse()` | `pipeUIMessageStreamToResponse()` |
+| `maxToolRoundtrips`                      | `stopWhen: stepCountIs(n)`                                       |
+| `result.toAIStream()`                    | `result.toUIMessageStream()`                                     |
+| `pipeDataStreamToResponse()`             | `pipeUIMessageStreamToResponse()`                                |
 
 ---
 
@@ -471,7 +482,10 @@ export function createPatchedFetch(): typeof fetch {
     const stream = new ReadableStream({
       async pull(controller) {
         const { done, value } = await reader.read();
-        if (done) { controller.close(); return; }
+        if (done) {
+          controller.close();
+          return;
+        }
 
         let text = decoder.decode(value, { stream: true });
         text = text.replace(/"type"\s*:\s*(""|null)\s*,?\s*/g, "");
@@ -495,10 +509,16 @@ export function createPatchedFetch(): typeof fetch {
 ```ts
 // From 'ai'
 import {
-  streamText, generateText, generateObject,
-  convertToModelMessages, createUIMessageStream,
-  pipeUIMessageStreamToResponse, generateId,
-  stepCountIs, tool, UIMessage,
+  streamText,
+  generateText,
+  generateObject,
+  convertToModelMessages,
+  createUIMessageStream,
+  pipeUIMessageStreamToResponse,
+  generateId,
+  stepCountIs,
+  tool,
+  UIMessage,
 } from "ai";
 
 // From '@ai-sdk/openai'

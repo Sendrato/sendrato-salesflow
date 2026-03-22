@@ -4,18 +4,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Building2, TrendingUp, MessageSquare, Target, ArrowRight, Plus, Clock, CheckCircle2, AlertCircle, Video, MailWarning
+  Building2,
+  TrendingUp,
+  MessageSquare,
+  Target,
+  ArrowRight,
+  Plus,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Video,
+  MailWarning,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  LineChart,
+  Line,
 } from "recharts";
 import {
-  STATUS_LABELS, STATUS_COLORS, PRIORITY_COLORS, formatRelativeTime, formatCurrency, formatDate
+  STATUS_LABELS,
+  STATUS_COLORS,
+  PRIORITY_COLORS,
+  formatRelativeTime,
+  formatCurrency,
+  formatDate,
 } from "@/lib/crm";
 
 const PIPELINE_COLORS = [
-  "#3b82f6", "#eab308", "#a855f7", "#f97316", "#6366f1", "#22c55e", "#ef4444", "#6b7280"
+  "#3b82f6",
+  "#eab308",
+  "#a855f7",
+  "#f97316",
+  "#6366f1",
+  "#22c55e",
+  "#ef4444",
+  "#6b7280",
 ];
 
 export default function Dashboard() {
@@ -23,22 +56,32 @@ export default function Dashboard() {
   const { data: overview } = trpc.analytics.overview.useQuery();
   const { data: pipeline } = trpc.analytics.pipeline.useQuery();
   const { data: topLeads } = trpc.analytics.topLeads.useQuery({ limit: 8 });
-  const { data: recentActivity } = trpc.analytics.recentActivity.useQuery({ limit: 8 });
-  const { data: contactFreq } = trpc.analytics.contactFrequency.useQuery({ days: 30 });
+  const { data: recentActivity } = trpc.analytics.recentActivity.useQuery({
+    limit: 8,
+  });
+  const { data: contactFreq } = trpc.analytics.contactFrequency.useQuery({
+    days: 30,
+  });
   const { data: followUpData } = trpc.analytics.followUps.useQuery(undefined, {
     refetchInterval: 60_000,
   });
-  const { data: unmatchedData } = trpc.analytics.unmatchedEmails.useQuery(undefined, {
-    refetchInterval: 120_000,
-  });
+  const { data: unmatchedData } = trpc.analytics.unmatchedEmails.useQuery(
+    undefined,
+    {
+      refetchInterval: 120_000,
+    }
+  );
 
   const totalLeads = overview?.leadStats?.total ?? 0;
   const statusCounts = overview?.leadStats?.statusCounts ?? [];
-  const wonCount = statusCounts.find((s) => s.status === "won")?.count ?? 0;
-  const newCount = statusCounts.find((s) => s.status === "new")?.count ?? 0;
-  const totalMoments = (overview?.momentStats?.typeCounts ?? []).reduce((a, b) => a + Number(b.count), 0);
+  const wonCount = statusCounts.find(s => s.status === "won")?.count ?? 0;
+  const newCount = statusCounts.find(s => s.status === "new")?.count ?? 0;
+  const totalMoments = (overview?.momentStats?.typeCounts ?? []).reduce(
+    (a, b) => a + Number(b.count),
+    0
+  );
 
-  const pipelineData = (pipeline ?? []).map((p) => ({
+  const pipelineData = (pipeline ?? []).map(p => ({
     name: STATUS_LABELS[p.status as keyof typeof STATUS_LABELS] ?? p.status,
     count: Number(p.count),
     value: Number(p.totalValue),
@@ -50,8 +93,13 @@ export default function Dashboard() {
     color: PIPELINE_COLORS[i % PIPELINE_COLORS.length],
   }));
 
-  const activityData = (contactFreq ?? []).map((d) => ({
-    date: d.date ? new Date(d.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "",
+  const activityData = (contactFreq ?? []).map(d => ({
+    date: d.date
+      ? new Date(d.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      : "",
     contacts: Number(d.count),
   }));
 
@@ -62,7 +110,9 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Your sales pipeline at a glance</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Your sales pipeline at a glance
+            </p>
           </div>
           <Button onClick={() => setLocation("/leads/new")} className="gap-2">
             <Plus className="h-4 w-4" />
@@ -71,7 +121,10 @@ export default function Dashboard() {
         </div>
 
         {/* Follow-Up Alerts */}
-        {((followUpData?.overdueCount ?? 0) > 0 || (followUpData?.upcomingCount ?? 0) > 0 || (followUpData?.upcomingMeetingsCount ?? 0) > 0 || (unmatchedData?.count ?? 0) > 0) && (
+        {((followUpData?.overdueCount ?? 0) > 0 ||
+          (followUpData?.upcomingCount ?? 0) > 0 ||
+          (followUpData?.upcomingMeetingsCount ?? 0) > 0 ||
+          (unmatchedData?.count ?? 0) > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {(followUpData?.overdueCount ?? 0) > 0 && (
               <Card className="border border-red-200 dark:border-red-900 shadow-sm bg-red-50/50 dark:bg-red-950/20">
@@ -80,21 +133,36 @@ export default function Dashboard() {
                     <AlertCircle className="h-4 w-4" />
                     Overdue Follow-ups ({followUpData!.overdueCount})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setLocation("/calendar")} className="gap-1 text-xs text-red-600">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLocation("/calendar")}
+                    className="gap-1 text-xs text-red-600"
+                  >
                     Calendar <ArrowRight className="h-3 w-3" />
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-red-100 dark:divide-red-900/50">
-                    {(followUpData?.overdue ?? []).slice(0, 5).map((item) => (
+                    {(followUpData?.overdue ?? []).slice(0, 5).map(item => (
                       <div
                         key={item.momentId}
                         className="flex items-center justify-between px-6 py-2.5 hover:bg-red-100/50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
-                        onClick={() => setLocation(item.companyName && item.leadId ? `/leads/${item.leadId}` : `/persons/${item.personId}`)}
+                        onClick={() =>
+                          setLocation(
+                            item.companyName && item.leadId
+                              ? `/leads/${item.leadId}`
+                              : `/persons/${item.personId}`
+                          )
+                        }
                       >
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
-                          <div className="text-xs text-muted-foreground truncate">{item.subject ?? item.type}</div>
+                          <div className="text-sm font-medium truncate">
+                            {item.companyName || item.personName || "Unknown"}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.subject ?? item.type}
+                          </div>
                         </div>
                         <span className="text-xs text-red-600 dark:text-red-400 shrink-0 ml-2">
                           {item.followUpAt ? formatDate(item.followUpAt) : ""}
@@ -112,21 +180,36 @@ export default function Dashboard() {
                     <Clock className="h-4 w-4" />
                     Upcoming Follow-ups ({followUpData!.upcomingCount})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setLocation("/calendar")} className="gap-1 text-xs text-amber-600">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLocation("/calendar")}
+                    className="gap-1 text-xs text-amber-600"
+                  >
                     Calendar <ArrowRight className="h-3 w-3" />
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-amber-100 dark:divide-amber-900/50">
-                    {(followUpData?.upcoming ?? []).slice(0, 5).map((item) => (
+                    {(followUpData?.upcoming ?? []).slice(0, 5).map(item => (
                       <div
                         key={item.momentId}
                         className="flex items-center justify-between px-6 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-950/30 cursor-pointer transition-colors"
-                        onClick={() => setLocation(item.companyName && item.leadId ? `/leads/${item.leadId}` : `/persons/${item.personId}`)}
+                        onClick={() =>
+                          setLocation(
+                            item.companyName && item.leadId
+                              ? `/leads/${item.leadId}`
+                              : `/persons/${item.personId}`
+                          )
+                        }
                       >
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
-                          <div className="text-xs text-muted-foreground truncate">{item.subject ?? item.type}</div>
+                          <div className="text-sm font-medium truncate">
+                            {item.companyName || item.personName || "Unknown"}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.subject ?? item.type}
+                          </div>
                         </div>
                         <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 ml-2">
                           {item.followUpAt ? formatDate(item.followUpAt) : ""}
@@ -144,27 +227,44 @@ export default function Dashboard() {
                     <Video className="h-4 w-4" />
                     Upcoming Meetings ({followUpData!.upcomingMeetingsCount})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setLocation("/calendar")} className="gap-1 text-xs text-blue-600">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLocation("/calendar")}
+                    className="gap-1 text-xs text-blue-600"
+                  >
                     Calendar <ArrowRight className="h-3 w-3" />
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-blue-100 dark:divide-blue-900/50">
-                    {(followUpData?.upcomingMeetings ?? []).slice(0, 5).map((item) => (
-                      <div
-                        key={item.momentId}
-                        className="flex items-center justify-between px-6 py-2.5 hover:bg-blue-100/50 dark:hover:bg-blue-950/30 cursor-pointer transition-colors"
-                        onClick={() => setLocation(item.companyName && item.leadId ? `/leads/${item.leadId}` : `/persons/${item.personId}`)}
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{item.companyName || item.personName || "Unknown"}</div>
-                          <div className="text-xs text-muted-foreground truncate">{item.subject ?? "Meeting"}</div>
+                    {(followUpData?.upcomingMeetings ?? [])
+                      .slice(0, 5)
+                      .map(item => (
+                        <div
+                          key={item.momentId}
+                          className="flex items-center justify-between px-6 py-2.5 hover:bg-blue-100/50 dark:hover:bg-blue-950/30 cursor-pointer transition-colors"
+                          onClick={() =>
+                            setLocation(
+                              item.companyName && item.leadId
+                                ? `/leads/${item.leadId}`
+                                : `/persons/${item.personId}`
+                            )
+                          }
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {item.companyName || item.personName || "Unknown"}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {item.subject ?? "Meeting"}
+                            </div>
+                          </div>
+                          <span className="text-xs text-blue-600 dark:text-blue-400 shrink-0 ml-2">
+                            {item.occurredAt ? formatDate(item.occurredAt) : ""}
+                          </span>
                         </div>
-                        <span className="text-xs text-blue-600 dark:text-blue-400 shrink-0 ml-2">
-                          {item.occurredAt ? formatDate(item.occurredAt) : ""}
-                        </span>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </CardContent>
               </Card>
@@ -176,21 +276,34 @@ export default function Dashboard() {
                     <MailWarning className="h-4 w-4" />
                     Unmatched Emails ({unmatchedData!.count})
                   </CardTitle>
-                  <Button variant="ghost" size="sm" onClick={() => setLocation("/settings?scrollTo=unmatched-emails")} className="gap-1 text-xs text-orange-600">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setLocation("/settings?scrollTo=unmatched-emails")
+                    }
+                    className="gap-1 text-xs text-orange-600"
+                  >
                     Match Emails <ArrowRight className="h-3 w-3" />
                   </Button>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-orange-100 dark:divide-orange-900/50">
-                    {(unmatchedData?.emails ?? []).slice(0, 5).map((item) => (
+                    {(unmatchedData?.emails ?? []).slice(0, 5).map(item => (
                       <div
                         key={item.id}
                         className="flex items-center justify-between px-6 py-2.5 hover:bg-orange-100/50 dark:hover:bg-orange-950/30 cursor-pointer transition-colors"
-                        onClick={() => setLocation("/settings?scrollTo=unmatched-emails")}
+                        onClick={() =>
+                          setLocation("/settings?scrollTo=unmatched-emails")
+                        }
                       >
                         <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">{item.parsedFrom || "Unknown sender"}</div>
-                          <div className="text-xs text-muted-foreground truncate">{item.parsedSubject || "No subject"}</div>
+                          <div className="text-sm font-medium truncate">
+                            {item.parsedFrom || "Unknown sender"}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {item.parsedSubject || "No subject"}
+                          </div>
                         </div>
                         <span className="text-xs text-orange-600 dark:text-orange-400 shrink-0 ml-2">
                           {formatRelativeTime(item.createdAt)}
@@ -228,7 +341,9 @@ export default function Dashboard() {
                 <span className="text-xs text-muted-foreground">Closed</span>
               </div>
               <div className="text-2xl font-bold">{wonCount}</div>
-              <div className="text-sm text-muted-foreground mt-1">Won Deals</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Won Deals
+              </div>
             </CardContent>
           </Card>
 
@@ -241,7 +356,9 @@ export default function Dashboard() {
                 <span className="text-xs text-muted-foreground">Pending</span>
               </div>
               <div className="text-2xl font-bold">{newCount}</div>
-              <div className="text-sm text-muted-foreground mt-1">New Leads</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                New Leads
+              </div>
             </CardContent>
           </Card>
 
@@ -254,7 +371,9 @@ export default function Dashboard() {
                 <span className="text-xs text-muted-foreground">All time</span>
               </div>
               <div className="text-2xl font-bold">{totalMoments}</div>
-              <div className="text-sm text-muted-foreground mt-1">Interactions</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                Interactions
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -264,18 +383,26 @@ export default function Dashboard() {
           {/* Pipeline Bar Chart */}
           <Card className="lg:col-span-2 border shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Pipeline by Stage</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Pipeline by Stage
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {pipelineData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={pipelineData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <BarChart
+                    data={pipelineData}
+                    margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip
                       contentStyle={{ fontSize: 12, borderRadius: 8 }}
-                      formatter={(value, name) => [value, name === "count" ? "Leads" : "Value"]}
+                      formatter={(value, name) => [
+                        value,
+                        name === "count" ? "Leads" : "Value",
+                      ]}
                     />
                     <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   </BarChart>
@@ -291,7 +418,9 @@ export default function Dashboard() {
           {/* Status Pie */}
           <Card className="border shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Lead Distribution</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Lead Distribution
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {pieData.length > 0 ? (
@@ -311,15 +440,25 @@ export default function Dashboard() {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                      <Tooltip
+                        contentStyle={{ fontSize: 12, borderRadius: 8 }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="space-y-1 mt-2">
-                    {pieData.slice(0, 4).map((entry) => (
-                      <div key={entry.name} className="flex items-center justify-between text-xs">
+                    {pieData.slice(0, 4).map(entry => (
+                      <div
+                        key={entry.name}
+                        className="flex items-center justify-between text-xs"
+                      >
                         <div className="flex items-center gap-1.5">
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                          <span className="text-muted-foreground">{entry.name}</span>
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          <span className="text-muted-foreground">
+                            {entry.name}
+                          </span>
                         </div>
                         <span className="font-medium">{entry.value}</span>
                       </div>
@@ -339,16 +478,27 @@ export default function Dashboard() {
         {activityData.length > 0 && (
           <Card className="border shadow-sm">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Contact Activity (Last 30 Days)</CardTitle>
+              <CardTitle className="text-base font-semibold">
+                Contact Activity (Last 30 Days)
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={160}>
-                <LineChart data={activityData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <LineChart
+                  data={activityData}
+                  margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />
                   <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  <Line type="monotone" dataKey="contacts" stroke="#3b82f6" strokeWidth={2} dot={false} />
+                  <Line
+                    type="monotone"
+                    dataKey="contacts"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -360,29 +510,47 @@ export default function Dashboard() {
           {/* Top Leads */}
           <Card className="border shadow-sm">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold">Recent Leads</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setLocation("/leads")} className="gap-1 text-xs">
+              <CardTitle className="text-base font-semibold">
+                Recent Leads
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation("/leads")}
+                className="gap-1 text-xs"
+              >
                 View all <ArrowRight className="h-3 w-3" />
               </Button>
             </CardHeader>
             <CardContent className="p-0">
               {(topLeads ?? []).length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">No leads yet</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No leads yet
+                </div>
               ) : (
                 <div className="divide-y">
-                  {(topLeads ?? []).map((lead) => (
+                  {(topLeads ?? []).map(lead => (
                     <div
                       key={lead.id}
                       className="flex items-center justify-between px-6 py-3 hover:bg-muted/30 cursor-pointer transition-colors"
                       onClick={() => setLocation(`/leads/${lead.id}`)}
                     >
                       <div className="min-w-0">
-                        <div className="font-medium text-sm truncate">{lead.companyName}</div>
-                        <div className="text-xs text-muted-foreground truncate">{lead.contactPerson ?? "—"}</div>
+                        <div className="font-medium text-sm truncate">
+                          {lead.companyName}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {lead.contactPerson ?? "—"}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <Badge className={`text-xs border ${STATUS_COLORS[lead.status as keyof typeof STATUS_COLORS] ?? ""}`} variant="outline">
-                          {STATUS_LABELS[lead.status as keyof typeof STATUS_LABELS] ?? lead.status}
+                        <Badge
+                          className={`text-xs border ${STATUS_COLORS[lead.status as keyof typeof STATUS_COLORS] ?? ""}`}
+                          variant="outline"
+                        >
+                          {STATUS_LABELS[
+                            lead.status as keyof typeof STATUS_LABELS
+                          ] ?? lead.status}
                         </Badge>
                       </div>
                     </div>
@@ -395,27 +563,44 @@ export default function Dashboard() {
           {/* Recent Activity */}
           <Card className="border shadow-sm">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-semibold">Recent Activity</CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => setLocation("/activity")} className="gap-1 text-xs">
+              <CardTitle className="text-base font-semibold">
+                Recent Activity
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLocation("/activity")}
+                className="gap-1 text-xs"
+              >
                 View all <ArrowRight className="h-3 w-3" />
               </Button>
             </CardHeader>
             <CardContent className="p-0">
               {(recentActivity ?? []).length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">No activity yet</div>
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No activity yet
+                </div>
               ) : (
                 <div className="divide-y">
-                  {(recentActivity ?? []).map((item) => (
-                    <div key={item.moment.id} className="flex items-start gap-3 px-6 py-3">
+                  {(recentActivity ?? []).map(item => (
+                    <div
+                      key={item.moment.id}
+                      className="flex items-start gap-3 px-6 py-3"
+                    >
                       <div className="p-1.5 bg-muted rounded-md mt-0.5 shrink-0">
                         <MessageSquare className="h-3 w-3 text-muted-foreground" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium truncate">
-                          {item.lead?.companyName || (item as any).person?.name || "Unknown"}
+                          {item.lead?.companyName ||
+                            (item as any).person?.name ||
+                            "Unknown"}
                         </div>
                         <div className="text-xs text-muted-foreground truncate">
-                          {item.moment.type} · {item.moment.subject ?? item.moment.notes?.slice(0, 60) ?? "No notes"}
+                          {item.moment.type} ·{" "}
+                          {item.moment.subject ??
+                            item.moment.notes?.slice(0, 60) ??
+                            "No notes"}
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground shrink-0">

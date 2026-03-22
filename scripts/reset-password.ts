@@ -19,7 +19,9 @@ async function main() {
   const [email, newPassword] = process.argv.slice(2);
 
   if (!email || !newPassword) {
-    console.error("Usage: npx tsx scripts/reset-password.ts <email> <new-password>");
+    console.error(
+      "Usage: npx tsx scripts/reset-password.ts <email> <new-password>"
+    );
     process.exit(1);
   }
 
@@ -38,7 +40,7 @@ async function main() {
 
   try {
     const { rows } = await pool.query(
-      'SELECT id, email, role FROM users WHERE email = $1',
+      "SELECT id, email, role FROM users WHERE email = $1",
       [email.toLowerCase()]
     );
 
@@ -55,13 +57,15 @@ async function main() {
       [hash, user.id]
     );
 
-    console.log(`Password reset successfully for ${user.email} (role: ${user.role})`);
+    console.log(
+      `Password reset successfully for ${user.email} (role: ${user.role})`
+    );
   } finally {
     await pool.end();
   }
 }
 
-main().catch((err) => {
+main().catch(err => {
   console.error("Error:", err.message);
   process.exit(1);
 });

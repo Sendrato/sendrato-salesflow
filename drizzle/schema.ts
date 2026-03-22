@@ -275,7 +275,8 @@ export const shareablePresentations = pgTable("shareable_presentations", {
 });
 
 export type ShareablePresentation = typeof shareablePresentations.$inferSelect;
-export type InsertShareablePresentation = typeof shareablePresentations.$inferInsert;
+export type InsertShareablePresentation =
+  typeof shareablePresentations.$inferInsert;
 
 // ─── Lead Embeddings (Vector DB) ─────────────────────────────────────────────
 export const leadEmbeddings = pgTable("lead_embeddings", {
@@ -321,7 +322,9 @@ export const personLeadLinks = pgTable("person_lead_links", {
   id: serial("id").primaryKey(),
   personId: integer("personId").notNull(),
   leadId: integer("leadId").notNull(),
-  relationship: relationshipEnum("relationship").default("contact_at").notNull(),
+  relationship: relationshipEnum("relationship")
+    .default("contact_at")
+    .notNull(),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -365,7 +368,9 @@ export const competitors = pgTable("competitors", {
   regions: text("regions"),
   pricing: text("pricing"),
   businessModel: text("businessModel"),
-  threatLevel: competitorThreatLevelEnum("threatLevel").default("medium").notNull(),
+  threatLevel: competitorThreatLevelEnum("threatLevel")
+    .default("medium")
+    .notNull(),
   strengths: text("strengths"),
   weaknesses: text("weaknesses"),
   notes: text("notes"),

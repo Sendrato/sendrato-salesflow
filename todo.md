@@ -1,6 +1,7 @@
 # SalesFlow CRM - Project TODO
 
 ## Core Data Model & Schema
+
 - [x] Define leads table with all fields (company, contact, status, tags, etc.)
 - [x] Define contact_moments table (type, notes, timestamp, user)
 - [x] Define lead_documents table (file metadata, S3 key)
@@ -8,6 +9,7 @@
 - [x] Run db:push to apply migrations
 
 ## Backend Routers
+
 - [x] leads router: list, get, create, update, delete, search/filter, stats
 - [x] contactMoments router: list, listAll, recent, create, update, delete, stats
 - [x] documents router: list, create, delete (S3 storage)
@@ -22,6 +24,7 @@
 - [x] Import preview endpoint (POST /api/import/preview)
 
 ## Frontend Pages
+
 - [x] Dashboard page with pipeline overview and key metrics
 - [x] Leads list page with search, filter, sort, pagination
 - [x] Lead detail page with company info, contact timeline, documents, enrichment
@@ -33,6 +36,7 @@
 - [x] Activity feed page (all contact moments across leads)
 
 ## Multi-Modal Input
+
 - [x] Excel import (xlsx parsing, column mapping UI)
 - [x] CSV import (parsing, column mapping UI)
 - [x] Email CC ingestion endpoint (SendGrid/Postmark/Mailgun compatible)
@@ -40,17 +44,20 @@
 - [x] JSON API import endpoint
 
 ## AI & Vector Search
+
 - [x] Lead embedding generation (on create/update)
 - [x] Semantic search across leads using cosine similarity
 - [x] AI chat with RAG (query leads, contact moments, pipeline)
 - [x] LLM-powered lead enrichment with industry insights, fit scores, buying signals
 
 ## Document Storage
+
 - [x] File upload to S3
 - [x] Document listing per lead
 - [x] Secure download links
 
 ## Testing
+
 - [x] leads router tests (list, get, create, update, delete, stats)
 - [x] contactMoments router tests (list, recent, listAll, create, stats)
 - [x] documents router tests (list, delete)
@@ -58,15 +65,18 @@
 - [x] All 20 tests passing
 
 ## Data Ingestion
+
 - [x] Ingest AmericanLeadswithPersons.xlsx data (29 leads imported)
 
 ## Pending / Future
+
 - [ ] Email notification system for follow-up reminders
 - [ ] Team member assignment and notifications
 - [ ] Export leads to CSV/Excel
 - [ ] Calendar integration for follow-up scheduling
 
 ## Phase 2 — New Features
+
 - [x] Document management: upload PDF, HTML, Excel, Word files with type tagging
 - [x] Shareable HTML presentation: generate unique public URL for uploaded HTML files
 - [x] Share-to-client action: send share link from CRM and record as contact moment
@@ -83,9 +93,11 @@
 - [x] 27 tests passing (auth, leads, contactMoments, documents, documentRag, analytics)
 
 ## Bug Fixes
+
 - [x] Fix AI chat endpoint: "messages array is required" error when sending a message (AIChatBox sends single {message} not {messages:[]}; rewrote endpoint to use createUIMessageStream + convertToModelMessages)
 
 ## Phase 3 — Event Lead Attributes
+
 - [x] Add leadType field to leads table (default, event, hospitality, saas, etc.)
 - [x] Add leadAttributes JSON column to leads table for flexible type-specific data
 - [x] Define event attribute schema: visitorCount, eventDurationDays, eventDates, region, hotelNeedScore, revenueEngineFit, typicalDates, venueCapacity, eventCategory
@@ -98,6 +110,7 @@
 ## Phase 4 — Person Entity & Event Attributes
 
 ### Person Entity
+
 - [x] persons table: name, linkedInUrl, email, phone, personType (contact/partner/reseller/influencer/prospect), company (free text), title, notes, tags, source, createdAt
 - [x] person_lead_links table: personId, leadId, relationship (contact_at/introduced_by/partner/other), notes
 - [x] contact_moments: add optional personId column (moment can be against a person, a lead, or both)
@@ -109,12 +122,14 @@
 - [x] Persons sidebar nav item (People)
 
 ### Event Attributes (completing Phase 3)
+
 - [x] Fix LeadDetail: add updateLeadMutation and wire LeadAttributeEditor save callbacks
 - [x] Import UK Events spreadsheet (26 events) with leadType=event and leadAttributes populated
 - [x] All 55 leads re-indexed for RAG (including event attributes)
 - [x] 27 tests passing
 
 ## Phase 5 — LinkedIn Quick-Import
+
 - [x] Server endpoint POST /api/linkedin-import: fetch public LinkedIn page, extract text, use LLM to parse name/title/company/summary
 - [x] Return structured JSON: name, title, company, linkedInUrl, summary/notes, personType suggestion
 - [x] Frontend: LinkedIn URL input field in Persons quick-add form with "Import" button
@@ -123,15 +138,19 @@
 - [x] Handle errors gracefully (private profile, rate limit, invalid URL) with user-friendly toast messages
 
 ## Bug Fixes (Phase 5)
+
 - [x] Fix LinkedIn import: was hitting wrong Forge API endpoint (/responses instead of /v1/chat/completions) and crashing on LinkedIn's HTTP 999 status. Fixed: use openai.chat() with /v1 baseURL, use plain fetch (not patchedFetch) for LinkedIn page fetch, improved URL slug name inference.
 
 ## Bug Fixes (Phase 6)
+
 - [x] Lead detail page: add Persons tab showing all persons linked to the lead, with link/unlink actions (search persons, select relationship, unlink button, view person link)
 
 ## Bug Fixes (Phase 7)
+
 - [x] Make all search case-insensitive: leads (companyName, contactPerson, email, notes, industry), persons (name, email, company, title, linkedInUrl), contact moments (notes, subject, lead name) — all use LOWER() SQL; RAG keyword search was already case-insensitive via .toLowerCase()
 
 ## Phase 8 — AI Enrichment with Web Scraping (COMPLETED)
+
 - [x] Enrichment engine (enrichmentEngine.ts): scrapes company website, Wikipedia API, Google News RSS
 - [x] Scrape company website homepage and extract text content
 - [x] Wikipedia search + article fetch for company/event overview
@@ -143,6 +162,7 @@
 - [x] 27 tests passing
 
 ## Phase 9 — LLM API Key Management
+
 - [x] app_settings table: key/value store for LLM config (provider, model, apiKey, baseUrl, chatModel, enrichmentModel)
 - [x] settings tRPC router: get, update (admin only), testConnection
 - [x] getLLMProvider() shared helper: reads DB settings at runtime, returns AI SDK provider with correct key/URL

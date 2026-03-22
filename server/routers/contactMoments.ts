@@ -9,8 +9,22 @@ import {
   getContactMomentStats,
 } from "../db";
 
-const momentTypeEnum = z.enum(["email", "phone", "meeting", "linkedin", "slack", "demo", "proposal", "other"]);
-const momentOutcomeEnum = z.enum(["positive", "neutral", "negative", "no_response"]);
+const momentTypeEnum = z.enum([
+  "email",
+  "phone",
+  "meeting",
+  "linkedin",
+  "slack",
+  "demo",
+  "proposal",
+  "other",
+]);
+const momentOutcomeEnum = z.enum([
+  "positive",
+  "neutral",
+  "negative",
+  "no_response",
+]);
 
 export const contactMomentsRouter = router({
   list: publicProcedure
@@ -30,7 +44,10 @@ export const contactMomentsRouter = router({
       z.object({
         leadId: z.number(),
         type: momentTypeEnum,
-        direction: z.enum(["inbound", "outbound"]).optional().default("outbound"),
+        direction: z
+          .enum(["inbound", "outbound"])
+          .optional()
+          .default("outbound"),
         subject: z.string().optional(),
         notes: z.string().optional(),
         outcome: momentOutcomeEnum.optional().default("neutral"),
@@ -66,9 +83,11 @@ export const contactMomentsRouter = router({
     .mutation(async ({ input }) => {
       const updateData: Record<string, any> = {};
       if (input.data.type !== undefined) updateData.type = input.data.type;
-      if (input.data.subject !== undefined) updateData.subject = input.data.subject;
+      if (input.data.subject !== undefined)
+        updateData.subject = input.data.subject;
       if (input.data.notes !== undefined) updateData.notes = input.data.notes;
-      if (input.data.outcome !== undefined) updateData.outcome = input.data.outcome;
+      if (input.data.outcome !== undefined)
+        updateData.outcome = input.data.outcome;
       if (input.data.occurredAt) {
         const d = new Date(input.data.occurredAt);
         if (!isNaN(d.getTime())) updateData.occurredAt = d;
@@ -77,7 +96,8 @@ export const contactMomentsRouter = router({
         const d = new Date(input.data.followUpAt);
         if (!isNaN(d.getTime())) updateData.followUpAt = d;
       }
-      if (input.data.followUpDone !== undefined) updateData.followUpDone = input.data.followUpDone;
+      if (input.data.followUpDone !== undefined)
+        updateData.followUpDone = input.data.followUpDone;
       return await updateContactMoment(input.id, updateData);
     }),
 

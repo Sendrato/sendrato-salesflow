@@ -24,14 +24,14 @@ A full-stack CRM built with React, Express, tRPC, and PostgreSQL. Designed for m
 
 ## Tech Stack
 
-| Layer      | Technology                                          |
-|------------|-----------------------------------------------------|
-| Frontend   | React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui |
-| Backend    | Express, tRPC 11, Node.js                           |
-| Database   | PostgreSQL 16 + pgvector, Drizzle ORM               |
-| AI         | Vercel AI SDK, OpenAI-compatible providers           |
-| Storage    | AWS S3 (presigned URLs)                              |
-| Language   | TypeScript (strict mode)                             |
+| Layer    | Technology                                                      |
+| -------- | --------------------------------------------------------------- |
+| Frontend | React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui |
+| Backend  | Express, tRPC 11, Node.js                                       |
+| Database | PostgreSQL 16 + pgvector, Drizzle ORM                           |
+| AI       | Vercel AI SDK, OpenAI-compatible providers                      |
+| Storage  | AWS S3 (presigned URLs)                                         |
+| Language | TypeScript (strict mode)                                        |
 
 ## Getting Started
 
@@ -61,14 +61,14 @@ The dev server starts at `http://localhost:3000` with Vite HMR for the frontend 
 
 ### Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (`postgresql://user:pass@host:5432/db`) |
-| `JWT_SECRET` | Secret for signing session JWTs (min. 32 characters) |
-| `BUILT_IN_FORGE_API_URL` | Default LLM API base URL (for AI features) |
-| `BUILT_IN_FORGE_API_KEY` | Default LLM API key (for AI features) |
-| `VITE_FRONTEND_FORGE_API_KEY` | Frontend API key (for client-side AI features) |
-| `VITE_FRONTEND_FORGE_API_URL` | Frontend API base URL (for client-side AI features) |
+| Variable                      | Description                                                          |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`                | PostgreSQL connection string (`postgresql://user:pass@host:5432/db`) |
+| `JWT_SECRET`                  | Secret for signing session JWTs (min. 32 characters)                 |
+| `BUILT_IN_FORGE_API_URL`      | Default LLM API base URL (for AI features)                           |
+| `BUILT_IN_FORGE_API_KEY`      | Default LLM API key (for AI features)                                |
+| `VITE_FRONTEND_FORGE_API_KEY` | Frontend API key (for client-side AI features)                       |
+| `VITE_FRONTEND_FORGE_API_URL` | Frontend API base URL (for client-side AI features)                  |
 
 `VITE_*` variables are embedded at build time. The first user to register becomes the admin.
 

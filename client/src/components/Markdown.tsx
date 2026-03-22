@@ -156,7 +156,11 @@ const components = {
 
   // Media
   img: ({ src, alt }: { src?: string; alt?: string }) => (
-    <img src={src} alt={alt || ""} className="max-w-full h-auto rounded-lg my-4" />
+    <img
+      src={src}
+      alt={alt || ""}
+      className="max-w-full h-auto rounded-lg my-4"
+    />
   ),
 };
 

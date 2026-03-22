@@ -39,13 +39,13 @@ export function UserAccessPicker({
 
   const toggleUser = (userId: number) => {
     if (selectedUserIds.includes(userId)) {
-      onSelectedUsersChange(selectedUserIds.filter((id) => id !== userId));
+      onSelectedUsersChange(selectedUserIds.filter(id => id !== userId));
     } else {
       onSelectedUsersChange([...selectedUserIds, userId]);
     }
   };
 
-  const selectedUsers = users.filter((u) => selectedUserIds.includes(u.id));
+  const selectedUsers = users.filter(u => selectedUserIds.includes(u.id));
 
   return (
     <div className={compact ? "flex items-center gap-2" : "space-y-2"}>
@@ -55,10 +55,12 @@ export function UserAccessPicker({
         )}
         <Select
           value={accessType}
-          onValueChange={(v) => onAccessTypeChange(v as "all" | "restricted")}
+          onValueChange={v => onAccessTypeChange(v as "all" | "restricted")}
         >
           <SelectTrigger
-            className={compact ? "w-[140px] h-8 text-xs" : "w-[160px] h-9 text-sm"}
+            className={
+              compact ? "w-[140px] h-8 text-xs" : "w-[160px] h-9 text-sm"
+            }
           >
             <SelectValue />
           </SelectTrigger>
@@ -91,7 +93,7 @@ export function UserAccessPicker({
                   No users found
                 </p>
               ) : (
-                users.map((u) => (
+                users.map(u => (
                   <label
                     key={u.id}
                     className="flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-muted/50 cursor-pointer"
@@ -118,7 +120,7 @@ export function UserAccessPicker({
 
       {accessType === "restricted" && selectedUsers.length > 0 && !compact && (
         <div className="flex flex-wrap gap-1">
-          {selectedUsers.map((u) => (
+          {selectedUsers.map(u => (
             <span
               key={u.id}
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-xs text-primary"

@@ -46,7 +46,9 @@ export async function createWebLink(data: InsertWebLink) {
 
 export async function updateWebLink(
   id: number,
-  data: Partial<Pick<InsertWebLink, "url" | "title" | "description" | "category">>
+  data: Partial<
+    Pick<InsertWebLink, "url" | "title" | "description" | "category">
+  >
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB not available");

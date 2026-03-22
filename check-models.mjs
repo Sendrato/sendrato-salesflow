@@ -4,7 +4,12 @@ const apiUrl = process.env.BUILT_IN_FORGE_API_URL;
 const apiKey = process.env.BUILT_IN_FORGE_API_KEY;
 
 // Test embeddings with different model names
-const models = ["text-embedding-ada-002", "text-embedding-3-small", "text-embedding-3-large", "gemini-embedding-004"];
+const models = [
+  "text-embedding-ada-002",
+  "text-embedding-3-small",
+  "text-embedding-3-large",
+  "gemini-embedding-004",
+];
 
 for (const model of models) {
   try {
@@ -22,7 +27,9 @@ for (const model of models) {
     const text = await res.text();
     if (res.status === 200) {
       const data = JSON.parse(text);
-      console.log(`✓ ${model}: works! Dimensions: ${data.data?.[0]?.embedding?.length}`);
+      console.log(
+        `✓ ${model}: works! Dimensions: ${data.data?.[0]?.embedding?.length}`
+      );
     } else {
       console.log(`✗ ${model}: ${res.status} - ${text.slice(0, 100)}`);
     }

@@ -11,7 +11,16 @@ import {
   getLeadStats,
 } from "../db";
 
-const leadStatusEnum = z.enum(["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost", "on_hold"]);
+const leadStatusEnum = z.enum([
+  "new",
+  "contacted",
+  "qualified",
+  "proposal",
+  "negotiation",
+  "won",
+  "lost",
+  "on_hold",
+]);
 const leadPriorityEnum = z.enum(["low", "medium", "high"]);
 
 const leadInputSchema = z.object({
@@ -46,7 +55,20 @@ const leadInputSchema = z.object({
   tags: z.array(z.string()).optional(),
   label: z.string().optional(),
   nextFollowUpAt: z.string().optional(),
-  leadType: z.enum(["default", "event", "festival", "conference", "hospitality", "saas", "retail", "partner", "venue", "event_promotor"]).optional(),
+  leadType: z
+    .enum([
+      "default",
+      "event",
+      "festival",
+      "conference",
+      "hospitality",
+      "saas",
+      "retail",
+      "partner",
+      "venue",
+      "event_promotor",
+    ])
+    .optional(),
   leadAttributes: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -134,7 +156,12 @@ export const leadsRouter = router({
     }),
 
   bulkUpdateAssignedTo: protectedProcedure
-    .input(z.object({ ids: z.array(z.number()).min(1), assignedTo: z.number().nullable() }))
+    .input(
+      z.object({
+        ids: z.array(z.number()).min(1),
+        assignedTo: z.number().nullable(),
+      })
+    )
     .mutation(async ({ input }) => {
       for (const id of input.ids) {
         await updateLead(id, { assignedTo: input.assignedTo });
@@ -152,7 +179,7 @@ export const leadsRouter = router({
     .input(z.array(leadInputSchema))
     .mutation(async ({ input, ctx }) => {
       const ids = await bulkInsertLeads(
-        input.map((l) => {
+        input.map(l => {
           const { nextFollowUpAt, ...rest } = l;
           return {
             ...rest,
@@ -162,7 +189,9 @@ export const leadsRouter = router({
             leadType: (rest.leadType ?? "default") as any,
             createdBy: ctx.user.id,
             source: rest.source ?? "import",
-            nextFollowUpAt: nextFollowUpAt ? new Date(nextFollowUpAt) : undefined,
+            nextFollowUpAt: nextFollowUpAt
+              ? new Date(nextFollowUpAt)
+              : undefined,
           };
         })
       );

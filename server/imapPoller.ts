@@ -11,11 +11,7 @@
 
 import { ImapFlow } from "imapflow";
 import { getAllImapSettings } from "./settingsDb";
-import {
-  createContactMoment,
-  logEmailIngest,
-  isMessageProcessed,
-} from "./db";
+import { createContactMoment, logEmailIngest, isMessageProcessed } from "./db";
 import { extractEmailAddresses, matchEmailAddresses } from "./emailMatcher";
 import { simpleParser, type ParsedMail } from "mailparser";
 
@@ -43,7 +39,9 @@ async function processFolder(
     const status = client.mailbox as any;
     const msgCount = status?.exists ?? 0;
     const unseenCount = status?.unseen ?? "?";
-    console.log(`[IMAP] Folder ${folder}: ${msgCount} messages total, ${unseenCount} unseen`);
+    console.log(
+      `[IMAP] Folder ${folder}: ${msgCount} messages total, ${unseenCount} unseen`
+    );
 
     if (!msgCount) {
       console.log(`[IMAP] Folder ${folder} is empty, skipping`);
@@ -76,11 +74,14 @@ async function processFolder(
         const from = msg.envelope?.from?.[0]
           ? `${msg.envelope.from[0].name ?? ""} <${msg.envelope.from[0].address ?? ""}>`
           : "";
-        const to = msg.envelope?.to?.map((a) => a.address).join(", ") ?? "";
-        const cc = msg.envelope?.cc?.map((a: any) => a.address).join(", ") ?? "";
+        const to = msg.envelope?.to?.map(a => a.address).join(", ") ?? "";
+        const cc =
+          msg.envelope?.cc?.map((a: any) => a.address).join(", ") ?? "";
         const subject = msg.envelope?.subject ?? "";
 
-        console.log(`[IMAP] Processing: "${subject}" from ${from} (uid=${msg.uid}, id=${messageId.slice(0, 40)})`);
+        console.log(
+          `[IMAP] Processing: "${subject}" from ${from} (uid=${msg.uid}, id=${messageId.slice(0, 40)})`
+        );
 
         // Parse the full message
         let parsed: ParsedMail | undefined;
@@ -101,13 +102,17 @@ async function processFolder(
           cc
         );
 
-        console.log(`[IMAP]   Extracted emails: [${emailAddresses.join(", ")}]`);
+        console.log(
+          `[IMAP]   Extracted emails: [${emailAddresses.join(", ")}]`
+        );
 
         // Try to match
         const match = await matchEmailAddresses(emailAddresses);
 
         if (match.lead) {
-          console.log(`[IMAP]   -> Matched LEAD: ${match.lead.companyName} (id=${match.lead.id}) via ${match.matchedEmail}`);
+          console.log(
+            `[IMAP]   -> Matched LEAD: ${match.lead.companyName} (id=${match.lead.id}) via ${match.matchedEmail}`
+          );
           const emailDate = msg.envelope?.date ?? new Date();
           const followUpDate = new Date(emailDate);
           followUpDate.setDate(followUpDate.getDate() + 1);
@@ -137,7 +142,9 @@ async function processFolder(
           });
         } else if (match.person) {
           const { person, linkedLeads } = match.person;
-          console.log(`[IMAP]   -> Matched PERSON: ${person.name} (id=${person.id}) via ${match.matchedEmail}, ${linkedLeads?.length ?? 0} linked leads`);
+          console.log(
+            `[IMAP]   -> Matched PERSON: ${person.name} (id=${person.id}) via ${match.matchedEmail}, ${linkedLeads?.length ?? 0} linked leads`
+          );
 
           if (linkedLeads && linkedLeads.length > 0) {
             const pEmailDate = msg.envelope?.date ?? new Date();
@@ -173,7 +180,9 @@ async function processFolder(
             status: "matched",
           });
         } else {
-          console.log(`[IMAP]   -> No match found for emails: [${emailAddresses.join(", ")}]`);
+          console.log(
+            `[IMAP]   -> No match found for emails: [${emailAddresses.join(", ")}]`
+          );
           await logEmailIngest({
             rawPayload: JSON.stringify({
               from,
@@ -194,14 +203,19 @@ async function processFolder(
 
         processed++;
       } catch (msgErr) {
-        console.error(`[IMAP] Error processing message uid=${msg.uid}:`, msgErr);
+        console.error(
+          `[IMAP] Error processing message uid=${msg.uid}:`,
+          msgErr
+        );
       }
     }
   } finally {
     lock.release();
   }
 
-  console.log(`[IMAP] Folder ${folder} done: ${total} total, ${processed} new, ${skipped} already processed`);
+  console.log(
+    `[IMAP] Folder ${folder} done: ${total} total, ${processed} new, ${skipped} already processed`
+  );
   return processed;
 }
 
@@ -217,7 +231,9 @@ export async function pollOnce(): Promise<number> {
     return 0;
   }
 
-  console.log(`[IMAP] Connecting to ${settings.host}:${settings.port} (secure=${settings.secure}) as ${settings.user}`);
+  console.log(
+    `[IMAP] Connecting to ${settings.host}:${settings.port} (secure=${settings.secure}) as ${settings.user}`
+  );
 
   const client = new ImapFlow({
     host: settings.host,
@@ -236,8 +252,8 @@ export async function pollOnce(): Promise<number> {
   // Parse folder setting: comma-separated list, e.g. "INBOX, Sent, Archive"
   const folders = settings.folder
     .split(",")
-    .map((f) => f.trim())
-    .filter((f) => f.length > 0);
+    .map(f => f.trim())
+    .filter(f => f.length > 0);
   if (folders.length === 0) folders.push("INBOX");
 
   console.log(`[IMAP] Will check folders: [${folders.join(", ")}]`);
@@ -251,7 +267,9 @@ export async function pollOnce(): Promise<number> {
     // List available folders for debugging
     try {
       const mailboxes = await client.list();
-      console.log(`[IMAP] Available folders: [${mailboxes.map((m) => m.path).join(", ")}]`);
+      console.log(
+        `[IMAP] Available folders: [${mailboxes.map(m => m.path).join(", ")}]`
+      );
     } catch {
       // non-critical
     }
@@ -266,10 +284,16 @@ export async function pollOnce(): Promise<number> {
     }
 
     await client.logout();
-    console.log(`[IMAP] Poll complete: ${totalProcessed} new messages processed`);
+    console.log(
+      `[IMAP] Poll complete: ${totalProcessed} new messages processed`
+    );
   } catch (err) {
     console.error("[IMAP] Poll error:", err);
-    try { await client.logout(); } catch { /* ignore */ }
+    try {
+      await client.logout();
+    } catch {
+      /* ignore */
+    }
   }
 
   return totalProcessed;
@@ -282,21 +306,28 @@ export async function startImapPolling(): Promise<void> {
   if (isPolling) return;
 
   const settings = await getAllImapSettings();
-  if (!settings.enabled || !settings.host || !settings.user || !settings.password) {
+  if (
+    !settings.enabled ||
+    !settings.host ||
+    !settings.user ||
+    !settings.password
+  ) {
     console.log("[IMAP] Polling not configured or disabled");
     return;
   }
 
   isPolling = true;
   const intervalMs = Math.max(1, settings.pollInterval) * 60 * 1000;
-  console.log(`[IMAP] Starting polling every ${settings.pollInterval}m for ${settings.user}`);
+  console.log(
+    `[IMAP] Starting polling every ${settings.pollInterval}m for ${settings.user}`
+  );
 
   // Run first poll immediately
-  pollOnce().catch((err) => console.error("[IMAP] Initial poll failed:", err));
+  pollOnce().catch(err => console.error("[IMAP] Initial poll failed:", err));
 
   // Schedule recurring polls
   pollingTimer = setInterval(() => {
-    pollOnce().catch((err) => console.error("[IMAP] Poll failed:", err));
+    pollOnce().catch(err => console.error("[IMAP] Poll failed:", err));
   }, intervalMs);
 }
 

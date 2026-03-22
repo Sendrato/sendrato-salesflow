@@ -73,9 +73,7 @@ export const competitorsRouter = router({
     }),
 
   update: protectedProcedure
-    .input(
-      z.object({ id: z.number(), data: competitorInputSchema.partial() })
-    )
+    .input(z.object({ id: z.number(), data: competitorInputSchema.partial() }))
     .mutation(async ({ input }) => {
       return updateCompetitor(input.id, input.data);
     }),
@@ -168,9 +166,7 @@ export const competitorsRouter = router({
     }),
 
   unlinkFromLead: protectedProcedure
-    .input(
-      z.object({ competitorId: z.number(), leadId: z.number() })
-    )
+    .input(z.object({ competitorId: z.number(), leadId: z.number() }))
     .mutation(async ({ input }) => {
       await unlinkCompetitorFromLead(input.competitorId, input.leadId);
       return { success: true };
@@ -188,7 +184,7 @@ export const competitorsRouter = router({
       const pool = await getRawPool();
       if (!pool) return docs;
       const enriched = await Promise.all(
-        docs.map(async (doc) => {
+        docs.map(async doc => {
           const chunkResult = await pool.query(
             'SELECT COUNT(*) as cnt FROM document_chunks WHERE "competitorDocumentId" = $1',
             [doc.id]
@@ -212,13 +208,7 @@ export const competitorsRouter = router({
         mimeType: z.string().optional(),
         fileSize: z.number().optional(),
         category: z
-          .enum([
-            "proposal",
-            "contract",
-            "presentation",
-            "report",
-            "other",
-          ])
+          .enum(["proposal", "contract", "presentation", "report", "other"])
           .optional()
           .default("other"),
       })

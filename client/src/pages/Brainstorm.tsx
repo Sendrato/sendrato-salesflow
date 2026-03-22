@@ -23,13 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Lightbulb,
-  Search,
-  Plus,
-  ExternalLink,
-  Sparkles,
-} from "lucide-react";
+import { Lightbulb, Search, Plus, ExternalLink, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
 
@@ -69,7 +63,7 @@ function AddBrainstormDialog({ onSuccess }: { onSuccess: () => void }) {
             <Label className="text-sm">Title *</Label>
             <Input
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={e => setTitle(e.target.value)}
               placeholder="What's your idea?"
               className="text-sm"
             />
@@ -78,17 +72,13 @@ function AddBrainstormDialog({ onSuccess }: { onSuccess: () => void }) {
             <Label className="text-sm">Description</Label>
             <Textarea
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={e => setContent(e.target.value)}
               placeholder="Describe your idea, notes, or initial thoughts..."
               className="text-sm min-h-[120px]"
             />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setOpen(false)}
-            >
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button
@@ -155,7 +145,7 @@ export default function BrainstormPage() {
             <Input
               placeholder="Search ideas..."
               value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
               className="pl-9 h-9 text-sm"
             />
           </div>
@@ -175,8 +165,7 @@ export default function BrainstormPage() {
                   No ideas yet
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Create your first brainstorm and let AI help you explore
-                  it
+                  Create your first brainstorm and let AI help you explore it
                 </p>
               </div>
             ) : (
@@ -202,16 +191,14 @@ export default function BrainstormPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((item) => (
+                  {items.map(item => (
                     <TableRow
                       key={item.id}
                       className="cursor-pointer hover:bg-muted/40 transition-colors"
                       onClick={() => navigate(`/brainstorm/${item.id}`)}
                     >
                       <TableCell>
-                        <div className="font-medium text-sm">
-                          {item.title}
-                        </div>
+                        <div className="font-medium text-sm">{item.title}</div>
                         {item.content && (
                           <div className="text-xs text-muted-foreground line-clamp-1 max-w-[300px] mt-0.5">
                             {item.content}
@@ -243,7 +230,7 @@ export default function BrainstormPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1 flex-wrap">
-                          {(item.tags ?? []).slice(0, 3).map((tag) => (
+                          {(item.tags ?? []).slice(0, 3).map(tag => (
                             <Badge
                               key={tag}
                               variant="secondary"

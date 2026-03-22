@@ -2,16 +2,38 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, ArrowRight, X } from "lucide-react";
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  ArrowRight,
+  X,
+} from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useState, useRef, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { LEAD_TYPE_SCHEMAS, getLeadTypeOptions } from "@shared/leadAttributeSchemas";
+import {
+  LEAD_TYPE_SCHEMAS,
+  getLeadTypeOptions,
+} from "@shared/leadAttributeSchemas";
 
 const BASE_CRM_FIELDS = [
   { value: "skip", label: "— Skip —" },
@@ -36,16 +58,29 @@ const BASE_CRM_FIELDS = [
 ];
 
 const BASE_AUTO_DETECT: Record<string, string> = {
-  "company name": "companyName", "company": "companyName", "company_name": "companyName",
+  "company name": "companyName",
+  company: "companyName",
+  company_name: "companyName",
   "event name": "companyName",
-  "website": "website", "url": "website",
-  "contact": "contactPerson", "contact person": "contactPerson", "name": "contactPerson",
-  "email": "email", "e-mail": "email",
-  "phone": "phone", "telephone": "phone",
-  "status": "status", "priority": "priority", "notes": "notes",
-  "industry": "industry", "location": "location", "country": "country",
-  "pain points": "painPoints", "opportunities": "futureOpportunities",
-  "revenue model": "revenueModel", "risks": "risks",
+  website: "website",
+  url: "website",
+  contact: "contactPerson",
+  "contact person": "contactPerson",
+  name: "contactPerson",
+  email: "email",
+  "e-mail": "email",
+  phone: "phone",
+  telephone: "phone",
+  status: "status",
+  priority: "priority",
+  notes: "notes",
+  industry: "industry",
+  location: "location",
+  country: "country",
+  "pain points": "painPoints",
+  opportunities: "futureOpportunities",
+  "revenue model": "revenueModel",
+  risks: "risks",
 };
 
 const leadTypeOptions = getLeadTypeOptions();
@@ -77,14 +112,18 @@ export default function Import() {
   // Fetch existing labels for suggestions
   const { data: allLeadsData } = trpc.leads.list.useQuery({ limit: 1000 });
   const existingLabels = Array.from(
-    new Set((allLeadsData?.items ?? []).map((l) => (l as any).label).filter(Boolean) as string[])
+    new Set(
+      (allLeadsData?.items ?? [])
+        .map(l => (l as any).label)
+        .filter(Boolean) as string[]
+    )
   ).sort();
 
   const schema = LEAD_TYPE_SCHEMAS[leadType];
 
   const crmFields = useMemo(() => {
     if (!schema?.fields.length) return BASE_CRM_FIELDS;
-    const attrFields = schema.fields.map((f) => ({
+    const attrFields = schema.fields.map(f => ({
       value: `attr:${f.key}`,
       label: `${f.label} (${schema.label})`,
     }));
@@ -102,37 +141,46 @@ export default function Import() {
     return { ...BASE_AUTO_DETECT, ...attrDetect };
   }, [leadType, schema]);
 
-  const handleFile = useCallback(async (f: File) => {
-    setFile(f);
-    setResult(null);
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", f);
-      const res = await fetch("/api/import/preview", { method: "POST", body: formData });
-      if (!res.ok) throw new Error("Preview failed");
-      const data: PreviewData = await res.json();
-      setPreview(data);
-      // Auto-detect column mapping
-      const autoMapping: Record<string, string> = {};
-      for (const col of data.columns) {
-        const normalized = col.toLowerCase().trim();
-        autoMapping[col] = autoDetect[normalized] ?? "skip";
+  const handleFile = useCallback(
+    async (f: File) => {
+      setFile(f);
+      setResult(null);
+      setLoading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", f);
+        const res = await fetch("/api/import/preview", {
+          method: "POST",
+          body: formData,
+        });
+        if (!res.ok) throw new Error("Preview failed");
+        const data: PreviewData = await res.json();
+        setPreview(data);
+        // Auto-detect column mapping
+        const autoMapping: Record<string, string> = {};
+        for (const col of data.columns) {
+          const normalized = col.toLowerCase().trim();
+          autoMapping[col] = autoDetect[normalized] ?? "skip";
+        }
+        setMapping(autoMapping);
+      } catch {
+        toast.error("Failed to preview file");
+      } finally {
+        setLoading(false);
       }
-      setMapping(autoMapping);
-    } catch {
-      toast.error("Failed to preview file");
-    } finally {
-      setLoading(false);
-    }
-  }, [autoDetect]);
+    },
+    [autoDetect]
+  );
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  }, [handleFile]);
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const f = e.dataTransfer.files[0];
+      if (f) handleFile(f);
+    },
+    [handleFile]
+  );
 
   const handleLeadTypeChange = (newType: string) => {
     setLeadType(newType);
@@ -172,10 +220,14 @@ export default function Import() {
       // Build mapping excluding "skip"
       const effectiveMapping: Record<string, string> = {};
       for (const [col, field] of Object.entries(mapping)) {
-        if (field !== "skip") effectiveMapping[col.toLowerCase().trim()] = field;
+        if (field !== "skip")
+          effectiveMapping[col.toLowerCase().trim()] = field;
       }
       formData.append("mapping", JSON.stringify(effectiveMapping));
-      const res = await fetch("/api/import", { method: "POST", body: formData });
+      const res = await fetch("/api/import", {
+        method: "POST",
+        body: formData,
+      });
       if (!res.ok) throw new Error("Import failed");
       const data: ImportResult = await res.json();
       setResult(data);
@@ -202,7 +254,9 @@ export default function Import() {
       <div className="space-y-4 max-w-4xl">
         <div>
           <h1 className="text-2xl font-bold">Import Leads</h1>
-          <p className="text-sm text-muted-foreground">Upload Excel (.xlsx) or CSV files to bulk import leads</p>
+          <p className="text-sm text-muted-foreground">
+            Upload Excel (.xlsx) or CSV files to bulk import leads
+          </p>
         </div>
 
         {/* Success State */}
@@ -212,12 +266,20 @@ export default function Import() {
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-8 w-8 text-green-600" />
                 <div>
-                  <div className="font-semibold text-green-800">Import Successful!</div>
+                  <div className="font-semibold text-green-800">
+                    Import Successful!
+                  </div>
                   <div className="text-sm text-green-700 mt-0.5">
-                    {result.imported} leads imported · {result.skipped} rows skipped
+                    {result.imported} leads imported · {result.skipped} rows
+                    skipped
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="ml-auto" onClick={reset}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto"
+                  onClick={reset}
+                >
                   Import Another
                 </Button>
               </div>
@@ -229,16 +291,23 @@ export default function Import() {
         {!file && (
           <Card
             className={`border-2 border-dashed transition-colors cursor-pointer ${
-              isDragging ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/25 hover:border-primary/50"
             }`}
-            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragOver={e => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
             onDragLeave={() => setIsDragging(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
           >
             <CardContent className="p-12 text-center">
               <FileSpreadsheet className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <div className="text-lg font-medium mb-1">Drop your file here</div>
+              <div className="text-lg font-medium mb-1">
+                Drop your file here
+              </div>
               <div className="text-sm text-muted-foreground mb-4">
                 Supports Excel (.xlsx) and CSV files
               </div>
@@ -251,7 +320,10 @@ export default function Import() {
                 type="file"
                 className="hidden"
                 accept=".xlsx,.xls,.csv"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) handleFile(f);
+                }}
               />
             </CardContent>
           </Card>
@@ -272,23 +344,36 @@ export default function Import() {
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-base font-semibold">File Preview</CardTitle>
+                    <CardTitle className="text-base font-semibold">
+                      File Preview
+                    </CardTitle>
                     <p className="text-sm text-muted-foreground mt-0.5">
                       {file?.name} · {preview.totalRows} rows detected
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="text-xs text-muted-foreground">Lead Type:</div>
-                    <Select value={leadType} onValueChange={handleLeadTypeChange}>
+                    <div className="text-xs text-muted-foreground">
+                      Lead Type:
+                    </div>
+                    <Select
+                      value={leadType}
+                      onValueChange={handleLeadTypeChange}
+                    >
                       <SelectTrigger className="h-8 w-[180px] text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {leadTypeOptions.map((opt) => (
-                          <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                        {leadTypeOptions.map(opt => (
+                          <SelectItem
+                            key={opt.value}
+                            value={opt.value}
+                            className="text-xs"
+                          >
                             <div>
                               <span className="font-medium">{opt.label}</span>
-                              <span className="text-muted-foreground ml-1.5">{opt.description}</span>
+                              <span className="text-muted-foreground ml-1.5">
+                                {opt.description}
+                              </span>
                             </div>
                           </SelectItem>
                         ))}
@@ -297,17 +382,22 @@ export default function Import() {
                     <div className="text-xs text-muted-foreground">Label:</div>
                     <Input
                       value={importLabel}
-                      onChange={(e) => setImportLabel(e.target.value)}
+                      onChange={e => setImportLabel(e.target.value)}
                       placeholder="Optional label..."
                       className="h-8 w-[160px] text-xs"
                       list="import-label-suggestions"
                     />
                     <datalist id="import-label-suggestions">
-                      {existingLabels.map((l) => (
+                      {existingLabels.map(l => (
                         <option key={l} value={l} />
                       ))}
                     </datalist>
-                    <Button variant="ghost" size="sm" onClick={reset} className="gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={reset}
+                      className="gap-1"
+                    >
                       <X className="h-4 w-4" />
                       Clear
                     </Button>
@@ -319,20 +409,33 @@ export default function Import() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        {preview.columns.map((col) => (
+                        {preview.columns.map(col => (
                           <TableHead key={col} className="min-w-[140px]">
                             <div className="space-y-1.5">
-                              <div className="text-xs font-medium truncate max-w-[140px]" title={col}>{col}</div>
+                              <div
+                                className="text-xs font-medium truncate max-w-[140px]"
+                                title={col}
+                              >
+                                {col}
+                              </div>
                               <Select
                                 value={mapping[col] ?? "skip"}
-                                onValueChange={(v) => setMapping((m) => ({ ...m, [col]: v }))}
+                                onValueChange={v =>
+                                  setMapping(m => ({ ...m, [col]: v }))
+                                }
                               >
                                 <SelectTrigger className="h-7 text-xs">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {crmFields.map((f) => (
-                                    <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
+                                  {crmFields.map(f => (
+                                    <SelectItem
+                                      key={f.value}
+                                      value={f.value}
+                                      className="text-xs"
+                                    >
+                                      {f.label}
+                                    </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -344,9 +447,15 @@ export default function Import() {
                     <TableBody>
                       {preview.preview.map((row, i) => (
                         <TableRow key={i}>
-                          {preview.columns.map((col) => (
-                            <TableCell key={col} className="text-xs max-w-[140px]">
-                              <div className="truncate" title={String(row[col] ?? "")}>
+                          {preview.columns.map(col => (
+                            <TableCell
+                              key={col}
+                              className="text-xs max-w-[140px]"
+                            >
+                              <div
+                                className="truncate"
+                                title={String(row[col] ?? "")}
+                              >
                                 {String(row[col] ?? "—")}
                               </div>
                             </TableCell>
@@ -366,13 +475,23 @@ export default function Import() {
                   <div>
                     <div className="text-sm font-medium">Ready to import</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {Object.values(mapping).filter((v) => v !== "skip").length} columns mapped ·{" "}
-                      {preview.totalRows} rows to process
+                      {Object.values(mapping).filter(v => v !== "skip").length}{" "}
+                      columns mapped · {preview.totalRows} rows to process
                       {leadType !== "default" && (
-                        <> · Lead type: <span className="font-medium">{schema?.label}</span></>
+                        <>
+                          {" "}
+                          · Lead type:{" "}
+                          <span className="font-medium">{schema?.label}</span>
+                        </>
                       )}
                       {importLabel.trim() && (
-                        <> · Label: <span className="font-medium">{importLabel.trim()}</span></>
+                        <>
+                          {" "}
+                          · Label:{" "}
+                          <span className="font-medium">
+                            {importLabel.trim()}
+                          </span>
+                        </>
                       )}
                     </div>
                     {!Object.values(mapping).includes("companyName") && (
@@ -417,15 +536,21 @@ export default function Import() {
               endpoint: "POST /api/import",
               badge: "REST API",
             },
-          ].map((item) => (
+          ].map(item => (
             <Card key={item.title} className="border shadow-sm">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-semibold">{item.title}</div>
-                  <Badge variant="outline" className="text-xs">{item.badge}</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {item.badge}
+                  </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground mb-2">{item.desc}</p>
-                <code className="text-xs bg-muted px-2 py-1 rounded font-mono">{item.endpoint}</code>
+                <p className="text-xs text-muted-foreground mb-2">
+                  {item.desc}
+                </p>
+                <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+                  {item.endpoint}
+                </code>
               </CardContent>
             </Card>
           ))}

@@ -260,6 +260,6 @@ export function normalizeCountry(input: string): string {
   // Fallback: title-case unknown values
   return trimmed
     .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
 }

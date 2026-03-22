@@ -6,30 +6,48 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Swords, Search, Plus, ExternalLink, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { formatRelativeTime } from "@/lib/crm";
 
-const THREAT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-  low:    { label: "Low",    color: "text-green-700",  bg: "bg-green-100" },
+const THREAT_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  low: { label: "Low", color: "text-green-700", bg: "bg-green-100" },
   medium: { label: "Medium", color: "text-yellow-700", bg: "bg-yellow-100" },
-  high:   { label: "High",   color: "text-red-700",    bg: "bg-red-100" },
+  high: { label: "High", color: "text-red-700", bg: "bg-red-100" },
 };
 
 function ThreatBadge({ level }: { level: string }) {
   const cfg = THREAT_CONFIG[level] ?? THREAT_CONFIG.medium;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.color}`}>
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${cfg.bg} ${cfg.color}`}
+    >
       {cfg.label}
     </span>
   );
@@ -48,8 +66,12 @@ function AddCompetitorDialog({ onSuccess }: { onSuccess: () => void }) {
     onSuccess: () => {
       toast.success(`${name} added as competitor`);
       setOpen(false);
-      setName(""); setWebsite(""); setThreatLevel("medium");
-      setProducts(""); setRegions(""); setDescription("");
+      setName("");
+      setWebsite("");
+      setThreatLevel("medium");
+      setProducts("");
+      setRegions("");
+      setDescription("");
       onSuccess();
     },
     onError: () => toast.error("Failed to add competitor"),
@@ -74,15 +96,24 @@ function AddCompetitorDialog({ onSuccess }: { onSuccess: () => void }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-sm">Company Name *</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Corp" className="text-sm" />
+              <Input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder="Acme Corp"
+                className="text-sm"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">Threat Level</Label>
               <Select value={threatLevel} onValueChange={setThreatLevel}>
-                <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="text-sm h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {Object.entries(THREAT_CONFIG).map(([val, cfg]) => (
-                    <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+                    <SelectItem key={val} value={val}>
+                      {cfg.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -90,33 +121,57 @@ function AddCompetitorDialog({ onSuccess }: { onSuccess: () => void }) {
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Website</Label>
-            <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://competitor.com" className="text-sm" />
+            <Input
+              value={website}
+              onChange={e => setWebsite(e.target.value)}
+              placeholder="https://competitor.com"
+              className="text-sm"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Products / Services</Label>
-            <Textarea value={products} onChange={(e) => setProducts(e.target.value)} placeholder="What do they offer?" className="text-sm min-h-[60px]" />
+            <Textarea
+              value={products}
+              onChange={e => setProducts(e.target.value)}
+              placeholder="What do they offer?"
+              className="text-sm min-h-[60px]"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Regions / Markets</Label>
-            <Input value={regions} onChange={(e) => setRegions(e.target.value)} placeholder="e.g. Europe, North America" className="text-sm" />
+            <Input
+              value={regions}
+              onChange={e => setRegions(e.target.value)}
+              placeholder="e.g. Europe, North America"
+              className="text-sm"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Description</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief overview" className="text-sm min-h-[60px]" />
+            <Textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Brief overview"
+              className="text-sm min-h-[60px]"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-1">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
             <Button
               size="sm"
               disabled={!name.trim() || createMutation.isPending}
-              onClick={() => createMutation.mutate({
-                name: name.trim(),
-                website: website || undefined,
-                threatLevel: threatLevel as any,
-                products: products || undefined,
-                regions: regions || undefined,
-                description: description || undefined,
-              })}
+              onClick={() =>
+                createMutation.mutate({
+                  name: name.trim(),
+                  website: website || undefined,
+                  threatLevel: threatLevel as any,
+                  products: products || undefined,
+                  regions: regions || undefined,
+                  description: description || undefined,
+                })
+              }
             >
               {createMutation.isPending ? "Adding..." : "Add Competitor"}
             </Button>
@@ -147,7 +202,10 @@ export default function CompetitorsPage() {
   function handleSearchChange(val: string) {
     setSearch(val);
     clearTimeout((window as any)._competitorSearchTimer);
-    (window as any)._competitorSearchTimer = setTimeout(() => setDebouncedSearch(val), 300);
+    (window as any)._competitorSearchTimer = setTimeout(
+      () => setDebouncedSearch(val),
+      300
+    );
   }
 
   return (
@@ -160,7 +218,8 @@ export default function CompetitorsPage() {
               Competitors
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Track competitor products, pricing, and which leads use their services
+              Track competitor products, pricing, and which leads use their
+              services
             </p>
           </div>
           <AddCompetitorDialog onSuccess={refetch} />
@@ -169,12 +228,17 @@ export default function CompetitorsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {Object.entries(THREAT_CONFIG).map(([level, cfg]) => {
-            const count = Number(stats?.threatCounts?.find((t: any) => t.threatLevel === level)?.count ?? 0);
+            const count = Number(
+              stats?.threatCounts?.find((t: any) => t.threatLevel === level)
+                ?.count ?? 0
+            );
             return (
               <Card key={level} className="border shadow-sm">
                 <CardContent className="p-3">
                   <div className="text-2xl font-bold">{count}</div>
-                  <div className={`text-xs font-medium ${cfg.color}`}>{cfg.label} Threat</div>
+                  <div className={`text-xs font-medium ${cfg.color}`}>
+                    {cfg.label} Threat
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -182,8 +246,12 @@ export default function CompetitorsPage() {
           {stats?.upcomingContractEnds ? (
             <Card className="border shadow-sm border-amber-200">
               <CardContent className="p-3">
-                <div className="text-2xl font-bold text-amber-700">{stats.upcomingContractEnds}</div>
-                <div className="text-xs font-medium text-amber-600">Contracts Ending (90d)</div>
+                <div className="text-2xl font-bold text-amber-700">
+                  {stats.upcomingContractEnds}
+                </div>
+                <div className="text-xs font-medium text-amber-600">
+                  Contracts Ending (90d)
+                </div>
               </CardContent>
             </Card>
           ) : null}
@@ -196,7 +264,7 @@ export default function CompetitorsPage() {
             <Input
               placeholder="Search competitors..."
               value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
+              onChange={e => handleSearchChange(e.target.value)}
               className="pl-9 h-9 text-sm"
             />
           </div>
@@ -207,7 +275,9 @@ export default function CompetitorsPage() {
             <SelectContent>
               <SelectItem value="all">All levels</SelectItem>
               {Object.entries(THREAT_CONFIG).map(([val, cfg]) => (
-                <SelectItem key={val} value={val}>{cfg.label}</SelectItem>
+                <SelectItem key={val} value={val}>
+                  {cfg.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -217,30 +287,47 @@ export default function CompetitorsPage() {
         <Card className="border shadow-sm">
           <CardContent className="p-0">
             {isLoading ? (
-              <div className="p-8 text-center text-muted-foreground text-sm">Loading...</div>
+              <div className="p-8 text-center text-muted-foreground text-sm">
+                Loading...
+              </div>
             ) : items.length === 0 ? (
               <div className="p-12 text-center">
                 <Swords className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-sm font-medium text-muted-foreground">No competitors yet</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  No competitors yet
+                </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Add competitors to track their products, pricing, and market presence
+                  Add competitors to track their products, pricing, and market
+                  presence
                 </p>
               </div>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs font-semibold">Name</TableHead>
-                    <TableHead className="text-xs font-semibold">Threat</TableHead>
-                    <TableHead className="text-xs font-semibold">Products</TableHead>
-                    <TableHead className="text-xs font-semibold">Regions</TableHead>
-                    <TableHead className="text-xs font-semibold">Website</TableHead>
-                    <TableHead className="text-xs font-semibold">Updated</TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Name
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Threat
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Products
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Regions
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Website
+                    </TableHead>
+                    <TableHead className="text-xs font-semibold">
+                      Updated
+                    </TableHead>
                     <TableHead />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {items.map((c) => (
+                  {items.map(c => (
                     <TableRow
                       key={c.id}
                       className="cursor-pointer hover:bg-muted/40 transition-colors"
@@ -265,17 +352,25 @@ export default function CompetitorsPage() {
                       <TableCell>
                         {c.website ? (
                           <a
-                            href={c.website.startsWith("http") ? c.website : `https://${c.website}`}
+                            href={
+                              c.website.startsWith("http")
+                                ? c.website
+                                : `https://${c.website}`
+                            }
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={e => e.stopPropagation()}
                             className="text-xs text-blue-600 hover:underline flex items-center gap-1"
                           >
                             <Globe className="h-3 w-3" />
-                            {c.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                            {c.website
+                              .replace(/^https?:\/\//, "")
+                              .replace(/\/$/, "")}
                           </a>
                         ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
+                          <span className="text-xs text-muted-foreground">
+                            —
+                          </span>
                         )}
                       </TableCell>
                       <TableCell>

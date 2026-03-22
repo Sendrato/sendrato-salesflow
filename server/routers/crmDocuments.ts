@@ -1,9 +1,6 @@
 import { z } from "zod/v4";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import {
-  getCrmDocuments,
-  deleteCrmDocument,
-} from "../crmDocumentsDb";
+import { getCrmDocuments, deleteCrmDocument } from "../crmDocumentsDb";
 import { getRawPool } from "../db";
 
 export const crmDocumentsRouter = router({

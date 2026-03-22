@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, getTableColumns, gte, like, lte, or, sql, inArray } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  getTableColumns,
+  gte,
+  like,
+  lte,
+  or,
+  sql,
+  inArray,
+} from "drizzle-orm";
 import { normalizeCountry } from "@shared/countries";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
@@ -57,7 +69,9 @@ export async function getDb() {
             `SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'label'`
           );
           if (colCheck.rows.length === 0) {
-            await _pool.query(`ALTER TABLE leads ADD COLUMN "label" varchar(128)`);
+            await _pool.query(
+              `ALTER TABLE leads ADD COLUMN "label" varchar(128)`
+            );
             console.log("[DB] Added 'label' column to leads");
           }
           // Ensure persons.assignedTo column exists
@@ -65,7 +79,9 @@ export async function getDb() {
             `SELECT 1 FROM information_schema.columns WHERE table_name = 'persons' AND column_name = 'assignedTo'`
           );
           if (personsColCheck.rows.length === 0) {
-            await _pool.query(`ALTER TABLE persons ADD COLUMN "assignedTo" integer`);
+            await _pool.query(
+              `ALTER TABLE persons ADD COLUMN "assignedTo" integer`
+            );
             console.log("[DB] Added 'assignedTo' column to persons");
           }
           // Ensure leads.leadSize column exists
@@ -73,24 +89,34 @@ export async function getDb() {
             `SELECT 1 FROM information_schema.columns WHERE table_name = 'leads' AND column_name = 'leadSize'`
           );
           if (leadSizeCheck.rows.length === 0) {
-            await _pool.query(`ALTER TABLE leads ADD COLUMN "leadSize" integer`);
+            await _pool.query(
+              `ALTER TABLE leads ADD COLUMN "leadSize" integer`
+            );
             console.log("[DB] Added 'leadSize' column to leads");
           }
           // Always backfill leadSize for leads that have attributes but no size yet
           try {
-            const { getLeadSize: calcSize } = await import("../shared/leadAttributeSchemas");
+            const { getLeadSize: calcSize } =
+              await import("../shared/leadAttributeSchemas");
             const missingSize = await _pool.query(
               `SELECT id, "leadType", "leadAttributes" FROM leads WHERE "leadAttributes" IS NOT NULL AND "leadSize" IS NULL`
             );
             let backfilled = 0;
             for (const row of missingSize.rows) {
-              const size = calcSize(row.leadType || "default", row.leadAttributes);
+              const size = calcSize(
+                row.leadType || "default",
+                row.leadAttributes
+              );
               if (size !== null) {
-                await _pool.query(`UPDATE leads SET "leadSize" = $1 WHERE id = $2`, [size, row.id]);
+                await _pool.query(
+                  `UPDATE leads SET "leadSize" = $1 WHERE id = $2`,
+                  [size, row.id]
+                );
                 backfilled++;
               }
             }
-            if (backfilled > 0) console.log(`[DB] Backfilled leadSize for ${backfilled} leads`);
+            if (backfilled > 0)
+              console.log(`[DB] Backfilled leadSize for ${backfilled} leads`);
           } catch (e) {
             console.warn("[DB] leadSize backfill failed:", e);
           }
@@ -157,13 +183,24 @@ export async function getDb() {
           }
           // Trim trailing/leading whitespace from key text fields
           try {
-            const trimFields = ["companyName", "country", "location", "industry", "contactPerson", "email", "source", "label"];
+            const trimFields = [
+              "companyName",
+              "country",
+              "location",
+              "industry",
+              "contactPerson",
+              "email",
+              "source",
+              "label",
+            ];
             for (const col of trimFields) {
               const res = await _pool.query(
                 `UPDATE leads SET "${col}" = TRIM("${col}") WHERE "${col}" IS NOT NULL AND "${col}" != TRIM("${col}")`
               );
               if (res.rowCount && res.rowCount > 0) {
-                console.log(`[DB] Trimmed whitespace in leads.${col} for ${res.rowCount} rows`);
+                console.log(
+                  `[DB] Trimmed whitespace in leads.${col} for ${res.rowCount} rows`
+                );
               }
             }
           } catch (e) {
@@ -183,7 +220,9 @@ export async function getDb() {
                   [normalized, original]
                 );
                 if (res.rowCount && res.rowCount > 0) {
-                  console.log(`[DB] Normalized country "${original}" → "${normalized}" (${res.rowCount} rows)`);
+                  console.log(
+                    `[DB] Normalized country "${original}" → "${normalized}" (${res.rowCount} rows)`
+                  );
                 }
               }
             }
@@ -259,7 +298,11 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
   return result[0];
 }
 
@@ -277,9 +320,7 @@ export async function getUserByEmail(email: string) {
 export async function getUserCount(): Promise<number> {
   const db = await getDb();
   if (!db) return 0;
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(users);
+  const result = await db.select({ count: sql<number>`count(*)` }).from(users);
   return Number(result[0]?.count ?? 0);
 }
 
@@ -315,14 +356,24 @@ export async function listUsers() {
 export async function getUserById(userId: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
   return result[0];
 }
 
-export async function updateUserName(userId: number, name: string): Promise<void> {
+export async function updateUserName(
+  userId: number,
+  name: string
+): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(users).set({ name, updatedAt: new Date() }).where(eq(users.id, userId));
+  await db
+    .update(users)
+    .set({ name, updatedAt: new Date() })
+    .where(eq(users.id, userId));
 }
 
 export async function deleteUser(userId: number): Promise<void> {
@@ -362,15 +413,20 @@ export async function getLeads(opts: {
       )
     );
   }
-  if (opts.status) conditions.push(eq(leads.status, opts.status as Lead["status"]));
-  if (opts.priority) conditions.push(eq(leads.priority, opts.priority as Lead["priority"]));
+  if (opts.status)
+    conditions.push(eq(leads.status, opts.status as Lead["status"]));
+  if (opts.priority)
+    conditions.push(eq(leads.priority, opts.priority as Lead["priority"]));
   if (opts.source) conditions.push(eq(leads.source, opts.source));
   if (opts.country) conditions.push(eq(leads.country, opts.country));
-  if (opts.leadType) conditions.push(eq(leads.leadType, opts.leadType as Lead["leadType"]));
+  if (opts.leadType)
+    conditions.push(eq(leads.leadType, opts.leadType as Lead["leadType"]));
   if (opts.label) conditions.push(eq(leads.label, opts.label));
   if (opts.assignedTo) conditions.push(eq(leads.assignedTo, opts.assignedTo));
-  if (opts.sizeMin !== undefined) conditions.push(gte(leads.leadSize, opts.sizeMin));
-  if (opts.sizeMax !== undefined) conditions.push(lte(leads.leadSize, opts.sizeMax));
+  if (opts.sizeMin !== undefined)
+    conditions.push(gte(leads.leadSize, opts.sizeMin));
+  if (opts.sizeMax !== undefined)
+    conditions.push(lte(leads.leadSize, opts.sizeMax));
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
   const limit = opts.limit ?? 50;
@@ -380,14 +436,27 @@ export async function getLeads(opts: {
     db
       .select({
         ...getTableColumns(leads),
-        documentCount: sql<number>`(SELECT COUNT(*)::int FROM lead_documents WHERE lead_documents."leadId" = "leads"."id")`.as("documentCount"),
+        documentCount:
+          sql<number>`(SELECT COUNT(*)::int FROM lead_documents WHERE lead_documents."leadId" = "leads"."id")`.as(
+            "documentCount"
+          ),
       })
-      .from(leads).where(where).orderBy(desc(leads.priorityScore)).limit(limit).offset(offset),
-    db.select({ count: sql<number>`count(*)` }).from(leads).where(where),
+      .from(leads)
+      .where(where)
+      .orderBy(desc(leads.priorityScore))
+      .limit(limit)
+      .offset(offset),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(leads)
+      .where(where),
   ]);
 
   return {
-    items: items.map((item) => ({ ...item, documentCount: Number(item.documentCount ?? 0) })),
+    items: items.map(item => ({
+      ...item,
+      documentCount: Number(item.documentCount ?? 0),
+    })),
     total: Number(countResult[0]?.count ?? 0),
   };
 }
@@ -417,8 +486,14 @@ export async function createLead(data: InsertLead) {
   const trimmed = trimLeadStrings(data);
   if (trimmed.country) trimmed.country = normalizeCountry(trimmed.country);
   // Auto-compute leadSize from attributes
-  const size = getLeadSize(trimmed.leadType ?? "default", trimmed.leadAttributes ?? null);
-  const [inserted] = await db.insert(leads).values({ ...trimmed, leadSize: size }).returning({ id: leads.id });
+  const size = getLeadSize(
+    trimmed.leadType ?? "default",
+    trimmed.leadAttributes ?? null
+  );
+  const [inserted] = await db
+    .insert(leads)
+    .values({ ...trimmed, leadSize: size })
+    .returning({ id: leads.id });
   return getLeadById(inserted.id);
 }
 
@@ -435,7 +510,10 @@ export async function updateLead(id: number, data: Partial<InsertLead>) {
     const attrs = trimmed.leadAttributes ?? existing?.leadAttributes ?? null;
     leadSize = getLeadSize(lt, attrs);
   }
-  await db.update(leads).set({ ...trimmed, leadSize, updatedAt: new Date() }).where(eq(leads.id, id));
+  await db
+    .update(leads)
+    .set({ ...trimmed, leadSize, updatedAt: new Date() })
+    .where(eq(leads.id, id));
   return getLeadById(id);
 }
 
@@ -449,11 +527,18 @@ export async function deleteLead(id: number) {
   await db.delete(contactMoments).where(eq(contactMoments.leadId, id));
   await db.delete(documentChunks).where(eq(documentChunks.leadId, id));
   await db.delete(leadDocuments).where(eq(leadDocuments.leadId, id));
-  await db.delete(shareablePresentations).where(eq(shareablePresentations.leadId, id));
+  await db
+    .delete(shareablePresentations)
+    .where(eq(shareablePresentations.leadId, id));
   await db.delete(leadEmbeddings).where(eq(leadEmbeddings.leadId, id));
   await db.delete(personLeadLinks).where(eq(personLeadLinks.leadId, id));
-  await db.delete(competitorLeadLinks).where(eq(competitorLeadLinks.leadId, id));
-  await db.update(emailIngestLog).set({ matchedLeadId: null }).where(eq(emailIngestLog.matchedLeadId, id));
+  await db
+    .delete(competitorLeadLinks)
+    .where(eq(competitorLeadLinks.leadId, id));
+  await db
+    .update(emailIngestLog)
+    .set({ matchedLeadId: null })
+    .where(eq(emailIngestLog.matchedLeadId, id));
   await db.delete(leads).where(eq(leads.id, id));
 }
 
@@ -461,55 +546,106 @@ export async function mergeLeads(keepId: number, removeId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const [keep, remove] = await Promise.all([getLeadById(keepId), getLeadById(removeId)]);
+  const [keep, remove] = await Promise.all([
+    getLeadById(keepId),
+    getLeadById(removeId),
+  ]);
   if (!keep || !remove) throw new Error("Lead not found");
 
   // Move contact moments
-  await db.update(contactMoments).set({ leadId: keepId }).where(eq(contactMoments.leadId, removeId));
+  await db
+    .update(contactMoments)
+    .set({ leadId: keepId })
+    .where(eq(contactMoments.leadId, removeId));
 
   // Move documents & chunks
-  await db.update(documentChunks).set({ leadId: keepId }).where(eq(documentChunks.leadId, removeId));
-  await db.update(leadDocuments).set({ leadId: keepId }).where(eq(leadDocuments.leadId, removeId));
-  await db.update(shareablePresentations).set({ leadId: keepId }).where(eq(shareablePresentations.leadId, removeId));
+  await db
+    .update(documentChunks)
+    .set({ leadId: keepId })
+    .where(eq(documentChunks.leadId, removeId));
+  await db
+    .update(leadDocuments)
+    .set({ leadId: keepId })
+    .where(eq(leadDocuments.leadId, removeId));
+  await db
+    .update(shareablePresentations)
+    .set({ leadId: keepId })
+    .where(eq(shareablePresentations.leadId, removeId));
 
   // Delete embeddings for removed lead (will be regenerated)
   await db.delete(leadEmbeddings).where(eq(leadEmbeddings.leadId, removeId));
 
   // Move person links (skip duplicates)
-  const existingLinks = await db.select({ personId: personLeadLinks.personId }).from(personLeadLinks).where(eq(personLeadLinks.leadId, keepId));
-  const existingPersonIds = new Set(existingLinks.map((l) => l.personId));
-  const removeLinks = await db.select().from(personLeadLinks).where(eq(personLeadLinks.leadId, removeId));
+  const existingLinks = await db
+    .select({ personId: personLeadLinks.personId })
+    .from(personLeadLinks)
+    .where(eq(personLeadLinks.leadId, keepId));
+  const existingPersonIds = new Set(existingLinks.map(l => l.personId));
+  const removeLinks = await db
+    .select()
+    .from(personLeadLinks)
+    .where(eq(personLeadLinks.leadId, removeId));
   for (const link of removeLinks) {
     if (existingPersonIds.has(link.personId)) {
       await db.delete(personLeadLinks).where(eq(personLeadLinks.id, link.id));
     } else {
-      await db.update(personLeadLinks).set({ leadId: keepId }).where(eq(personLeadLinks.id, link.id));
+      await db
+        .update(personLeadLinks)
+        .set({ leadId: keepId })
+        .where(eq(personLeadLinks.id, link.id));
     }
   }
 
   // Move competitor links (skip duplicates)
-  const existingCompLinks = await db.select({ competitorId: competitorLeadLinks.competitorId }).from(competitorLeadLinks).where(eq(competitorLeadLinks.leadId, keepId));
-  const existingCompIds = new Set(existingCompLinks.map((l) => l.competitorId));
-  const removeCompLinks = await db.select().from(competitorLeadLinks).where(eq(competitorLeadLinks.leadId, removeId));
+  const existingCompLinks = await db
+    .select({ competitorId: competitorLeadLinks.competitorId })
+    .from(competitorLeadLinks)
+    .where(eq(competitorLeadLinks.leadId, keepId));
+  const existingCompIds = new Set(existingCompLinks.map(l => l.competitorId));
+  const removeCompLinks = await db
+    .select()
+    .from(competitorLeadLinks)
+    .where(eq(competitorLeadLinks.leadId, removeId));
   for (const link of removeCompLinks) {
     if (existingCompIds.has(link.competitorId)) {
-      await db.delete(competitorLeadLinks).where(eq(competitorLeadLinks.id, link.id));
+      await db
+        .delete(competitorLeadLinks)
+        .where(eq(competitorLeadLinks.id, link.id));
     } else {
-      await db.update(competitorLeadLinks).set({ leadId: keepId }).where(eq(competitorLeadLinks.id, link.id));
+      await db
+        .update(competitorLeadLinks)
+        .set({ leadId: keepId })
+        .where(eq(competitorLeadLinks.id, link.id));
     }
   }
 
   // Move promotor events
-  await db.update(promotorEvents).set({ leadId: keepId }).where(eq(promotorEvents.leadId, removeId));
+  await db
+    .update(promotorEvents)
+    .set({ leadId: keepId })
+    .where(eq(promotorEvents.leadId, removeId));
 
   // Move web links
-  await db.update(webLinks).set({ leadId: keepId }).where(eq(webLinks.leadId, removeId));
+  await db
+    .update(webLinks)
+    .set({ leadId: keepId })
+    .where(eq(webLinks.leadId, removeId));
 
   // Move email ingest log
-  await db.update(emailIngestLog).set({ matchedLeadId: keepId }).where(eq(emailIngestLog.matchedLeadId, removeId));
+  await db
+    .update(emailIngestLog)
+    .set({ matchedLeadId: keepId })
+    .where(eq(emailIngestLog.matchedLeadId, removeId));
 
   // Merge text fields (fill empty fields on keep from remove)
-  const textFields = ["notes", "painPoints", "futureOpportunities", "revenueModel", "risks", "currentPilot"] as const;
+  const textFields = [
+    "notes",
+    "painPoints",
+    "futureOpportunities",
+    "revenueModel",
+    "risks",
+    "currentPilot",
+  ] as const;
   const updates: Record<string, unknown> = {};
   for (const field of textFields) {
     if (!keep[field] && remove[field]) {
@@ -517,16 +653,21 @@ export async function mergeLeads(keepId: number, removeId: number) {
     }
   }
   // Also fill empty contact info
-  if (!keep.contactPerson && remove.contactPerson) updates.contactPerson = remove.contactPerson;
+  if (!keep.contactPerson && remove.contactPerson)
+    updates.contactPerson = remove.contactPerson;
   if (!keep.email && remove.email) updates.email = remove.email;
   if (!keep.phone && remove.phone) updates.phone = remove.phone;
   if (!keep.website && remove.website) updates.website = remove.website;
   if (!keep.industry && remove.industry) updates.industry = remove.industry;
   if (!keep.location && remove.location) updates.location = remove.location;
-  if (!keep.estimatedValue && remove.estimatedValue) updates.estimatedValue = remove.estimatedValue;
+  if (!keep.estimatedValue && remove.estimatedValue)
+    updates.estimatedValue = remove.estimatedValue;
 
   if (Object.keys(updates).length > 0) {
-    await db.update(leads).set({ ...updates, updatedAt: new Date() }).where(eq(leads.id, keepId));
+    await db
+      .update(leads)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(leads.id, keepId));
   }
 
   // Delete the removed lead
@@ -548,8 +689,14 @@ export async function bulkInsertLeads(data: InsertLead[]) {
   for (const lead of data) {
     const trimmed = trimLeadStrings(lead);
     if (trimmed.country) trimmed.country = normalizeCountry(trimmed.country);
-    const size = getLeadSize(trimmed.leadType ?? "default", trimmed.leadAttributes ?? null);
-    const [inserted] = await db.insert(leads).values({ ...trimmed, leadSize: size }).returning({ id: leads.id });
+    const size = getLeadSize(
+      trimmed.leadType ?? "default",
+      trimmed.leadAttributes ?? null
+    );
+    const [inserted] = await db
+      .insert(leads)
+      .values({ ...trimmed, leadSize: size })
+      .returning({ id: leads.id });
     results.push(inserted.id);
   }
   return results;
@@ -559,11 +706,21 @@ export async function getLeadStats() {
   const db = await getDb();
   if (!db) return null;
   const [statusCounts, priorityCounts, totalCount] = await Promise.all([
-    db.select({ status: leads.status, count: sql<number>`count(*)` }).from(leads).groupBy(leads.status),
-    db.select({ priority: leads.priority, count: sql<number>`count(*)` }).from(leads).groupBy(leads.priority),
+    db
+      .select({ status: leads.status, count: sql<number>`count(*)` })
+      .from(leads)
+      .groupBy(leads.status),
+    db
+      .select({ priority: leads.priority, count: sql<number>`count(*)` })
+      .from(leads)
+      .groupBy(leads.priority),
     db.select({ count: sql<number>`count(*)` }).from(leads),
   ]);
-  return { statusCounts, priorityCounts, total: Number(totalCount[0]?.count ?? 0) };
+  return {
+    statusCounts,
+    priorityCounts,
+    total: Number(totalCount[0]?.count ?? 0),
+  };
 }
 
 // ─── Contact Moments ──────────────────────────────────────────────────────────
@@ -577,7 +734,7 @@ export async function getContactMoments(leadId: number) {
     .from(personLeadLinks)
     .where(eq(personLeadLinks.leadId, leadId));
 
-  const personIds = linkedPersonIds.map((r) => r.personId);
+  const personIds = linkedPersonIds.map(r => r.personId);
 
   // Fetch moments: directly on this lead OR on linked persons (even if logged against a different/no lead)
   const condition =
@@ -624,7 +781,11 @@ export async function getRecentContactMoments(limit = 20) {
   return db
     .select({
       moment: contactMoments,
-      lead: { id: leads.id, companyName: leads.companyName, contactPerson: leads.contactPerson },
+      lead: {
+        id: leads.id,
+        companyName: leads.companyName,
+        contactPerson: leads.contactPerson,
+      },
       person: { id: persons.id, name: persons.name },
     })
     .from(contactMoments)
@@ -638,23 +799,39 @@ export async function getRecentContactMoments(limit = 20) {
 export async function createContactMoment(data: InsertContactMoment) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const [inserted] = await db.insert(contactMoments).values(data).returning({ id: contactMoments.id });
+  const [inserted] = await db
+    .insert(contactMoments)
+    .values(data)
+    .returning({ id: contactMoments.id });
   const contactDate = data.occurredAt ?? new Date();
   // Update lastContactedAt on lead; auto-transition "new" → "contacted"
-  await db.update(leads).set({
-    lastContactedAt: contactDate,
-    status: sql`CASE WHEN ${leads.status} = 'new' THEN 'contacted' ELSE ${leads.status} END`,
-    updatedAt: new Date(),
-  }).where(eq(leads.id, data.leadId));
+  await db
+    .update(leads)
+    .set({
+      lastContactedAt: contactDate,
+      status: sql`CASE WHEN ${leads.status} = 'new' THEN 'contacted' ELSE ${leads.status} END`,
+      updatedAt: new Date(),
+    })
+    .where(eq(leads.id, data.leadId));
   // Update lastContactedAt on person if linked
   if (data.personId) {
-    await db.update(persons).set({ lastContactedAt: contactDate, updatedAt: new Date() }).where(eq(persons.id, data.personId));
+    await db
+      .update(persons)
+      .set({ lastContactedAt: contactDate, updatedAt: new Date() })
+      .where(eq(persons.id, data.personId));
   }
-  const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, inserted.id)).limit(1);
+  const rows = await db
+    .select()
+    .from(contactMoments)
+    .where(eq(contactMoments.id, inserted.id))
+    .limit(1);
   return rows[0];
 }
 
-export async function updateContactMoment(id: number, data: Partial<InsertContactMoment>) {
+export async function updateContactMoment(
+  id: number,
+  data: Partial<InsertContactMoment>
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   try {
@@ -666,21 +843,44 @@ export async function updateContactMoment(id: number, data: Partial<InsertContac
     if (setData.followUpAt && !(setData.followUpAt instanceof Date)) {
       setData.followUpAt = new Date(setData.followUpAt as string);
     }
-    console.log("[ContactMoment] Updating id:", id, "with data keys:", Object.keys(setData));
-    await db.update(contactMoments).set(setData as any).where(eq(contactMoments.id, id));
-    const rows = await db.select().from(contactMoments).where(eq(contactMoments.id, id)).limit(1);
+    console.log(
+      "[ContactMoment] Updating id:",
+      id,
+      "with data keys:",
+      Object.keys(setData)
+    );
+    await db
+      .update(contactMoments)
+      .set(setData as any)
+      .where(eq(contactMoments.id, id));
+    const rows = await db
+      .select()
+      .from(contactMoments)
+      .where(eq(contactMoments.id, id))
+      .limit(1);
     const updated = rows[0];
     if (data.occurredAt && updated) {
       await recalcLastContactedAt(db, updated.leadId, updated.personId);
     }
     return updated;
   } catch (err) {
-    console.error("[ContactMoment] Update failed for id:", id, "data:", JSON.stringify(data), "error:", err);
+    console.error(
+      "[ContactMoment] Update failed for id:",
+      id,
+      "data:",
+      JSON.stringify(data),
+      "error:",
+      err
+    );
     throw err;
   }
 }
 
-async function recalcLastContactedAt(db: any, leadId: number, personId?: number | null) {
+async function recalcLastContactedAt(
+  db: any,
+  leadId: number,
+  personId?: number | null
+) {
   // Lead: find the most recent occurredAt across all its contact moments
   if (leadId && leadId > 0) {
     const [leadMax] = await db
@@ -688,8 +888,12 @@ async function recalcLastContactedAt(db: any, leadId: number, personId?: number 
       .from(contactMoments)
       .where(eq(contactMoments.leadId, leadId));
     if (leadMax?.max) {
-      const maxDate = leadMax.max instanceof Date ? leadMax.max : new Date(leadMax.max);
-      await db.update(leads).set({ lastContactedAt: maxDate, updatedAt: new Date() }).where(eq(leads.id, leadId));
+      const maxDate =
+        leadMax.max instanceof Date ? leadMax.max : new Date(leadMax.max);
+      await db
+        .update(leads)
+        .set({ lastContactedAt: maxDate, updatedAt: new Date() })
+        .where(eq(leads.id, leadId));
     }
   }
   // Person: same logic
@@ -699,8 +903,12 @@ async function recalcLastContactedAt(db: any, leadId: number, personId?: number 
       .from(contactMoments)
       .where(eq(contactMoments.personId, personId));
     if (personMax?.max) {
-      const maxDate = personMax.max instanceof Date ? personMax.max : new Date(personMax.max);
-      await db.update(persons).set({ lastContactedAt: maxDate, updatedAt: new Date() }).where(eq(persons.id, personId));
+      const maxDate =
+        personMax.max instanceof Date ? personMax.max : new Date(personMax.max);
+      await db
+        .update(persons)
+        .set({ lastContactedAt: maxDate, updatedAt: new Date() })
+        .where(eq(persons.id, personId));
     }
   }
 }
@@ -719,7 +927,10 @@ export async function getRecentContactMomentsWithLeads(opts: {
   const db = await getDb();
   if (!db) return [];
   const conditions = [];
-  if (opts.type) conditions.push(eq(contactMoments.type, opts.type as InsertContactMoment["type"]));
+  if (opts.type)
+    conditions.push(
+      eq(contactMoments.type, opts.type as InsertContactMoment["type"])
+    );
   if (opts.search) {
     const term = `%${opts.search.toLowerCase()}%`;
     conditions.push(
@@ -735,7 +946,11 @@ export async function getRecentContactMomentsWithLeads(opts: {
   return db
     .select({
       moment: contactMoments,
-      lead: { id: leads.id, companyName: leads.companyName, contactPerson: leads.contactPerson },
+      lead: {
+        id: leads.id,
+        companyName: leads.companyName,
+        contactPerson: leads.contactPerson,
+      },
       person: { id: persons.id, name: persons.name },
     })
     .from(contactMoments)
@@ -750,8 +965,14 @@ export async function getContactMomentStats() {
   const db = await getDb();
   if (!db) return null;
   const [typeCounts, outcomeCounts, recentActivity] = await Promise.all([
-    db.select({ type: contactMoments.type, count: sql<number>`count(*)` }).from(contactMoments).groupBy(contactMoments.type),
-    db.select({ outcome: contactMoments.outcome, count: sql<number>`count(*)` }).from(contactMoments).groupBy(contactMoments.outcome),
+    db
+      .select({ type: contactMoments.type, count: sql<number>`count(*)` })
+      .from(contactMoments)
+      .groupBy(contactMoments.type),
+    db
+      .select({ outcome: contactMoments.outcome, count: sql<number>`count(*)` })
+      .from(contactMoments)
+      .groupBy(contactMoments.outcome),
     db
       .select({
         date: sql<string>`DATE(${contactMoments.occurredAt})`,
@@ -799,14 +1020,16 @@ export async function getLeadDocuments(
     .orderBy(desc(leadDocuments.createdAt));
 }
 
-export async function getAllLeadDocuments(opts: {
-  search?: string;
-  category?: string;
-  limit?: number;
-  offset?: number;
-  userId?: number;
-  isAdmin?: boolean;
-} = {}) {
+export async function getAllLeadDocuments(
+  opts: {
+    search?: string;
+    category?: string;
+    limit?: number;
+    offset?: number;
+    userId?: number;
+    isAdmin?: boolean;
+  } = {}
+) {
   const db = await getDb();
   if (!db) return [];
 
@@ -872,8 +1095,15 @@ export async function getAllLeadDocuments(opts: {
 export async function createLeadDocument(data: InsertLeadDocument) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const [inserted] = await db.insert(leadDocuments).values(data).returning({ id: leadDocuments.id });
-  const rows = await db.select().from(leadDocuments).where(eq(leadDocuments.id, inserted.id)).limit(1);
+  const [inserted] = await db
+    .insert(leadDocuments)
+    .values(data)
+    .returning({ id: leadDocuments.id });
+  const rows = await db
+    .select()
+    .from(leadDocuments)
+    .where(eq(leadDocuments.id, inserted.id))
+    .limit(1);
   return rows[0];
 }
 
@@ -894,7 +1124,11 @@ export async function upsertLeadEmbedding(data: InsertLeadEmbedding) {
     .values(data)
     .onConflictDoUpdate({
       target: leadEmbeddings.leadId,
-      set: { embedding: data.embedding, textContent: data.textContent, updatedAt: new Date() },
+      set: {
+        embedding: data.embedding,
+        textContent: data.textContent,
+        updatedAt: new Date(),
+      },
     });
 }
 
@@ -942,7 +1176,11 @@ export async function isMessageProcessed(messageId: string): Promise<boolean> {
 export async function findLeadByEmail(email: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(leads).where(eq(leads.email, email)).limit(1);
+  const result = await db
+    .select()
+    .from(leads)
+    .where(eq(leads.email, email))
+    .limit(1);
   return result[0];
 }
 
@@ -1021,7 +1259,10 @@ export async function matchIngestEmail(
     .where(eq(emailIngestLog.id, ingestId));
 
   // Ensure proper Date object for timestamp columns (Drizzle requires .toISOString())
-  const occurredDate = entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt);
+  const occurredDate =
+    entry.createdAt instanceof Date
+      ? entry.createdAt
+      : new Date(entry.createdAt);
 
   // Create a contact moment from the ingest data
   const [moment] = await db

@@ -12,7 +12,12 @@
  *  - date: date picker
  */
 
-export type AttributeFieldType = "number" | "text" | "textarea" | "select" | "date";
+export type AttributeFieldType =
+  | "number"
+  | "text"
+  | "textarea"
+  | "select"
+  | "date";
 
 export interface AttributeField {
   key: string;
@@ -311,7 +316,15 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
         key: "starRating",
         label: "Star Rating",
         type: "select",
-        options: ["1 star", "2 star", "3 star", "4 star", "5 star", "Boutique", "Budget"],
+        options: [
+          "1 star",
+          "2 star",
+          "3 star",
+          "4 star",
+          "5 star",
+          "Boutique",
+          "Budget",
+        ],
         icon: "Star",
       },
       {
@@ -462,7 +475,13 @@ export const LEAD_TYPE_SCHEMAS: Record<string, LeadTypeSchema> = {
         key: "ecommercePresence",
         label: "E-commerce",
         type: "select",
-        options: ["None", "Basic website", "Full e-commerce", "Marketplace only", "Omnichannel"],
+        options: [
+          "None",
+          "Basic website",
+          "Full e-commerce",
+          "Marketplace only",
+          "Omnichannel",
+        ],
         icon: "ShoppingCart",
       },
       {
@@ -679,7 +698,10 @@ export function getLeadSize(
 /**
  * Build a text summary of lead attributes for RAG indexing.
  */
-export function buildAttributeText(leadType: string, attributes: Record<string, unknown>): string {
+export function buildAttributeText(
+  leadType: string,
+  attributes: Record<string, unknown>
+): string {
   const schema = getLeadTypeSchema(leadType);
   if (!schema.fields.length || !attributes) return "";
 
