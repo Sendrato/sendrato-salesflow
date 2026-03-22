@@ -131,9 +131,11 @@ Opportunities: ${lead.futureOpportunities ?? "N/A"}`;
               .optional()
               .describe("Updated competitive analysis"),
             actionItems: z
-              .array(z.string())
+              .union([z.array(z.string()), z.string()])
               .optional()
-              .describe("Updated action items list"),
+              .describe(
+                "Updated action items as a JSON array of strings, e.g. [\"item 1\", \"item 2\"]"
+              ),
             risks: z.string().optional().describe("Updated risks assessment"),
             potentialValue: z
               .string()
@@ -141,6 +143,13 @@ Opportunities: ${lead.futureOpportunities ?? "N/A"}`;
               .describe("Updated potential value estimate"),
           }),
           execute: async updates => {
+            // Normalize actionItems: if a string, split by semicolons
+            if (typeof updates.actionItems === "string") {
+              updates.actionItems = updates.actionItems
+                .split(";")
+                .map(s => s.trim())
+                .filter(Boolean);
+            }
             const current =
               (brainstorm.enrichmentData as Record<string, unknown>) ?? {};
             const merged = { ...current };
