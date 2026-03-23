@@ -20,15 +20,15 @@ Track competitors with profiles including website, description, strengths, weakn
 
 ### Brainstorm
 
-Capture and develop business ideas. Each brainstorm supports a title, description, tags, and an optional link to a lead for context. AI enrichment analyzes the idea and generates market research, feasibility assessment, competitive analysis, risks, potential value, and concrete action items — using Wikipedia and Google News as research sources. An integrated AI chat lets you refine the idea conversationally; the AI can automatically update the enrichment report as new insights emerge. Upload documents (PDF, Word, Excel) directly to brainstorms for the AI to reference.
+Capture and develop business ideas. Each brainstorm supports a title, description, tags, and an optional link to a lead for context. AI enrichment analyzes the idea and generates market research, feasibility assessment, competitive analysis, risks, potential value, and concrete action items — using Wikipedia, Google News, and Tavily web search as research sources. An integrated AI chat lets you refine the idea conversationally, with internet access for real-time research; the AI can automatically update the enrichment report as new insights emerge. Upload documents (PDF, Word, Excel) directly to brainstorms for the AI to reference.
 
 ### AI Chat
 
-Conversational CRM assistant with tool-calling support. Search leads (keyword and semantic), look up lead details, add contact moments, update records, and query lead statistics — all through natural language. Uses RAG over lead data and uploaded documents for context-aware responses. Streaming responses with a Claude-inspired UI.
+Conversational CRM assistant with tool-calling support. Search leads (keyword and semantic), look up lead details, add contact moments, update records, and query lead statistics — all through natural language. Uses RAG over lead data and uploaded documents for context-aware responses. Streaming responses with a Claude-inspired UI. With Tavily web search enabled, the AI can also search the internet in real-time for up-to-date information about companies, markets, competitors, and industry trends.
 
 ### AI Enrichment
 
-Automatically enrich leads by scraping the company website, Wikipedia, and Google News. An LLM synthesizes the data into talking points, pain points, competitive landscape, fit scores, and suggested next actions. Enrichment reports are stored on the lead and surfaced in the detail view.
+Automatically enrich leads by scraping the company website, Wikipedia, Google News, and Tavily web search. An LLM synthesizes the data into talking points, pain points, competitive landscape, fit scores, and suggested next actions. Enrichment reports are stored on the lead and surfaced in the detail view. Tavily provides broader web coverage for companies that lack Wikipedia pages.
 
 ### Document Management
 
@@ -69,6 +69,7 @@ Algorithmic lead priority scoring (0–100) based on activity recency, document 
 
 Admin panel for:
 - **LLM Provider** — Configure OpenAI, Anthropic, Google Gemini, or any OpenAI-compatible endpoint (Ollama, Groq, etc.). Separate model selection for chat and enrichment tasks. Connection testing built in.
+- **Web Search** — Configure a Tavily API key to give AI chat and enrichment real-time internet access. Free tier: 1,000 searches/month.
 - **IMAP Email** — Configure IMAP server, credentials, mailbox folder, and poll interval. Test connection and trigger manual sync.
 - **User Management** — Invite users, assign roles (user/admin), reset passwords, and manage accounts. First registered user becomes admin.
 
@@ -83,7 +84,7 @@ Email/password authentication with bcrypt hashing. Cookie-based session manageme
 | Frontend   | React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui |
 | Backend    | Express, tRPC 11, Node.js                                        |
 | Database   | PostgreSQL 16 + pgvector, Drizzle ORM                            |
-| AI         | Vercel AI SDK, OpenAI / Anthropic / Google / custom providers    |
+| AI         | Vercel AI SDK, OpenAI / Anthropic / Google / custom providers, Tavily Search |
 | Embeddings | OpenAI text-embedding-3-small (1024 dimensions)                  |
 | Storage    | Local file storage (configurable)                                |
 | Language   | TypeScript (strict mode)                                         |

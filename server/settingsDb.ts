@@ -11,6 +11,8 @@ export const SETTING_KEYS = {
   LLM_BASE_URL: "llm.baseUrl", // for custom/self-hosted endpoints
   // Embedding (Mistral)
   EMBEDDING_API_KEY: "embedding.apiKey", // Mistral API key for embeddings
+  // Web search (Tavily)
+  TAVILY_API_KEY: "tavily.apiKey",
   // IMAP email polling
   IMAP_ENABLED: "imap.enabled",
   IMAP_HOST: "imap.host",
@@ -47,7 +49,8 @@ export async function getSetting(key: string): Promise<string | null> {
   if (
     key === SETTING_KEYS.LLM_API_KEY ||
     key === SETTING_KEYS.IMAP_PASSWORD ||
-    key === SETTING_KEYS.EMBEDDING_API_KEY
+    key === SETTING_KEYS.EMBEDDING_API_KEY ||
+    key === SETTING_KEYS.TAVILY_API_KEY
   )
     return deobfuscate(rows[0].value);
   return rows[0].value;
@@ -59,7 +62,8 @@ export async function setSetting(key: string, value: string): Promise<void> {
   const stored =
     key === SETTING_KEYS.LLM_API_KEY ||
     key === SETTING_KEYS.IMAP_PASSWORD ||
-    key === SETTING_KEYS.EMBEDDING_API_KEY
+    key === SETTING_KEYS.EMBEDDING_API_KEY ||
+    key === SETTING_KEYS.TAVILY_API_KEY
       ? obfuscate(value)
       : value;
   await db

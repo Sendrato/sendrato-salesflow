@@ -7,11 +7,12 @@
 
 import { generateText } from "ai";
 import { getLLMProvider } from "./llmProvider";
+import { tavilySearch } from "./webSearch";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface EnrichmentSource {
-  type: "website" | "wikipedia" | "news";
+  type: "website" | "wikipedia" | "news" | "web";
   url: string;
   title: string;
   snippet: string;
@@ -215,16 +216,28 @@ export async function enrichLeadFromWeb(lead: {
   leadAttributes?: unknown;
 }): Promise<EnrichmentResult> {
   // ── Gather data from all sources in parallel ──────────────────────────────
-  const [websiteSource, wikiSource, newsSources] = await Promise.all([
-    fetchCompanyWebsite(lead.website, lead.companyName),
-    fetchWikipedia(lead.companyName),
-    fetchGoogleNews(lead.companyName),
-  ]);
+  const [websiteSource, wikiSource, newsSources, tavilyResults] =
+    await Promise.all([
+      fetchCompanyWebsite(lead.website, lead.companyName),
+      fetchWikipedia(lead.companyName),
+      fetchGoogleNews(lead.companyName),
+      tavilySearch(`${lead.companyName} ${lead.industry ?? ""}`.trim(), {
+        maxResults: 5,
+      }).catch(() => ({ results: [] })),
+    ]);
+
+  const tavilySources: EnrichmentSource[] = tavilyResults.results.map(r => ({
+    type: "web" as const,
+    url: r.url,
+    title: r.title,
+    snippet: r.content.slice(0, 500),
+  }));
 
   const sources: EnrichmentSource[] = [
     ...(websiteSource ? [websiteSource] : []),
     ...(wikiSource ? [wikiSource] : []),
     ...newsSources,
+    ...tavilySources,
   ];
 
   const webDataFound = sources.length > 0;

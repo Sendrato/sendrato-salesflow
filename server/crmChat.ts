@@ -28,6 +28,7 @@ import {
   getRawPool,
 } from "./db";
 import { searchDocumentChunks, computePriorityScore } from "./documentRag";
+import { tavilySearch } from "./webSearch";
 
 // Build a text representation of a lead for embedding
 export function buildLeadText(lead: Record<string, unknown>): string {
@@ -445,6 +446,22 @@ export function registerCrmChatRoutes(app: Express) {
             };
           },
         }),
+
+        webSearch: tool({
+          description:
+            "Search the internet for current information about companies, markets, technologies, competitors, industry trends, or any topic. Use this when the user asks about external information not already in the CRM database.",
+          inputSchema: z.object({
+            query: z.string().describe("Search query"),
+            maxResults: z
+              .number()
+              .optional()
+              .default(5)
+              .describe("Number of results to return"),
+          }),
+          execute: async ({ query, maxResults }) => {
+            return tavilySearch(query, { maxResults });
+          },
+        }),
       };
 
       const systemPrompt = `You are an intelligent CRM assistant for SalesFlow CRM. You help sales teams manage leads, track interactions, and identify opportunities.
@@ -459,6 +476,7 @@ Capabilities:
 - Update lead fields directly: status, priority, notes, contact info, follow-up dates (updateLead)
 - Log contact moments / interactions for leads (addContactMoment)
 - Get pipeline statistics and analytics (getLeadStats)
+- Search the internet for up-to-date information about companies, markets, competitors, and trends (webSearch)
 
 Guidelines:
 - Be concise and actionable in your responses
@@ -466,9 +484,11 @@ Guidelines:
 - When asked about documents, proposals, or presentations, use searchDocuments
 - When user says "update", "change", "set", "mark" for a lead field, use the updateLead tool
 - When user says "log", "record", "I called", "I emailed", "I met with", use addContactMoment
+- When asked about external information, news, market trends, or company research, use webSearch
 - Always confirm what action was taken after using updateLead or addContactMoment
 - Format responses with clear structure when listing multiple items
-- Always cite specific lead names and IDs when referencing them`;
+- Always cite specific lead names and IDs when referencing them
+- When citing web search results, include the source URL`;
 
       // Convert UIMessages to model messages for the LLM
       const modelMessages = await convertToModelMessages(uiMessages);

@@ -19,6 +19,7 @@ export const settingsRouter = router({
   getLLMConfig: protectedProcedure.query(async () => {
     const settings = await getAllLLMSettings();
     const embeddingApiKey = await getSetting(SETTING_KEYS.EMBEDDING_API_KEY);
+    const tavilyApiKey = await getSetting(SETTING_KEYS.TAVILY_API_KEY);
     return {
       provider: settings.provider,
       chatModel: settings.chatModel,
@@ -26,6 +27,7 @@ export const settingsRouter = router({
       hasApiKey: settings.apiKey.length > 0,
       baseUrl: settings.baseUrl,
       hasEmbeddingKey: (embeddingApiKey ?? "").length > 0,
+      hasTavilyKey: (tavilyApiKey ?? "").length > 0,
     };
   }),
 
@@ -38,6 +40,7 @@ export const settingsRouter = router({
         apiKey: z.string().optional(),
         baseUrl: z.string().optional(),
         embeddingApiKey: z.string().optional(),
+        tavilyApiKey: z.string().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -60,6 +63,10 @@ export const settingsRouter = router({
       )
         updates.push(
           setSetting(SETTING_KEYS.EMBEDDING_API_KEY, input.embeddingApiKey)
+        );
+      if (input.tavilyApiKey !== undefined && input.tavilyApiKey.length > 0)
+        updates.push(
+          setSetting(SETTING_KEYS.TAVILY_API_KEY, input.tavilyApiKey)
         );
       await Promise.all(updates);
       return { success: true };

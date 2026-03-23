@@ -18,6 +18,7 @@ import {
   fetchGoogleNews,
   type EnrichmentSource,
 } from "../enrichmentEngine";
+import { tavilySearch } from "../webSearch";
 
 export const brainstormRouter = router({
   list: publicProcedure
@@ -141,14 +142,27 @@ Notes: ${lead.notes ?? "N/A"}`;
       const shortQuery = searchTerms.slice(0, 100);
 
       // Web research in parallel
-      const [wikiSource, newsSources] = await Promise.all([
+      const [wikiSource, newsSources, tavilyResults] = await Promise.all([
         fetchWikipedia(shortQuery).catch(() => null),
         fetchGoogleNews(shortQuery).catch(() => []),
+        tavilySearch(shortQuery, { maxResults: 5 }).catch(() => ({
+          results: [],
+        })),
       ]);
+
+      const tavilySources: EnrichmentSource[] = tavilyResults.results.map(
+        r => ({
+          type: "web" as const,
+          url: r.url,
+          title: r.title,
+          snippet: r.content.slice(0, 500),
+        })
+      );
 
       const sources: EnrichmentSource[] = [
         ...(wikiSource ? [wikiSource] : []),
         ...newsSources,
+        ...tavilySources,
       ];
       const webDataFound = sources.length > 0;
 

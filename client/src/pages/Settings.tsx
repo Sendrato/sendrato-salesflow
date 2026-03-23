@@ -1320,8 +1320,10 @@ export default function SettingsPage() {
   const [apiKey, setApiKey] = useState<string>("");
   const [baseUrl, setBaseUrl] = useState<string>("");
   const [embeddingApiKey, setEmbeddingApiKey] = useState<string>("");
+  const [tavilyApiKey, setTavilyApiKey] = useState<string>("");
   const [showKey, setShowKey] = useState(false);
   const [showEmbeddingKey, setShowEmbeddingKey] = useState(false);
+  const [showTavilyKey, setShowTavilyKey] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
     response?: string;
@@ -1358,9 +1360,11 @@ export default function SettingsPage() {
         ...(apiKey.length > 0 ? { apiKey } : {}),
         baseUrl,
         ...(embeddingApiKey.length > 0 ? { embeddingApiKey } : {}),
+        ...(tavilyApiKey.length > 0 ? { tavilyApiKey } : {}),
       });
       setApiKey("");
       setEmbeddingApiKey("");
+      setTavilyApiKey("");
       setHasUnsavedChanges(false);
       await refetch();
       toast.success("Settings saved successfully");
@@ -1728,6 +1732,58 @@ export default function SettingsPage() {
                   className="text-primary hover:underline"
                 >
                   console.mistral.ai
+                </a>
+              </p>
+            </div>
+
+            {/* Web Search API Key (Tavily) */}
+            <Separator />
+            <div className="space-y-2">
+              <Label
+                htmlFor="tavilyApiKey"
+                className="flex items-center gap-1.5"
+              >
+                <Key className="h-3.5 w-3.5" />
+                Web Search API Key (Tavily)
+              </Label>
+              <div className="relative">
+                <Input
+                  id="tavilyApiKey"
+                  type={showTavilyKey ? "text" : "password"}
+                  value={tavilyApiKey}
+                  onChange={e => {
+                    setTavilyApiKey(e.target.value);
+                    markChanged();
+                  }}
+                  placeholder={
+                    config?.hasTavilyKey
+                      ? "••••••••••••••••••••••• (key set — enter new key to replace)"
+                      : "Enter your Tavily API key"
+                  }
+                  className="pr-10 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowTavilyKey(!showTavilyKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showTavilyKey ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enables AI chat to search the internet for up-to-date
+                information. Get a free API key at{" "}
+                <a
+                  href="https://tavily.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  tavily.com
                 </a>
               </p>
             </div>

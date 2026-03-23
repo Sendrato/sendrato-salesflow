@@ -16,6 +16,7 @@ import {
   updateBrainstorm,
 } from "./brainstormDb";
 import { getLeadById } from "./db";
+import { tavilySearch } from "./webSearch";
 
 export function registerBrainstormChatRoutes(app: Express) {
   app.post("/api/brainstorm-chat", async (req, res) => {
@@ -173,6 +174,22 @@ Opportunities: ${lead.futureOpportunities ?? "N/A"}`;
             };
           },
         }),
+
+        webSearch: tool({
+          description:
+            "Search the internet for current information about markets, competitors, technologies, industry trends, or any topic relevant to the brainstorm idea. Use this to gather real-world data and validate assumptions.",
+          inputSchema: z.object({
+            query: z.string().describe("Search query"),
+            maxResults: z
+              .number()
+              .optional()
+              .default(5)
+              .describe("Number of results to return"),
+          }),
+          execute: async ({ query, maxResults }) => {
+            return tavilySearch(query, { maxResults });
+          },
+        }),
       };
 
       const systemPrompt = `You are a strategic business advisor helping refine and develop a brainstorm idea. You have full context about this idea including any prior AI analysis and uploaded documents.
@@ -186,7 +203,9 @@ ${context}
 - Suggest concrete next steps and experiments
 - Draw on the enrichment analysis and uploaded documents when relevant
 - Be direct and practical — avoid generic advice
-- When you discover significant new insights from documents or conversation that should be captured, use the updateEnrichment tool to update the enrichment analysis`;
+- Use webSearch to look up real-world data, market trends, competitors, or validate assumptions when relevant
+- When you discover significant new insights from documents, web research, or conversation that should be captured, use the updateEnrichment tool to update the enrichment analysis
+- When citing web search results, include the source URL`;
 
       console.log(
         "[brainstorm-chat] Processing request for brainstorm",
