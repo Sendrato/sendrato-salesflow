@@ -15,6 +15,7 @@ import {
   AlertCircle,
   Video,
   MailWarning,
+  Eye,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -71,6 +72,8 @@ export default function Dashboard() {
       refetchInterval: 120_000,
     }
   );
+  const { data: recentShareViews } =
+    trpc.analytics.recentShareViews.useQuery({ limit: 10 });
 
   const totalLeads = overview?.leadStats?.total ?? 0;
   const statusCounts = overview?.leadStats?.statusCounts ?? [];
@@ -506,7 +509,7 @@ export default function Dashboard() {
         )}
 
         {/* Bottom Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Top Leads */}
           <Card className="border shadow-sm">
             <CardHeader className="pb-2 flex flex-row items-center justify-between">
@@ -608,6 +611,68 @@ export default function Dashboard() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Share Link Views */}
+          <Card className="border shadow-sm">
+            <CardHeader className="pb-2 flex flex-row items-center justify-between">
+              <CardTitle className="text-base font-semibold">
+                Recent Link Views
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {(recentShareViews ?? []).length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No views yet
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {(recentShareViews ?? []).map(view => {
+                    const cc = view.country?.toUpperCase();
+                    const flag = cc
+                      ? String.fromCodePoint(
+                          ...cc
+                            .split("")
+                            .map(
+                              (c: string) => 0x1f1e6 + c.charCodeAt(0) - 65
+                            )
+                        )
+                      : "";
+                    const location = [flag, view.city, cc]
+                      .filter(Boolean)
+                      .join(" ");
+                    return (
+                      <div
+                        key={view.id}
+                        className={`flex items-start gap-3 px-6 py-3${view.leadId ? " hover:bg-muted/30 cursor-pointer transition-colors" : ""}`}
+                        onClick={() => {
+                          if (view.leadId)
+                            setLocation(`/leads/${view.leadId}`);
+                        }}
+                      >
+                        <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-md mt-0.5 shrink-0">
+                          <Eye className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">
+                            {view.shareTitle ?? view.fileName ?? "Shared link"}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {view.companyName
+                              ? `${view.companyName} · `
+                              : ""}
+                            {location || "Unknown location"}
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground shrink-0">
+                          {formatRelativeTime(view.viewedAt)}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

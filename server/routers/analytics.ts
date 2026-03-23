@@ -7,6 +7,7 @@ import {
   getUnmatchedEmails,
   matchIngestEmail,
   dismissIngestEmail,
+  getRawPool,
 } from "../db";
 import { getDb } from "../db";
 import { leads, contactMoments, persons } from "../../drizzle/schema";
@@ -232,5 +233,39 @@ export const analyticsRouter = router({
     .mutation(async ({ input }) => {
       await dismissIngestEmail(input.ingestId);
       return { success: true };
+    }),
+
+  recentShareViews: publicProcedure
+    .input(z.object({ limit: z.number().optional().default(10) }))
+    .query(async ({ input }) => {
+      const pool = await getRawPool();
+      if (!pool) return [];
+      const { rows } = await pool.query(
+        `SELECT pv.id, pv."viewedAt", pv."ipAddress", pv.country, pv.city, pv."userAgent",
+                sp.title AS "shareTitle", sp.token,
+                COALESCE(ld."fileName", cd."fileName") AS "fileName",
+                l."companyName", l.id AS "leadId"
+         FROM presentation_views pv
+         JOIN shareable_presentations sp ON sp.id = pv."presentationId"
+         LEFT JOIN lead_documents ld ON ld.id = sp."documentId"
+         LEFT JOIN leads l ON l.id = sp."leadId"
+         LEFT JOIN crm_documents cd ON cd.id = sp."crmDocumentId"
+         ORDER BY pv."viewedAt" DESC
+         LIMIT $1`,
+        [input.limit]
+      );
+      return rows as {
+        id: number;
+        viewedAt: string;
+        ipAddress: string | null;
+        country: string | null;
+        city: string | null;
+        userAgent: string | null;
+        shareTitle: string | null;
+        token: string;
+        fileName: string | null;
+        companyName: string | null;
+        leadId: number | null;
+      }[];
     }),
 });
