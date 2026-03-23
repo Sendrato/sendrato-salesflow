@@ -181,6 +181,32 @@ export async function getDb() {
           } catch (e) {
             console.warn("[DB] document_access table check:", e);
           }
+          // Ensure presentation_views table exists
+          try {
+            const tableCheck = await _pool.query(
+              `SELECT 1 FROM information_schema.tables WHERE table_name = 'presentation_views'`
+            );
+            if (tableCheck.rows.length === 0) {
+              await _pool.query(`
+                CREATE TABLE presentation_views (
+                  id SERIAL PRIMARY KEY,
+                  "presentationId" INTEGER NOT NULL,
+                  "viewedAt" TIMESTAMP DEFAULT NOW() NOT NULL,
+                  "ipAddress" VARCHAR(45),
+                  country VARCHAR(2),
+                  city VARCHAR(128),
+                  "userAgent" TEXT,
+                  referrer TEXT
+                )
+              `);
+              await _pool.query(
+                `CREATE INDEX idx_presentation_views_presentation ON presentation_views ("presentationId")`
+              );
+              console.log("[DB] Created 'presentation_views' table");
+            }
+          } catch (e) {
+            console.warn("[DB] presentation_views table check:", e);
+          }
           // Trim trailing/leading whitespace from key text fields
           try {
             const trimFields = [

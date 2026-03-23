@@ -126,6 +126,31 @@ export const documentsRouter = router({
       return { success: true };
     }),
 
+  listShareViews: protectedProcedure
+    .input(z.object({ presentationId: z.number() }))
+    .query(async ({ input }) => {
+      const pool = await getRawPool();
+      if (!pool) return [];
+      const { rows } = await pool.query(
+        `SELECT id, "presentationId", "viewedAt", "ipAddress", country, city, "userAgent", referrer
+         FROM presentation_views
+         WHERE "presentationId" = $1
+         ORDER BY "viewedAt" DESC
+         LIMIT 200`,
+        [input.presentationId]
+      );
+      return rows as {
+        id: number;
+        presentationId: number;
+        viewedAt: string;
+        ipAddress: string | null;
+        country: string | null;
+        city: string | null;
+        userAgent: string | null;
+        referrer: string | null;
+      }[];
+    }),
+
   getAccess: protectedProcedure
     .input(
       z.object({

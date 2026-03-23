@@ -404,6 +404,9 @@ export default function LeadDetail() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergeSearch, setMergeSearch] = useState("");
   const [mergeTargetId, setMergeTargetId] = useState<number | null>(null);
+  const [viewDetailsShareId, setViewDetailsShareId] = useState<number | null>(
+    null
+  );
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
   const [shareTitle, setShareTitle] = useState("");
   const [shareRecordMoment, setShareRecordMoment] = useState(true);
@@ -433,6 +436,11 @@ export default function LeadDetail() {
   const { data: documents } = trpc.documents.list.useQuery({ leadId });
   const { data: shares, refetch: refetchShares } =
     trpc.documents.listShares.useQuery({ leadId });
+  const { data: shareViews } =
+    trpc.documents.listShareViews.useQuery(
+      { presentationId: viewDetailsShareId! },
+      { enabled: viewDetailsShareId !== null }
+    );
   const { data: linkedPersons, refetch: refetchPersons } =
     trpc.persons.getPersonsForLead.useQuery({ leadId });
   const { data: allPersons } = trpc.persons.list.useQuery({
@@ -2749,10 +2757,15 @@ export default function LeadDetail() {
                               {share.title ?? share.fileName}
                             </div>
                             <div className="flex items-center gap-3 mt-0.5">
-                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <button
+                                className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer underline-offset-2 hover:underline"
+                                onClick={() =>
+                                  setViewDetailsShareId(share.id)
+                                }
+                              >
                                 <Eye className="h-3 w-3" />{" "}
                                 {share.viewCount ?? 0} views
-                              </span>
+                              </button>
                               <span className="text-xs text-muted-foreground">
                                 {share.fileName}
                               </span>
@@ -2804,6 +2817,100 @@ export default function LeadDetail() {
                 </CardContent>
               </Card>
             )}
+
+            {/* View Details Dialog */}
+            <Dialog
+              open={viewDetailsShareId !== null}
+              onOpenChange={o => {
+                if (!o) setViewDetailsShareId(null);
+              }}
+            >
+              <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+                <DialogHeader>
+                  <DialogTitle>View Details</DialogTitle>
+                  <DialogDescription>
+                    Individual views for this shared link
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="overflow-auto flex-1 -mx-6 px-6">
+                  {!shareViews || shareViews.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-8 text-center">
+                      No views recorded yet.
+                    </p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b text-left text-muted-foreground">
+                          <th className="pb-2 font-medium">Time</th>
+                          <th className="pb-2 font-medium">Location</th>
+                          <th className="pb-2 font-medium">IP</th>
+                          <th className="pb-2 font-medium">Browser</th>
+                          <th className="pb-2 font-medium">Referrer</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {shareViews.map((v: any) => {
+                          const cc = v.country?.toUpperCase();
+                          const flag = cc
+                            ? String.fromCodePoint(
+                                ...cc
+                                  .split("")
+                                  .map(
+                                    (c: string) =>
+                                      0x1f1e6 + c.charCodeAt(0) - 65
+                                  )
+                              )
+                            : "";
+                          const location = [
+                            flag,
+                            v.city,
+                            cc,
+                          ]
+                            .filter(Boolean)
+                            .join(" ");
+                          const browser = v.userAgent
+                            ? v.userAgent.length > 40
+                              ? v.userAgent.slice(0, 40) + "..."
+                              : v.userAgent
+                            : "—";
+                          return (
+                            <tr
+                              key={v.id}
+                              className="border-b last:border-0"
+                            >
+                              <td
+                                className="py-2 pr-3 whitespace-nowrap"
+                                title={formatDateTime(v.viewedAt)}
+                              >
+                                {formatRelativeTime(v.viewedAt)}
+                              </td>
+                              <td className="py-2 pr-3 whitespace-nowrap">
+                                {location || "—"}
+                              </td>
+                              <td className="py-2 pr-3 whitespace-nowrap font-mono text-xs">
+                                {v.ipAddress ?? "—"}
+                              </td>
+                              <td
+                                className="py-2 pr-3 max-w-[160px] truncate"
+                                title={v.userAgent ?? ""}
+                              >
+                                {browser}
+                              </td>
+                              <td
+                                className="py-2 max-w-[120px] truncate"
+                                title={v.referrer ?? ""}
+                              >
+                                {v.referrer ?? "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Share Dialog */}
             <Dialog

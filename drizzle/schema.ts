@@ -278,6 +278,21 @@ export type ShareablePresentation = typeof shareablePresentations.$inferSelect;
 export type InsertShareablePresentation =
   typeof shareablePresentations.$inferInsert;
 
+// ─── Presentation Views ─────────────────────────────────────────────────────
+export const presentationViews = pgTable("presentation_views", {
+  id: serial("id").primaryKey(),
+  presentationId: integer("presentationId").notNull(),
+  viewedAt: timestamp("viewedAt").defaultNow().notNull(),
+  ipAddress: varchar("ipAddress", { length: 45 }),
+  country: varchar("country", { length: 2 }),
+  city: varchar("city", { length: 128 }),
+  userAgent: text("userAgent"),
+  referrer: text("referrer"),
+});
+
+export type PresentationView = typeof presentationViews.$inferSelect;
+export type InsertPresentationView = typeof presentationViews.$inferInsert;
+
 // ─── Lead Embeddings (Vector DB) ─────────────────────────────────────────────
 export const leadEmbeddings = pgTable("lead_embeddings", {
   id: serial("id").primaryKey(),

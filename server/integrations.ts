@@ -31,6 +31,7 @@ import { nanoid } from "nanoid";
 import { generateText } from "ai";
 import { getLLMProvider } from "./llmProvider";
 import { LEAD_TYPE_SCHEMAS } from "@shared/leadAttributeSchemas";
+import { extractIp, getGeoFromIp } from "./geoip";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -817,11 +818,37 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
-      // Update view count
+      // Update view count + record individual view
       await pool.query(
         `UPDATE shareable_presentations SET "viewCount" = "viewCount" + 1, "lastViewedAt" = NOW() WHERE token = $1`,
         [token]
       );
+
+      // Record detailed view (non-blocking)
+      const viewIp = extractIp(req);
+      const viewUserAgent = req.headers["user-agent"] ?? null;
+      const viewReferrer = req.headers["referer"] ?? null;
+      (async () => {
+        try {
+          const geo = viewIp
+            ? await getGeoFromIp(viewIp)
+            : { countryCode: null, city: null };
+          await pool.query(
+            `INSERT INTO presentation_views ("presentationId", "ipAddress", "country", "city", "userAgent", "referrer")
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              share.id,
+              viewIp,
+              geo.countryCode,
+              geo.city,
+              viewUserAgent,
+              viewReferrer,
+            ]
+          );
+        } catch (e) {
+          console.error("[share view tracking] Error:", e);
+        }
+      })();
 
       const mime = (share.mimeType ?? "").toLowerCase();
       const isHtml =
