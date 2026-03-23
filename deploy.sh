@@ -1,49 +1,141 @@
 #!/usr/bin/env bash
 #
-# SalesFlow CRM — Full deployment to a Digital Ocean Ubuntu droplet
-# Target URL: https://crm.sendrato.com
+# SalesFlow CRM — Deploy a new instance to an Ubuntu server
 #
 # Usage:
-#   1. Copy this script to your droplet:
-#      scp deploy.sh root@<DROPLET_IP>:/root/deploy.sh
+#   ./deploy.sh <domain>
 #
-#   2. SSH into the droplet and run:
-#      ssh root@<DROPLET_IP>
-#      chmod +x /root/deploy.sh
-#      /root/deploy.sh
+#   Example:
+#     ./deploy.sh crm.acme.com
+#
+# This creates an isolated instance with its own database, systemd service,
+# and nginx config — all derived from the domain name. Multiple instances
+# can coexist on the same server.
 #
 # Prerequisites:
-#   - Fresh Ubuntu 22.04 or 24.04 droplet (tested on both)
-#   - DNS A record: crm.sendrato.com → <DROPLET_IP>
+#   - Fresh Ubuntu 22.04 or 24.04 server (or one with existing instances)
+#   - DNS A record: <domain> → <server IP>
 #   - Root or sudo access
 #
 set -euo pipefail
 
 # ──────────────────────────────────────────────
-# Configuration — edit these before running
+# Validate domain argument
 # ──────────────────────────────────────────────
-DOMAIN="crm.sendrato.com"
-APP_DIR="/opt/salesflow"
-REPO_URL="https://github.com/Sendrato/sendrato-salesflow.git"
-BRANCH="main"
-APP_USER="salesflow"
-APP_PORT=3000
+if [ $# -lt 1 ] || [ -z "$1" ]; then
+  echo "Usage: $0 <domain>"
+  echo ""
+  echo "Example:"
+  echo "  $0 crm.acme.com"
+  exit 1
+fi
+
+DOMAIN="$1"
+
+# Basic domain validation
+if ! echo "$DOMAIN" | grep -qP '^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$'; then
+  echo "Error: Invalid domain name: $DOMAIN"
+  exit 1
+fi
+
+echo ""
+echo "============================================"
+echo "  SalesFlow CRM — New Instance Deployment"
+echo "============================================"
+echo ""
+echo "  Domain: ${DOMAIN}"
+echo ""
+
+# ──────────────────────────────────────────────
+# Derive names from domain
+# ──────────────────────────────────────────────
+# crm.acme.com → crm-acme-com (for systemd/user), crm_acme_com (for postgres)
+SAFE_NAME_HYPHEN=$(echo "$DOMAIN" | tr '.' '-' | head -c 32)
+SAFE_NAME_UNDER=$(echo "$DOMAIN" | tr '.' '_' | head -c 63)
+
+APP_DIR="/opt/${DOMAIN}"
+APP_USER="${SAFE_NAME_HYPHEN}"
+PG_DB="${SAFE_NAME_UNDER}"
+PG_USER="${SAFE_NAME_UNDER}"
+SERVICE_NAME="${SAFE_NAME_HYPHEN}"
+NGINX_CONF="${SAFE_NAME_HYPHEN}"
 NODE_VERSION=20
 
-# PostgreSQL
-PG_DB="salesflow"
-PG_USER="salesflow"
+echo "  Derived configuration:"
+echo "    App directory:  ${APP_DIR}"
+echo "    System user:    ${APP_USER}"
+echo "    Database:       ${PG_DB}"
+echo "    Service:        ${SERVICE_NAME}.service"
+echo "    Nginx config:   ${NGINX_CONF}"
+echo ""
+
+# ──────────────────────────────────────────────
+# Interactive prompts
+# ──────────────────────────────────────────────
+read -rp "Certbot email (for SSL certificate): " CERTBOT_EMAIL
+if [ -z "$CERTBOT_EMAIL" ]; then
+  echo "Error: Certbot email is required for SSL."
+  exit 1
+fi
+
+read -rp "GitHub repo URL [https://github.com/Sendrato/sendrato-salesflow.git]: " REPO_URL
+REPO_URL="${REPO_URL:-https://github.com/Sendrato/sendrato-salesflow.git}"
+
+read -rp "Git branch [main]: " BRANCH
+BRANCH="${BRANCH:-main}"
+
+echo ""
+echo "LLM/Forge API credentials (leave empty to skip AI features):"
+read -rp "  Backend LLM API URL: " BUILT_IN_FORGE_API_URL
+read -rp "  Backend LLM API key: " BUILT_IN_FORGE_API_KEY
+read -rp "  Frontend LLM API URL: " VITE_FRONTEND_FORGE_API_URL
+read -rp "  Frontend LLM API key: " VITE_FRONTEND_FORGE_API_KEY
+
+# Auto-generate secrets
 PG_PASS="$(openssl rand -hex 16)"
-
-# Let's Encrypt
-CERTBOT_EMAIL="admin@sendrato.com"   # change to your email
-
-# App environment — fill in your actual values
 JWT_SECRET="$(openssl rand -base64 32)"
-BUILT_IN_FORGE_API_URL=""
-BUILT_IN_FORGE_API_KEY=""
-VITE_FRONTEND_FORGE_API_KEY=""
-VITE_FRONTEND_FORGE_API_URL=""
+
+# ──────────────────────────────────────────────
+# Auto-assign port (find first free port from 3000)
+# ──────────────────────────────────────────────
+find_free_port() {
+  local port=3000
+  local used_ports=""
+
+  # Collect ports from existing instance .env files
+  for envfile in /opt/*/.env; do
+    [ -f "$envfile" ] || continue
+    local p
+    p=$(grep -oP '^PORT=\K\d+' "$envfile" 2>/dev/null || true)
+    if [ -n "$p" ]; then
+      used_ports="${used_ports} ${p}"
+    fi
+  done
+
+  # Find the first unused port
+  while echo "$used_ports" | grep -qw "$port"; do
+    port=$((port + 1))
+  done
+
+  echo "$port"
+}
+
+APP_PORT=$(find_free_port)
+echo ""
+echo "  Assigned port: ${APP_PORT}"
+echo ""
+
+# ──────────────────────────────────────────────
+# Confirm before proceeding
+# ──────────────────────────────────────────────
+read -rp "Proceed with deployment? [Y/n] " CONFIRM
+CONFIRM="${CONFIRM:-Y}"
+if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+  echo "Aborted."
+  exit 0
+fi
+
+echo ""
 
 # ──────────────────────────────────────────────
 # 1. System update & base packages
@@ -64,9 +156,9 @@ ufw allow 443/tcp
 ufw --force enable
 
 # ──────────────────────────────────────────────
-# 3. PostgreSQL 16 + pgvector
+# 3. PostgreSQL + pgvector
 # ──────────────────────────────────────────────
-echo ">>> [3/9] Installing PostgreSQL 16 + pgvector..."
+echo ">>> [3/9] Installing PostgreSQL + pgvector..."
 apt-get install -y postgresql postgresql-contrib
 
 # Detect installed PostgreSQL major version for pgvector package
@@ -76,7 +168,7 @@ apt-get install -y "postgresql-${PG_MAJOR}-pgvector"
 systemctl start postgresql
 systemctl enable postgresql
 
-# Create database, user, and enable pgvector extension (idempotent for re-runs)
+# Create instance-specific database and user (idempotent)
 sudo -u postgres psql <<EOSQL
 DO \$\$
 BEGIN
@@ -92,14 +184,17 @@ sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${PG_DB}'" \
 
 sudo -u postgres psql -d "${PG_DB}" -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
-echo "  PostgreSQL user: ${PG_USER} / ${PG_PASS}"
+echo "  PostgreSQL database: ${PG_DB}"
+echo "  PostgreSQL user:     ${PG_USER}"
 
 # ──────────────────────────────────────────────
-# 4. Node.js 20 LTS + pnpm
+# 4. Node.js + pnpm
 # ──────────────────────────────────────────────
 echo ">>> [4/9] Installing Node.js ${NODE_VERSION} and pnpm..."
-curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
-apt-get install -y nodejs
+if ! command -v node &>/dev/null || ! node -v | grep -q "v${NODE_VERSION}"; then
+  curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
+  apt-get install -y nodejs
+fi
 
 corepack enable
 corepack prepare pnpm@latest --activate
@@ -110,7 +205,7 @@ echo "  Node $(node -v)  |  pnpm $(pnpm -v)"
 # 5. Create app user and clone repo
 # ──────────────────────────────────────────────
 echo ">>> [5/9] Setting up application..."
-id -u ${APP_USER} &>/dev/null || useradd -r -m -s /bin/bash ${APP_USER}
+id -u "${APP_USER}" &>/dev/null || useradd -r -m -s /bin/bash "${APP_USER}"
 
 export GIT_TERMINAL_PROMPT=0
 if [ -d "${APP_DIR}" ]; then
@@ -155,15 +250,15 @@ pnpm install --frozen-lockfile
 pnpm run build
 pnpm run db:push
 
-chown -R ${APP_USER}:${APP_USER} "${APP_DIR}"
+chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 
 # ──────────────────────────────────────────────
 # 8. Systemd service
 # ──────────────────────────────────────────────
 echo ">>> [8/9] Creating systemd service..."
-cat > /etc/systemd/system/salesflow.service <<SVCEOF
+cat > "/etc/systemd/system/${SERVICE_NAME}.service" <<SVCEOF
 [Unit]
-Description=SalesFlow CRM
+Description=SalesFlow CRM (${DOMAIN})
 After=network.target postgresql.service
 Requires=postgresql.service
 
@@ -189,12 +284,12 @@ WantedBy=multi-user.target
 SVCEOF
 
 systemctl daemon-reload
-systemctl enable salesflow
-systemctl start salesflow
+systemctl enable "${SERVICE_NAME}"
+systemctl start "${SERVICE_NAME}"
 
 echo "  Waiting for app to start..."
 sleep 3
-systemctl status salesflow --no-pager || true
+systemctl status "${SERVICE_NAME}" --no-pager || true
 
 # ──────────────────────────────────────────────
 # 9. Nginx + Let's Encrypt SSL
@@ -202,8 +297,8 @@ systemctl status salesflow --no-pager || true
 echo ">>> [9/9] Configuring Nginx and SSL..."
 apt-get install -y nginx certbot python3-certbot-nginx
 
-# Initial HTTP-only config (certbot needs this to verify the domain)
-cat > /etc/nginx/sites-available/salesflow <<NGEOF
+# Nginx site config for this instance
+cat > "/etc/nginx/sites-available/${NGINX_CONF}" <<NGEOF
 server {
     listen 80;
     server_name ${DOMAIN};
@@ -229,12 +324,13 @@ server {
 }
 NGEOF
 
-ln -sf /etc/nginx/sites-available/salesflow /etc/nginx/sites-enabled/salesflow
-rm -f /etc/nginx/sites-enabled/default
+ln -sf "/etc/nginx/sites-available/${NGINX_CONF}" "/etc/nginx/sites-enabled/${NGINX_CONF}"
+# Only remove default if it exists
+[ -f /etc/nginx/sites-enabled/default ] && rm -f /etc/nginx/sites-enabled/default || true
 nginx -t
 systemctl reload nginx
 
-# Obtain SSL certificate (will modify the nginx config automatically)
+# Obtain SSL certificate
 certbot --nginx \
   -d "${DOMAIN}" \
   --non-interactive \
@@ -254,21 +350,27 @@ echo "============================================"
 echo ""
 echo "  URL:            https://${DOMAIN}"
 echo "  App directory:  ${APP_DIR}"
-echo "  App service:    systemctl {start|stop|restart|status} salesflow"
-echo "  App logs:       journalctl -u salesflow -f"
+echo "  App port:       ${APP_PORT}"
+echo "  App service:    systemctl {start|stop|restart|status} ${SERVICE_NAME}"
+echo "  App logs:       journalctl -u ${SERVICE_NAME} -f"
 echo ""
 echo "  PostgreSQL database: ${PG_DB}"
 echo "  PostgreSQL user:     ${PG_USER}"
 echo "  PostgreSQL password: ${PG_PASS}"
 echo ""
 echo "  IMPORTANT: Save the credentials above securely!"
-echo "  IMPORTANT: Edit ${APP_DIR}/.env with your Forge API"
-echo "             values if using AI features, then restart:"
-echo "             systemctl restart salesflow"
 echo ""
 echo "  AUTH: Visit https://${DOMAIN} to create the first"
 echo "        admin account (email + password)."
 echo ""
 echo "  SSL auto-renewal is handled by certbot's systemd timer."
 echo "  Verify with: systemctl list-timers | grep certbot"
+echo ""
+echo "  To deploy updates:"
+echo "    cd ${APP_DIR}"
+echo "    git pull origin ${BRANCH}"
+echo "    pnpm install --frozen-lockfile"
+echo "    pnpm run build"
+echo "    pnpm run db:push"
+echo "    systemctl restart ${SERVICE_NAME}"
 echo ""
