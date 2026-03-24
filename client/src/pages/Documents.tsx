@@ -988,7 +988,7 @@ export default function DocumentsPage() {
           if (!o) setViewDetailsShareId(null);
         }}
       >
-        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>View Details</DialogTitle>
             <DialogDescription>
@@ -1026,11 +1026,7 @@ export default function DocumentsPage() {
                     const location = [flag, v.city, cc]
                       .filter(Boolean)
                       .join(" ");
-                    const browser = v.userAgent
-                      ? v.userAgent.length > 40
-                        ? v.userAgent.slice(0, 40) + "..."
-                        : v.userAgent
-                      : "—";
+                    const browser = parseBrowser(v.userAgent);
                     return (
                       <tr key={v.id} className="border-b last:border-0">
                         <td className="py-2 pr-3 whitespace-nowrap">
@@ -1040,10 +1036,10 @@ export default function DocumentsPage() {
                         <td className="py-2 pr-3 font-mono text-xs">
                           {v.ipAddress ?? "—"}
                         </td>
-                        <td className="py-2 pr-3 text-xs max-w-[180px] truncate">
+                        <td className="py-2 pr-3 text-xs">
                           {browser}
                         </td>
-                        <td className="py-2 text-xs max-w-[120px] truncate">
+                        <td className="py-2 text-xs">
                           {v.referrer ?? "—"}
                         </td>
                       </tr>
@@ -1110,4 +1106,23 @@ function EditAccessDialogContent({
       </div>
     </div>
   );
+}
+
+function parseBrowser(ua?: string | null): string {
+  if (!ua) return "—";
+  if (ua.startsWith("WhatsApp")) return ua;
+  if (ua.includes("Edg/")) return "Edge";
+  if (ua.includes("OPR/") || ua.includes("Opera")) return "Opera";
+  if (ua.includes("Chrome/") && !ua.includes("Edg/")) {
+    if (ua.includes("Mobile")) return "Chrome Mobile";
+    return "Chrome";
+  }
+  if (ua.includes("Safari/") && !ua.includes("Chrome")) {
+    if (ua.includes("Mobile")) return "Safari Mobile";
+    return "Safari";
+  }
+  if (ua.includes("Firefox/")) return "Firefox";
+  if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS Browser";
+  if (ua.includes("Android")) return "Android Browser";
+  return ua.length > 50 ? ua.slice(0, 50) + "..." : ua;
 }
