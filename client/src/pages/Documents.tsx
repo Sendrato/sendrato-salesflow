@@ -988,7 +988,7 @@ export default function DocumentsPage() {
           if (!o) setViewDetailsShareId(null);
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[80vh] flex flex-col">
+        <DialogContent className="max-w-5xl max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>View Details</DialogTitle>
             <DialogDescription>
@@ -1001,57 +1001,44 @@ export default function DocumentsPage() {
                 No views recorded yet.
               </p>
             ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-2 font-medium">Time</th>
-                    <th className="pb-2 font-medium">Location</th>
-                    <th className="pb-2 font-medium">IP</th>
-                    <th className="pb-2 font-medium">Browser</th>
-                    <th className="pb-2 font-medium">Referrer</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {shareViews.map((v: any) => {
-                    const cc = v.country?.toUpperCase();
-                    const flag = cc
-                      ? String.fromCodePoint(
-                          ...cc
-                            .split("")
-                            .map(
-                              (c: string) => 0x1f1e6 + c.charCodeAt(0) - 65
-                            )
-                        )
-                      : "";
-                    const location = [flag, v.city, cc]
-                      .filter(Boolean)
-                      .join(" ");
-                    const browser = parseBrowser(v.userAgent);
-                    return (
-                      <tr key={v.id} className="border-b last:border-0">
-                        <td className="py-2 pr-3 whitespace-nowrap">
+              <div className="divide-y">
+                {shareViews.map((v: any) => {
+                  const cc = v.country?.toUpperCase();
+                  const flag = cc
+                    ? String.fromCodePoint(
+                        ...cc
+                          .split("")
+                          .map(
+                            (c: string) => 0x1f1e6 + c.charCodeAt(0) - 65
+                          )
+                      )
+                    : "";
+                  const location = [flag, v.city, cc]
+                    .filter(Boolean)
+                    .join(" ");
+                  const browser = parseBrowser(v.userAgent);
+                  return (
+                    <div key={v.id} className="py-2.5">
+                      <div className="flex items-baseline gap-4 text-sm">
+                        <span className="whitespace-nowrap text-muted-foreground">
                           {new Date(v.viewedAt).toLocaleString()}
-                        </td>
-                        <td className="py-2 pr-3">{location || "—"}</td>
-                        <td className="py-2 pr-3 font-mono text-xs">
-                          {v.ipAddress ?? "—"}
-                        </td>
-                        <td className="py-2 pr-3 text-xs">
-                          <div className="font-medium">{browser}</div>
-                          {v.userAgent && browser !== v.userAgent && (
-                            <div className="text-[10px] text-muted-foreground mt-0.5 break-all leading-tight">
-                              {v.userAgent}
-                            </div>
-                          )}
-                        </td>
-                        <td className="py-2 text-xs">
-                          {v.referrer ?? "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </span>
+                        <span className="whitespace-nowrap">{location || "—"}</span>
+                        <span className="font-mono text-xs">{v.ipAddress ?? "—"}</span>
+                        <span className="font-medium text-xs">{browser}</span>
+                        {v.referrer && (
+                          <span className="text-xs text-muted-foreground truncate">{v.referrer}</span>
+                        )}
+                      </div>
+                      {v.userAgent && (
+                        <div className="text-[11px] text-muted-foreground mt-1 break-all leading-snug font-mono">
+                          {v.userAgent}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </DialogContent>
