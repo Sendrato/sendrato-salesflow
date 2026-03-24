@@ -2902,7 +2902,12 @@ export default function LeadDetail() {
                                 {v.ipAddress ?? "—"}
                               </td>
                               <td className="py-2 pr-3 text-xs">
-                                {browser}
+                                <div className="font-medium">{browser}</div>
+                                {v.userAgent && browser !== v.userAgent && (
+                                  <div className="text-[10px] text-muted-foreground mt-0.5 break-all leading-tight">
+                                    {v.userAgent}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-2 text-xs">
                                 {v.referrer ?? "—"}
