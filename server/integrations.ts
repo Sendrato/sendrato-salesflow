@@ -850,6 +850,9 @@ export function registerIntegrationRoutes(app: Express) {
         }
       })();
 
+      // Block search engine indexing of share pages
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+
       const mime = (share.mimeType ?? "").toLowerCase();
       const isHtml =
         mime === "text/html" ||
@@ -872,6 +875,7 @@ export function registerIntegrationRoutes(app: Express) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex, nofollow" />
   <title>${share.title ?? share.fileName}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }

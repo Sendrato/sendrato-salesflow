@@ -46,6 +46,12 @@ async function startServer() {
   registerCrmChatRoutes(app);
   // Brainstorm AI Chat
   registerBrainstormChatRoutes(app);
+  // robots.txt — block crawlers from share links
+  app.get("/robots.txt", (_req, res) => {
+    res.type("text/plain").send(
+      "User-agent: *\nDisallow: /share/\nDisallow: /api/\n"
+    );
+  });
   // Serve uploaded files from local storage
   app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
   // Integration routes: email ingest, Slack, import
