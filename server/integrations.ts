@@ -837,6 +837,12 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
+      // Canonical redirect: if accessed by token but share has a slug, redirect
+      if (share.slug && tokenOrSlug !== share.slug) {
+        res.redirect(301, `/share/${share.slug}`);
+        return;
+      }
+
       // Check expiry
       if (share.expiresAt && new Date(share.expiresAt) < new Date()) {
         res.status(410).send("<h1>This presentation link has expired.</h1>");
