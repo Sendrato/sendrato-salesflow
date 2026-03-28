@@ -264,6 +264,7 @@ export const shareablePresentations = pgTable("shareable_presentations", {
   leadId: integer("leadId"),
   crmDocumentId: integer("crmDocumentId"),
   token: varchar("token", { length: 64 }).notNull().unique(),
+  slug: varchar("slug", { length: 128 }).unique(),
   title: varchar("title", { length: 512 }),
   passwordHash: varchar("passwordHash", { length: 255 }),
   expiresAt: timestamp("expiresAt"),

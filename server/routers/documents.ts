@@ -8,6 +8,7 @@ import {
   getRawPool,
 } from "../db";
 import { getDocumentAccessUsers, setDocumentAccess } from "../documentAccessDb";
+import { slugify } from "@shared/slugify";
 
 export const documentsRouter = router({
   list: publicProcedure
@@ -124,6 +125,28 @@ export const documentsRouter = router({
           [input.token]
         );
       return { success: true };
+    }),
+
+  updateShareSlug: protectedProcedure
+    .input(z.object({ id: z.number(), slug: z.string().max(128) }))
+    .mutation(async ({ input }) => {
+      const pool = await getRawPool();
+      if (!pool) throw new Error("No DB connection");
+      const clean = input.slug ? slugify(input.slug) : null;
+      if (clean) {
+        const { rows: dup } = await pool.query(
+          `SELECT 1 FROM shareable_presentations WHERE slug = $1 AND id != $2`,
+          [clean, input.id]
+        );
+        if (dup.length > 0) {
+          throw new Error("This URL slug is already in use");
+        }
+      }
+      await pool.query(
+        `UPDATE shareable_presentations SET slug = $1 WHERE id = $2`,
+        [clean, input.id]
+      );
+      return { success: true, slug: clean };
     }),
 
   listShareViews: protectedProcedure

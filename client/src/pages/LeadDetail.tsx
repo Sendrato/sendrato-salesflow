@@ -120,6 +120,7 @@ import WebLinksCard from "@/components/WebLinksCard";
 import { UserAccessPicker } from "@/components/UserAccessPicker";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getPromotorEventFields } from "@shared/leadAttributeSchemas";
+import { slugify } from "@shared/slugify";
 
 /** Convert plain newlines to markdown line breaks (two trailing spaces) */
 function mdBreaks(text: string): string {
@@ -428,10 +429,13 @@ export default function LeadDetail() {
   );
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
   const [shareTitle, setShareTitle] = useState("");
+  const [shareSlug, setShareSlug] = useState("");
   const [shareRecordMoment, setShareRecordMoment] = useState(true);
   const [shareNotes, setShareNotes] = useState("");
   const [sharing, setSharing] = useState(false);
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
+  const [editSlugId, setEditSlugId] = useState<number | null>(null);
+  const [editSlugValue, setEditSlugValue] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Promotor Events state
@@ -605,6 +609,16 @@ export default function LeadDetail() {
     },
   });
 
+  const updateShareSlugMutation =
+    trpc.documents.updateShareSlug.useMutation({
+      onSuccess: (data) => {
+        refetchShares();
+        setEditSlugId(null);
+        toast.success("Share URL updated");
+      },
+      onError: (err) => toast.error(err.message),
+    });
+
   const deleteLeadMutation = trpc.leads.delete.useMutation({
     onSuccess: () => {
       toast.success("Lead deleted");
@@ -688,6 +702,9 @@ export default function LeadDetail() {
           documentId: shareDialogDoc.id,
           leadId,
           title: shareTitle || shareDialogDoc.fileName,
+          slug:
+            shareSlug ||
+            slugify(shareTitle || shareDialogDoc.fileName),
           recordContactMoment: shareRecordMoment,
           notes: shareNotes,
         }),
@@ -699,7 +716,8 @@ export default function LeadDetail() {
         if (shareRecordMoment) utils.contactMoments.list.invalidate({ leadId });
         toast.success("Share link created!");
       } else {
-        toast.error("Failed to create share link");
+        const err = await res.json().catch(() => null);
+        toast.error(err?.error ?? "Failed to create share link");
       }
     } catch {
       toast.error("Failed to create share link");
@@ -2715,6 +2733,7 @@ export default function LeadDetail() {
                             onClick={() => {
                               setShareDialogDoc(doc);
                               setShareTitle(doc.fileName);
+                              setShareSlug(slugify(doc.fileName));
                               setSharedUrl(null);
                               setShareNotes("");
                               setShareRecordMoment(true);
@@ -2769,66 +2788,134 @@ export default function LeadDetail() {
                       .map((share: any) => (
                         <div
                           key={share.id}
-                          className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg border border-blue-200/50"
+                          className="p-3 bg-blue-50/50 dark:bg-blue-950/20 rounded-lg border border-blue-200/50"
                         >
-                          <div className="min-w-0">
-                            <div className="text-sm font-medium truncate">
-                              {share.title ?? share.fileName}
+                          <div className="flex items-center justify-between">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium truncate">
+                                {share.title ?? share.fileName}
+                              </div>
+                              <div className="flex items-center gap-3 mt-0.5">
+                                <button
+                                  className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer underline-offset-2 hover:underline"
+                                  onClick={() =>
+                                    setViewDetailsShareId(share.id)
+                                  }
+                                >
+                                  <Eye className="h-3 w-3" />{" "}
+                                  {share.viewCount ?? 0} views
+                                </button>
+                                <span className="text-xs text-muted-foreground">
+                                  {share.fileName}
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 mt-0.5">
-                              <button
-                                className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer underline-offset-2 hover:underline"
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 gap-1 text-xs"
+                                onClick={() => {
+                                  const url = `${window.location.origin}/share/${share.slug ?? share.token}`;
+                                  navigator.clipboard.writeText(url);
+                                  toast.success("Link copied!");
+                                }}
+                              >
+                                <Copy className="h-3.5 w-3.5" /> Copy
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 gap-1 text-xs"
+                                asChild
+                              >
+                                <a
+                                  href={`/share/${share.slug ?? share.token}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />{" "}
+                                  Preview
+                                </a>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                                 onClick={() =>
-                                  setViewDetailsShareId(share.id)
+                                  deactivateShareMutation.mutate({
+                                    token: share.token,
+                                  })
                                 }
                               >
-                                <Eye className="h-3 w-3" />{" "}
-                                {share.viewCount ?? 0} views
-                              </button>
-                              <span className="text-xs text-muted-foreground">
-                                {share.fileName}
-                              </span>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex gap-1 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 gap-1 text-xs"
-                              onClick={() => {
-                                const url = `${window.location.origin}/share/${share.token}`;
-                                navigator.clipboard.writeText(url);
-                                toast.success("Link copied!");
-                              }}
-                            >
-                              <Copy className="h-3.5 w-3.5" /> Copy
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 gap-1 text-xs"
-                              asChild
-                            >
-                              <a
-                                href={`/share/${share.token}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" /> Preview
-                              </a>
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                              onClick={() =>
-                                deactivateShareMutation.mutate({
-                                  token: share.token,
-                                })
-                              }
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                          {/* Editable slug row */}
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            {editSlugId === share.id ? (
+                              <>
+                                <span className="text-[11px] text-muted-foreground">
+                                  /share/
+                                </span>
+                                <Input
+                                  className="h-6 text-xs px-1.5 flex-1"
+                                  value={editSlugValue}
+                                  onChange={e =>
+                                    setEditSlugValue(
+                                      e.target.value
+                                        .toLowerCase()
+                                        .replace(/[^a-z0-9_-]/g, "-")
+                                    )
+                                  }
+                                  onKeyDown={e => {
+                                    if (e.key === "Enter" && editSlugValue) {
+                                      updateShareSlugMutation.mutate({
+                                        id: share.id,
+                                        slug: editSlugValue,
+                                      });
+                                    }
+                                    if (e.key === "Escape")
+                                      setEditSlugId(null);
+                                  }}
+                                  autoFocus
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => {
+                                    if (editSlugValue) {
+                                      updateShareSlugMutation.mutate({
+                                        id: share.id,
+                                        slug: editSlugValue,
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Check className="h-3 w-3" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-[11px] text-muted-foreground truncate">
+                                  /share/
+                                  {share.slug ?? share.token}
+                                </span>
+                                <button
+                                  className="text-muted-foreground hover:text-foreground transition-colors"
+                                  onClick={() => {
+                                    setEditSlugId(share.id);
+                                    setEditSlugValue(
+                                      share.slug ?? ""
+                                    );
+                                  }}
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -2972,9 +3059,33 @@ export default function LeadDetail() {
                       <Label>Title (shown to client)</Label>
                       <Input
                         value={shareTitle}
-                        onChange={e => setShareTitle(e.target.value)}
+                        onChange={e => {
+                          setShareTitle(e.target.value);
+                          setShareSlug(slugify(e.target.value));
+                        }}
                         placeholder={shareDialogDoc?.fileName}
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Custom URL (optional)</Label>
+                      <Input
+                        value={shareSlug}
+                        onChange={e =>
+                          setShareSlug(
+                            e.target.value
+                              .toLowerCase()
+                              .replace(/[^a-z0-9_-]/g, "-")
+                          )
+                        }
+                        placeholder={slugify(shareDialogDoc?.fileName ?? "")}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        {window.location.origin}/share/
+                        <span className="font-medium">
+                          {shareSlug ||
+                            slugify(shareDialogDoc?.fileName ?? "")}
+                        </span>
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
                       <input

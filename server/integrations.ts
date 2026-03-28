@@ -32,6 +32,7 @@ import { generateText } from "ai";
 import { getLLMProvider } from "./llmProvider";
 import { LEAD_TYPE_SCHEMAS } from "@shared/leadAttributeSchemas";
 import { extractIp, getGeoFromIp } from "./geoip";
+import { slugify } from "@shared/slugify";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -718,8 +719,15 @@ export function registerIntegrationRoutes(app: Express) {
    */
   app.post("/api/share-presentation", async (req: Request, res: Response) => {
     try {
-      const { documentId, leadId, title, recordContactMoment, userId, notes } =
-        req.body;
+      const {
+        documentId,
+        leadId,
+        title,
+        slug: rawSlug,
+        recordContactMoment,
+        userId,
+        notes,
+      } = req.body;
       if (!documentId || !leadId) {
         res.status(400).json({ error: "documentId and leadId are required" });
         return;
@@ -739,15 +747,31 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
+      // Sanitize slug — auto-append suffix if duplicate
+      let slug = rawSlug ? slugify(rawSlug) : null;
+      if (slug) {
+        const base = slug;
+        let attempt = 0;
+        while (true) {
+          const { rows: dup } = await pool.query(
+            `SELECT 1 FROM shareable_presentations WHERE slug = $1`,
+            [slug]
+          );
+          if (dup.length === 0) break;
+          attempt++;
+          slug = `${base}-${attempt}`;
+        }
+      }
+
       // Generate unique token
       const token = nanoid(32);
       await pool.query(
-        `INSERT INTO shareable_presentations ("documentId", "leadId", token, title, "createdBy", "createdAt", "isActive")
-         VALUES ($1, $2, $3, $4, $5, NOW(), TRUE)`,
-        [documentId, leadId, token, title ?? doc.fileName, userId ?? null]
+        `INSERT INTO shareable_presentations ("documentId", "leadId", token, slug, title, "createdBy", "createdAt", "isActive")
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), TRUE)`,
+        [documentId, leadId, token, slug, title ?? doc.fileName, userId ?? null]
       );
 
-      const shareUrl = `${req.protocol}://${req.get("host")}/share/${token}`;
+      const shareUrl = `${req.protocol}://${req.get("host")}/share/${slug ?? token}`;
 
       // Optionally record as contact moment
       if (recordContactMoment) {
@@ -776,21 +800,22 @@ export function registerIntegrationRoutes(app: Express) {
    */
   app.get("/share/:token", async (req: Request, res: Response) => {
     try {
-      const { token } = req.params;
+      // Strip .html/.htm extension so /share/my-slug.html works
+      const tokenOrSlug = req.params.token.replace(/\.html?$/i, "");
       const pool = await getRawPool();
       if (!pool) {
         res.status(503).send("Service unavailable");
         return;
       }
 
-      // Try lead document first, then CRM document
+      // Try lead document first, then CRM document (lookup by token or slug)
       const { rows } = await pool.query(
         `SELECT sp.*, ld."fileUrl", ld."fileName", ld."mimeType", l."companyName"
          FROM shareable_presentations sp
          JOIN lead_documents ld ON ld.id = sp."documentId"
          JOIN leads l ON l.id = sp."leadId"
-         WHERE sp.token = $1 AND sp."isActive" = TRUE`,
-        [token]
+         WHERE (sp.token = $1 OR sp.slug = $1) AND sp."isActive" = TRUE`,
+        [tokenOrSlug]
       );
       let share = rows[0];
 
@@ -799,8 +824,8 @@ export function registerIntegrationRoutes(app: Express) {
           `SELECT sp.*, cd."fileUrl", cd."fileName", cd."mimeType", NULL as "companyName"
            FROM shareable_presentations sp
            JOIN crm_documents cd ON cd.id = sp."crmDocumentId"
-           WHERE sp.token = $1 AND sp."isActive" = TRUE`,
-          [token]
+           WHERE (sp.token = $1 OR sp.slug = $1) AND sp."isActive" = TRUE`,
+          [tokenOrSlug]
         );
         share = crmRows[0];
       }
@@ -820,8 +845,8 @@ export function registerIntegrationRoutes(app: Express) {
 
       // Update view count + record individual view
       await pool.query(
-        `UPDATE shareable_presentations SET "viewCount" = "viewCount" + 1, "lastViewedAt" = NOW() WHERE token = $1`,
-        [token]
+        `UPDATE shareable_presentations SET "viewCount" = "viewCount" + 1, "lastViewedAt" = NOW() WHERE id = $1`,
+        [share.id]
       );
 
       // Record detailed view (non-blocking)
@@ -925,7 +950,7 @@ export function registerIntegrationRoutes(app: Express) {
    */
   app.post("/api/share-crm-document", async (req: Request, res: Response) => {
     try {
-      const { documentId, title, userId } = req.body;
+      const { documentId, title, slug: rawSlug, userId } = req.body;
       if (!documentId) {
         res.status(400).json({ error: "documentId is required" });
         return;
@@ -944,15 +969,31 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
+      // Sanitize slug — auto-append suffix if duplicate
+      let slug = rawSlug ? slugify(rawSlug) : null;
+      if (slug) {
+        const base = slug;
+        let attempt = 0;
+        while (true) {
+          const { rows: dup } = await pool.query(
+            `SELECT 1 FROM shareable_presentations WHERE slug = $1`,
+            [slug]
+          );
+          if (dup.length === 0) break;
+          attempt++;
+          slug = `${base}-${attempt}`;
+        }
+      }
+
       const token = nanoid(32);
       await pool.query(
-        `INSERT INTO shareable_presentations ("crmDocumentId", token, title, "createdBy", "createdAt", "isActive")
-         VALUES ($1, $2, $3, $4, NOW(), TRUE)`,
-        [documentId, token, title ?? doc.fileName, userId ?? null]
+        `INSERT INTO shareable_presentations ("crmDocumentId", token, slug, title, "createdBy", "createdAt", "isActive")
+         VALUES ($1, $2, $3, $4, $5, NOW(), TRUE)`,
+        [documentId, token, slug, title ?? doc.fileName, userId ?? null]
       );
 
-      const shareUrl = `${req.protocol}://${req.get("host")}/share/${token}`;
-      res.json({ success: true, token, shareUrl });
+      const shareUrl = `${req.protocol}://${req.get("host")}/share/${slug ?? token}`;
+      res.json({ success: true, token, slug, shareUrl });
     } catch (error) {
       console.error("[/api/share-crm-document] Error:", error);
       res.status(500).json({ error: "Failed to create share link" });
@@ -969,10 +1010,11 @@ export function registerIntegrationRoutes(app: Express) {
         res.status(503).json({ error: "DB unavailable" });
         return;
       }
+      const tokenOrSlug = req.params.token.replace(/\.html?$/i, "");
       const { rows } = await pool.query(
         `SELECT sp.*, ld."fileName", ld."mimeType" FROM shareable_presentations sp
-         JOIN lead_documents ld ON ld.id = sp."documentId" WHERE sp.token = $1`,
-        [req.params.token]
+         JOIN lead_documents ld ON ld.id = sp."documentId" WHERE sp.token = $1 OR sp.slug = $1`,
+        [tokenOrSlug]
       );
       const share = rows[0];
       if (!share) {

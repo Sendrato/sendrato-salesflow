@@ -207,6 +207,50 @@ export async function getDb() {
           } catch (e) {
             console.warn("[DB] presentation_views table check:", e);
           }
+          // Ensure shareable_presentations.slug column exists
+          try {
+            const slugCheck = await _pool.query(
+              `SELECT 1 FROM information_schema.columns WHERE table_name = 'shareable_presentations' AND column_name = 'slug'`
+            );
+            if (slugCheck.rows.length === 0) {
+              await _pool.query(
+                `ALTER TABLE shareable_presentations ADD COLUMN slug varchar(128) UNIQUE`
+              );
+              console.log("[DB] Added 'slug' column to shareable_presentations");
+            }
+          } catch (e) {
+            console.warn("[DB] shareable_presentations slug check:", e);
+          }
+          // Backfill slugs for existing shares that have none
+          try {
+            const { slugify } = await import("@shared/slugify");
+            const noSlug = await _pool.query(
+              `SELECT id, title, token FROM shareable_presentations WHERE slug IS NULL`
+            );
+            for (const row of noSlug.rows) {
+              const base = slugify(row.title || row.token);
+              let slug = base;
+              let attempt = 0;
+              while (true) {
+                const { rows: dup } = await _pool.query(
+                  `SELECT 1 FROM shareable_presentations WHERE slug = $1 AND id != $2`,
+                  [slug, row.id]
+                );
+                if (dup.length === 0) break;
+                attempt++;
+                slug = `${base}-${attempt}`;
+              }
+              await _pool.query(
+                `UPDATE shareable_presentations SET slug = $1 WHERE id = $2`,
+                [slug, row.id]
+              );
+              console.log(
+                `[DB] Backfilled slug "${slug}" for share #${row.id}`
+              );
+            }
+          } catch (e) {
+            console.warn("[DB] slug backfill:", e);
+          }
           // Trim trailing/leading whitespace from key text fields
           try {
             const trimFields = [
