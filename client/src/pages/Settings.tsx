@@ -75,6 +75,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { formatRelativeTime } from "@/lib/crm";
+import { COUNTRY_NAMES } from "@shared/countries";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function countryCodeToFlag(code: string): string {
   const upper = code.toUpperCase();
@@ -239,6 +256,9 @@ function UserManagementCard() {
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [editingName, setEditingName] = useState("");
   const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
+  const [countriesUserId, setCountriesUserId] = useState<number | null>(null);
+  const [countriesAll, setCountriesAll] = useState(true);
+  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
 
   if (user?.role !== "admin") return null;
 
@@ -283,6 +303,7 @@ function UserManagementCard() {
                 <TableHead>Status</TableHead>
                 <TableHead>Last Active</TableHead>
                 <TableHead>Country</TableHead>
+                <TableHead>Allowed Countries</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -380,6 +401,36 @@ function UserManagementCard() {
                         ? `${countryCodeToFlag(u.lastLoginCountry)} ${u.lastLoginCountry}`
                         : "—"}
                     </TableCell>
+                    <TableCell>
+                      {u.role === "admin" ? (
+                        <Badge
+                          variant="outline"
+                          className="text-xs text-muted-foreground"
+                        >
+                          All (admin)
+                        </Badge>
+                      ) : !(u.allowedCountries as string[] | null) ? (
+                        <Badge variant="outline" className="text-xs">
+                          All countries
+                        </Badge>
+                      ) : (
+                        <span
+                          className="text-xs text-muted-foreground cursor-pointer hover:text-primary"
+                          title={(u.allowedCountries as string[]).join(", ")}
+                          onClick={() => {
+                            const ac = u.allowedCountries as string[] | null;
+                            setCountriesUserId(u.id);
+                            setCountriesAll(!ac);
+                            setSelectedCountries(ac ?? []);
+                          }}
+                        >
+                          {(u.allowedCountries as string[]).length} countr
+                          {(u.allowedCountries as string[]).length === 1
+                            ? "y"
+                            : "ies"}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
                         <Button
@@ -394,6 +445,23 @@ function UserManagementCard() {
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
+                        {u.role !== "admin" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-1.5 text-xs"
+                            title="Edit allowed countries"
+                            onClick={() => {
+                              const ac =
+                                u.allowedCountries as string[] | null;
+                              setCountriesUserId(u.id);
+                              setCountriesAll(!ac);
+                              setSelectedCountries(ac ?? []);
+                            }}
+                          >
+                            <Globe className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -493,8 +561,161 @@ function UserManagementCard() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Allowed Countries Dialog */}
+        <Dialog
+          open={!!countriesUserId}
+          onOpenChange={open => {
+            if (!open) setCountriesUserId(null);
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Allowed Countries</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="allCountries"
+                  checked={countriesAll}
+                  onCheckedChange={checked => {
+                    setCountriesAll(!!checked);
+                    if (checked) setSelectedCountries([]);
+                  }}
+                />
+                <Label htmlFor="allCountries" className="text-sm font-medium">
+                  All countries
+                </Label>
+              </div>
+              {!countriesAll && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Select which countries this user can access:
+                  </p>
+                  <CountryMultiSelect
+                    selected={selectedCountries}
+                    onChange={setSelectedCountries}
+                  />
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCountriesUserId(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={
+                    (!countriesAll && selectedCountries.length === 0) ||
+                    updateUserMutation.isPending
+                  }
+                  onClick={() => {
+                    if (!countriesUserId) return;
+                    updateUserMutation.mutate({
+                      userId: countriesUserId,
+                      allowedCountries: countriesAll
+                        ? null
+                        : selectedCountries,
+                    });
+                    setCountriesUserId(null);
+                  }}
+                >
+                  {updateUserMutation.isPending && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
+  );
+}
+
+/** Multi-select combobox for countries (used in Settings). */
+function CountryMultiSelect({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  function toggle(country: string) {
+    onChange(
+      selected.includes(country)
+        ? selected.filter(c => c !== country)
+        : [...selected, country]
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            className="w-full justify-between font-normal h-9 text-sm"
+          >
+            <span className={cn(!selected.length && "text-muted-foreground")}>
+              {selected.length
+                ? `${selected.length} countr${selected.length === 1 ? "y" : "ies"} selected`
+                : "Select countries..."}
+            </span>
+            <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 ml-2" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[320px] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Search country..." />
+            <CommandList>
+              <CommandEmpty>No country found.</CommandEmpty>
+              <CommandGroup>
+                {COUNTRY_NAMES.map(country => (
+                  <CommandItem
+                    key={country}
+                    value={country}
+                    onSelect={() => toggle(country)}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selected.includes(country)
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    {country}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.sort().map(c => (
+            <Badge
+              key={c}
+              variant="secondary"
+              className="text-xs gap-1 cursor-pointer"
+              onClick={() => toggle(c)}
+            >
+              {c}
+              <X className="h-3 w-3" />
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -502,6 +723,8 @@ function InviteUserCard() {
   const { user } = useAuth();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const [inviteAllCountries, setInviteAllCountries] = useState(true);
+  const [inviteCountries, setInviteCountries] = useState<string[]>([]);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const inviteMutation = trpc.auth.inviteUser.useMutation();
 
@@ -514,10 +737,13 @@ function InviteUserCard() {
       const result = await inviteMutation.mutateAsync({
         email,
         name: name || undefined,
+        allowedCountries: inviteAllCountries ? null : inviteCountries,
       });
       setTempPassword(result.tempPassword);
       setEmail("");
       setName("");
+      setInviteAllCountries(true);
+      setInviteCountries([]);
       toast.success("User invited successfully");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to invite user");
@@ -558,7 +784,38 @@ function InviteUserCard() {
               placeholder="John Doe"
             />
           </div>
-          <Button type="submit" disabled={inviteMutation.isPending}>
+          <div className="space-y-2">
+            <Label>Allowed Countries</Label>
+            <div className="flex items-center gap-3">
+              <Checkbox
+                id="inviteAllCountries"
+                checked={inviteAllCountries}
+                onCheckedChange={checked => {
+                  setInviteAllCountries(!!checked);
+                  if (checked) setInviteCountries([]);
+                }}
+              />
+              <Label
+                htmlFor="inviteAllCountries"
+                className="text-sm font-normal"
+              >
+                All countries
+              </Label>
+            </div>
+            {!inviteAllCountries && (
+              <CountryMultiSelect
+                selected={inviteCountries}
+                onChange={setInviteCountries}
+              />
+            )}
+          </div>
+          <Button
+            type="submit"
+            disabled={
+              inviteMutation.isPending ||
+              (!inviteAllCountries && inviteCountries.length === 0)
+            }
+          >
             {inviteMutation.isPending && (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             )}

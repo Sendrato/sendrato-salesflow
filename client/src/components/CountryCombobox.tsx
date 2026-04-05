@@ -20,11 +20,14 @@ import { COUNTRY_NAMES } from "@shared/countries";
 export function CountryCombobox({
   value,
   onChange,
+  countries,
 }: {
   value: string;
   onChange: (v: string) => void;
+  countries?: string[];
 }) {
   const [open, setOpen] = useState(false);
+  const countryList = countries ?? COUNTRY_NAMES;
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,7 +61,7 @@ export function CountryCombobox({
           <CommandList>
             <CommandEmpty>No country found.</CommandEmpty>
             <CommandGroup>
-              {COUNTRY_NAMES.map(country => (
+              {countryList.map(country => (
                 <CommandItem
                   key={country}
                   value={country}

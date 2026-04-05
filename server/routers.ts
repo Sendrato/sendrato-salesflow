@@ -79,6 +79,9 @@ export const appRouter = router({
         z.object({
           email: z.email(),
           name: z.string().optional(),
+          allowedCountries: z
+            .union([z.null(), z.array(z.string()).min(1)])
+            .optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -99,6 +102,16 @@ export const appRouter = router({
           loginMethod: "email",
           lastSignedIn: new Date(),
         });
+
+        if (input.allowedCountries !== undefined) {
+          const newUser = await db.getUserByEmail(input.email.toLowerCase());
+          if (newUser) {
+            await db.updateUserAllowedCountries(
+              newUser.id,
+              input.allowedCountries
+            );
+          }
+        }
 
         return { tempPassword };
       }),
@@ -123,11 +136,27 @@ export const appRouter = router({
       }),
 
     updateUser: adminProcedure
-      .input(z.object({ userId: z.number(), name: z.string().min(1) }))
+      .input(
+        z.object({
+          userId: z.number(),
+          name: z.string().min(1).optional(),
+          allowedCountries: z
+            .union([z.null(), z.array(z.string()).min(1)])
+            .optional(),
+        })
+      )
       .mutation(async ({ input }) => {
         const user = await db.getUserById(input.userId);
         if (!user) throw new Error("User not found");
-        await db.updateUserName(input.userId, input.name);
+        if (input.name !== undefined) {
+          await db.updateUserName(input.userId, input.name);
+        }
+        if (input.allowedCountries !== undefined) {
+          await db.updateUserAllowedCountries(
+            input.userId,
+            input.allowedCountries
+          );
+        }
         return { success: true };
       }),
 

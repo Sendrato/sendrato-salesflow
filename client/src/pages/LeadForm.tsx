@@ -18,6 +18,7 @@ import { useLocation, useParams } from "wouter";
 import { toast } from "sonner";
 import { ALL_STATUSES, ALL_PRIORITIES, STATUS_LABELS } from "@/lib/crm";
 import { CountryCombobox } from "@/components/CountryCombobox";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 type FormData = {
   companyName: string;
@@ -76,6 +77,11 @@ export default function LeadForm() {
     { id: leadId! },
     { enabled: isEdit }
   );
+  const { user: currentUser } = useAuth();
+  const allowedCountries =
+    currentUser?.role === "admin" || !currentUser?.allowedCountries
+      ? undefined
+      : (currentUser.allowedCountries as string[]);
   const { data: userList } = trpc.auth.listUsers.useQuery();
   const users = userList ?? [];
 
@@ -250,6 +256,7 @@ export default function LeadForm() {
                 <CountryCombobox
                   value={form.country}
                   onChange={v => setForm(f => ({ ...f, country: v }))}
+                  countries={allowedCountries}
                 />
               </div>
             </CardContent>

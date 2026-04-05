@@ -418,6 +418,7 @@ export async function listUsers() {
       createdAt: users.createdAt,
       lastSignedIn: users.lastSignedIn,
       lastLoginCountry: users.lastLoginCountry,
+      allowedCountries: users.allowedCountries,
     })
     .from(users)
     .orderBy(users.createdAt);
@@ -446,6 +447,18 @@ export async function updateUserName(
     .where(eq(users.id, userId));
 }
 
+export async function updateUserAllowedCountries(
+  userId: number,
+  allowedCountries: string[] | null
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .update(users)
+    .set({ allowedCountries, updatedAt: new Date() })
+    .where(eq(users.id, userId));
+}
+
 export async function deleteUser(userId: number): Promise<void> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -466,6 +479,7 @@ export async function getLeads(opts: {
   sizeMax?: number;
   limit?: number;
   offset?: number;
+  allowedCountries?: string[] | null;
 }) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
@@ -489,6 +503,9 @@ export async function getLeads(opts: {
     conditions.push(eq(leads.priority, opts.priority as Lead["priority"]));
   if (opts.source) conditions.push(eq(leads.source, opts.source));
   if (opts.country) conditions.push(eq(leads.country, opts.country));
+  if (Array.isArray(opts.allowedCountries)) {
+    conditions.push(inArray(leads.country, opts.allowedCountries));
+  }
   if (opts.leadType)
     conditions.push(eq(leads.leadType, opts.leadType as Lead["leadType"]));
   if (opts.label) conditions.push(eq(leads.label, opts.label));

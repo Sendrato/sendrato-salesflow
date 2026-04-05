@@ -128,6 +128,7 @@ export const users = pgTable("users", {
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   lastLoginIp: varchar("lastLoginIp", { length: 45 }),
   lastLoginCountry: varchar("lastLoginCountry", { length: 2 }),
+  allowedCountries: json("allowedCountries").$type<string[] | null>(),
 });
 
 export type User = typeof users.$inferSelect;
