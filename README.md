@@ -68,6 +68,7 @@ Algorithmic lead priority scoring (0–100) based on activity recency, document 
 ### Settings
 
 Admin panel for:
+
 - **LLM Provider** — Configure OpenAI, Anthropic, Google Gemini, or any OpenAI-compatible endpoint (Ollama, Groq, etc.). Separate model selection for chat and enrichment tasks. Connection testing built in.
 - **Web Search** — Configure a Tavily API key to give AI chat and enrichment real-time internet access. Free tier: 1,000 searches/month.
 - **IMAP Email** — Configure IMAP server, credentials, mailbox folder, and poll interval. Test connection and trigger manual sync.
@@ -79,15 +80,15 @@ Email/password authentication with bcrypt hashing. Cookie-based session manageme
 
 ## Tech Stack
 
-| Layer      | Technology                                                       |
-| ---------- | ---------------------------------------------------------------- |
-| Frontend   | React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui |
-| Backend    | Express, tRPC 11, Node.js                                        |
-| Database   | PostgreSQL 16 + pgvector, Drizzle ORM                            |
+| Layer      | Technology                                                                   |
+| ---------- | ---------------------------------------------------------------------------- |
+| Frontend   | React 19, Vite, Wouter, TanStack Query, Tailwind CSS, shadcn/ui              |
+| Backend    | Express, tRPC 11, Node.js                                                    |
+| Database   | PostgreSQL 16 + pgvector, Drizzle ORM                                        |
 | AI         | Vercel AI SDK, OpenAI / Anthropic / Google / custom providers, Tavily Search |
-| Embeddings | OpenAI text-embedding-3-small (1024 dimensions)                  |
-| Storage    | Local file storage (configurable)                                |
-| Language   | TypeScript (strict mode)                                         |
+| Embeddings | OpenAI text-embedding-3-small (1024 dimensions)                              |
+| Storage    | Local file storage (configurable)                                            |
+| Language   | TypeScript (strict mode)                                                     |
 
 ## Getting Started
 

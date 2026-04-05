@@ -459,11 +459,10 @@ export default function LeadDetail() {
   const { data: documents } = trpc.documents.list.useQuery({ leadId });
   const { data: shares, refetch: refetchShares } =
     trpc.documents.listShares.useQuery({ leadId });
-  const { data: shareViews } =
-    trpc.documents.listShareViews.useQuery(
-      { presentationId: viewDetailsShareId! },
-      { enabled: viewDetailsShareId !== null }
-    );
+  const { data: shareViews } = trpc.documents.listShareViews.useQuery(
+    { presentationId: viewDetailsShareId! },
+    { enabled: viewDetailsShareId !== null }
+  );
   const { data: linkedPersons, refetch: refetchPersons } =
     trpc.persons.getPersonsForLead.useQuery({ leadId });
   const { data: allPersons } = trpc.persons.list.useQuery({
@@ -609,15 +608,14 @@ export default function LeadDetail() {
     },
   });
 
-  const updateShareSlugMutation =
-    trpc.documents.updateShareSlug.useMutation({
-      onSuccess: (data) => {
-        refetchShares();
-        setEditSlugId(null);
-        toast.success("Share URL updated");
-      },
-      onError: (err) => toast.error(err.message),
-    });
+  const updateShareSlugMutation = trpc.documents.updateShareSlug.useMutation({
+    onSuccess: data => {
+      refetchShares();
+      setEditSlugId(null);
+      toast.success("Share URL updated");
+    },
+    onError: err => toast.error(err.message),
+  });
 
   const deleteLeadMutation = trpc.leads.delete.useMutation({
     onSuccess: () => {
@@ -702,9 +700,7 @@ export default function LeadDetail() {
           documentId: shareDialogDoc.id,
           leadId,
           title: shareTitle || shareDialogDoc.fileName,
-          slug:
-            shareSlug ||
-            slugify(shareTitle || shareDialogDoc.fileName),
+          slug: shareSlug || slugify(shareTitle || shareDialogDoc.fileName),
           recordContactMoment: shareRecordMoment,
           notes: shareNotes,
         }),
@@ -2876,8 +2872,7 @@ export default function LeadDetail() {
                                         slug: editSlugValue,
                                       });
                                     }
-                                    if (e.key === "Escape")
-                                      setEditSlugId(null);
+                                    if (e.key === "Escape") setEditSlugId(null);
                                   }}
                                   autoFocus
                                 />
@@ -2907,9 +2902,7 @@ export default function LeadDetail() {
                                   className="text-muted-foreground hover:text-foreground transition-colors"
                                   onClick={() => {
                                     setEditSlugId(share.id);
-                                    setEditSlugValue(
-                                      share.slug ?? ""
-                                    );
+                                    setEditSlugValue(share.slug ?? "");
                                   }}
                                 >
                                   <Pencil className="h-3 w-3" />
@@ -2952,8 +2945,7 @@ export default function LeadDetail() {
                               ...cc
                                 .split("")
                                 .map(
-                                  (c: string) =>
-                                    0x1f1e6 + c.charCodeAt(0) - 65
+                                  (c: string) => 0x1f1e6 + c.charCodeAt(0) - 65
                                 )
                             )
                           : "";
@@ -2970,11 +2962,19 @@ export default function LeadDetail() {
                               >
                                 {formatRelativeTime(v.viewedAt)}
                               </span>
-                              <span className="whitespace-nowrap">{location || "—"}</span>
-                              <span className="font-mono text-xs">{v.ipAddress ?? "—"}</span>
-                              <span className="font-medium text-xs">{browser}</span>
+                              <span className="whitespace-nowrap">
+                                {location || "—"}
+                              </span>
+                              <span className="font-mono text-xs">
+                                {v.ipAddress ?? "—"}
+                              </span>
+                              <span className="font-medium text-xs">
+                                {browser}
+                              </span>
                               {v.referrer && (
-                                <span className="text-xs text-muted-foreground truncate">{v.referrer}</span>
+                                <span className="text-xs text-muted-foreground truncate">
+                                  {v.referrer}
+                                </span>
                               )}
                             </div>
                             {v.userAgent && (
@@ -3082,8 +3082,7 @@ export default function LeadDetail() {
                       <p className="text-[11px] text-muted-foreground">
                         {window.location.origin}/share/
                         <span className="font-medium">
-                          {shareSlug ||
-                            slugify(shareDialogDoc?.fileName ?? "")}
+                          {shareSlug || slugify(shareDialogDoc?.fileName ?? "")}
                         </span>
                       </p>
                     </div>

@@ -452,8 +452,7 @@ function UserManagementCard() {
                             className="gap-1.5 text-xs"
                             title="Edit allowed countries"
                             onClick={() => {
-                              const ac =
-                                u.allowedCountries as string[] | null;
+                              const ac = u.allowedCountries as string[] | null;
                               setCountriesUserId(u.id);
                               setCountriesAll(!ac);
                               setSelectedCountries(ac ?? []);
@@ -616,9 +615,7 @@ function UserManagementCard() {
                     if (!countriesUserId) return;
                     updateUserMutation.mutate({
                       userId: countriesUserId,
-                      allowedCountries: countriesAll
-                        ? null
-                        : selectedCountries,
+                      allowedCountries: countriesAll ? null : selectedCountries,
                     });
                     setCountriesUserId(null);
                   }}
@@ -687,9 +684,7 @@ function CountryMultiSelect({
                     <Check
                       className={cn(
                         "mr-2 h-4 w-4",
-                        selected.includes(country)
-                          ? "opacity-100"
-                          : "opacity-0"
+                        selected.includes(country) ? "opacity-100" : "opacity-0"
                       )}
                     />
                     {country}

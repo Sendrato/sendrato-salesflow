@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
+import { getUserAllowedCountries } from "../_core/authorization";
 import {
   getPersons,
   getPersonById,
@@ -54,10 +55,11 @@ export const personsRouter = router({
         offset: z.number().optional().default(0),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const allowedCountries = getUserAllowedCountries(ctx.user);
       const [rows, total] = await Promise.all([
-        getPersons(input),
-        getPersonsCount(input),
+        getPersons({ ...input, allowedCountries }),
+        getPersonsCount({ ...input, allowedCountries }),
       ]);
       return { persons: rows, total };
     }),

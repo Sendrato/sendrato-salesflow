@@ -2,6 +2,10 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import {
+  getUserAllowedCountries,
+  assertCountryAuthorized,
+} from "../_core/authorization";
+import {
   getLeads,
   getLeadById,
   createLead,
@@ -12,7 +16,6 @@ import {
   getLeadStats,
   getLeadsByIds,
 } from "../db";
-import type { User } from "../../drizzle/schema";
 
 const leadStatusEnum = z.enum([
   "new",
@@ -74,29 +77,6 @@ const leadInputSchema = z.object({
     .optional(),
   leadAttributes: z.record(z.string(), z.unknown()).optional(),
 });
-
-/** Return the user's allowed countries array, or null if unrestricted. */
-function getUserAllowedCountries(
-  user: User | null
-): string[] | null {
-  if (!user) return null;
-  if (user.role === "admin") return null;
-  return user.allowedCountries ?? null;
-}
-
-function assertCountryAuthorized(
-  user: User,
-  country: string | undefined | null
-) {
-  const allowed = getUserAllowedCountries(user);
-  if (!allowed) return;
-  if (country && !allowed.includes(country)) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Not authorized for this country",
-    });
-  }
-}
 
 export const leadsRouter = router({
   list: publicProcedure
@@ -168,10 +148,7 @@ export const leadsRouter = router({
           });
         }
         // Also check the new country if being changed
-        if (
-          input.data.country &&
-          !allowed.includes(input.data.country)
-        ) {
+        if (input.data.country && !allowed.includes(input.data.country)) {
           throw new TRPCError({
             code: "FORBIDDEN",
             message: "Not authorized for this country",

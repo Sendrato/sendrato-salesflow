@@ -1,4 +1,4 @@
-import { eq, or, desc, and, sql } from "drizzle-orm";
+import { eq, or, desc, and, sql, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   persons,
@@ -16,12 +16,20 @@ export async function getPersons(opts: {
   search?: string;
   personType?: string;
   assignedTo?: number;
+  allowedCountries?: string[] | null;
   limit?: number;
   offset?: number;
 }) {
   const db = await getDb();
   if (!db) return [];
-  const { search, personType, assignedTo, limit = 50, offset = 0 } = opts;
+  const {
+    search,
+    personType,
+    assignedTo,
+    allowedCountries,
+    limit = 50,
+    offset = 0,
+  } = opts;
 
   const conditions = [];
   if (search) {
@@ -41,6 +49,22 @@ export async function getPersons(opts: {
   }
   if (assignedTo) {
     conditions.push(eq(persons.assignedTo, assignedTo));
+  }
+  if (Array.isArray(allowedCountries)) {
+    conditions.push(
+      or(
+        sql`NOT EXISTS (
+          SELECT 1 FROM person_lead_links pll
+          WHERE pll."personId" = ${persons.id}
+        )`,
+        sql`EXISTS (
+          SELECT 1 FROM person_lead_links pll
+          JOIN leads l ON l.id = pll."leadId"
+          WHERE pll."personId" = ${persons.id}
+          AND ${inArray(leads.country, allowedCountries)}
+        )`
+      )
+    );
   }
 
   const rows = await db
@@ -310,10 +334,11 @@ export async function getPersonsCount(opts: {
   search?: string;
   personType?: string;
   assignedTo?: number;
+  allowedCountries?: string[] | null;
 }) {
   const db = await getDb();
   if (!db) return 0;
-  const { search, personType, assignedTo } = opts;
+  const { search, personType, assignedTo, allowedCountries } = opts;
   const conditions = [];
   if (search) {
     const term = `%${search.toLowerCase()}%`;
@@ -328,6 +353,22 @@ export async function getPersonsCount(opts: {
   }
   if (personType) conditions.push(eq(persons.personType, personType as any));
   if (assignedTo) conditions.push(eq(persons.assignedTo, assignedTo));
+  if (Array.isArray(allowedCountries)) {
+    conditions.push(
+      or(
+        sql`NOT EXISTS (
+          SELECT 1 FROM person_lead_links pll
+          WHERE pll."personId" = ${persons.id}
+        )`,
+        sql`EXISTS (
+          SELECT 1 FROM person_lead_links pll
+          JOIN leads l ON l.id = pll."leadId"
+          WHERE pll."personId" = ${persons.id}
+          AND ${inArray(leads.country, allowedCountries)}
+        )`
+      )
+    );
+  }
   const [row] = await db
     .select({ count: sql<number>`count(*)` })
     .from(persons)

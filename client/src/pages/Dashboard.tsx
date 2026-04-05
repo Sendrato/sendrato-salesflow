@@ -72,8 +72,9 @@ export default function Dashboard() {
       refetchInterval: 120_000,
     }
   );
-  const { data: recentShareViews } =
-    trpc.analytics.recentShareViews.useQuery({ limit: 10 });
+  const { data: recentShareViews } = trpc.analytics.recentShareViews.useQuery({
+    limit: 10,
+  });
 
   const totalLeads = overview?.leadStats?.total ?? 0;
   const statusCounts = overview?.leadStats?.statusCounts ?? [];
@@ -636,9 +637,7 @@ export default function Dashboard() {
                       ? String.fromCodePoint(
                           ...cc
                             .split("")
-                            .map(
-                              (c: string) => 0x1f1e6 + c.charCodeAt(0) - 65
-                            )
+                            .map((c: string) => 0x1f1e6 + c.charCodeAt(0) - 65)
                         )
                       : "";
                     const location = [flag, view.city, cc]
@@ -649,8 +648,7 @@ export default function Dashboard() {
                         key={view.id}
                         className={`flex items-start gap-3 px-6 py-3${view.leadId ? " hover:bg-muted/30 cursor-pointer transition-colors" : ""}`}
                         onClick={() => {
-                          if (view.leadId)
-                            setLocation(`/leads/${view.leadId}`);
+                          if (view.leadId) setLocation(`/leads/${view.leadId}`);
                         }}
                       >
                         <div className="p-1.5 bg-blue-50 dark:bg-blue-950/30 rounded-md mt-0.5 shrink-0">
@@ -661,9 +659,7 @@ export default function Dashboard() {
                             {view.shareTitle ?? view.fileName ?? "Shared link"}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">
-                            {view.companyName
-                              ? `${view.companyName} · `
-                              : ""}
+                            {view.companyName ? `${view.companyName} · ` : ""}
                             {location || "Unknown location"}
                           </div>
                         </div>

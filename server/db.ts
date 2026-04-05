@@ -216,7 +216,9 @@ export async function getDb() {
               await _pool.query(
                 `ALTER TABLE shareable_presentations ADD COLUMN slug varchar(128) UNIQUE`
               );
-              console.log("[DB] Added 'slug' column to shareable_presentations");
+              console.log(
+                "[DB] Added 'slug' column to shareable_presentations"
+              );
             }
           } catch (e) {
             console.warn("[DB] shareable_presentations slug check:", e);
@@ -275,6 +277,32 @@ export async function getDb() {
             }
           } catch (e) {
             console.warn("[DB] Whitespace trim failed:", e);
+          }
+          // Ensure indexes for country-based filtering & common lookups
+          try {
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_leads_country ON leads (country)`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_contact_moments_lead_id ON contact_moments ("leadId")`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_contact_moments_person_id ON contact_moments ("personId")`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_contact_moments_occurred_at ON contact_moments ("occurredAt")`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_contact_moments_follow_up_at ON contact_moments ("followUpAt")`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_person_lead_links_person_id ON person_lead_links ("personId")`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_person_lead_links_lead_id ON person_lead_links ("leadId")`
+            );
+          } catch (e) {
+            console.warn("[DB] Index creation failed:", e);
           }
           // Normalize country names to ISO 3166-1 standard
           try {
@@ -789,19 +817,27 @@ export async function bulkInsertLeads(data: InsertLead[]) {
   return results;
 }
 
-export async function getLeadStats() {
+export async function getLeadStats(allowedCountries?: string[] | null) {
   const db = await getDb();
   if (!db) return null;
+  const countryFilter = Array.isArray(allowedCountries)
+    ? inArray(leads.country, allowedCountries)
+    : undefined;
   const [statusCounts, priorityCounts, totalCount] = await Promise.all([
     db
       .select({ status: leads.status, count: sql<number>`count(*)` })
       .from(leads)
+      .where(countryFilter)
       .groupBy(leads.status),
     db
       .select({ priority: leads.priority, count: sql<number>`count(*)` })
       .from(leads)
+      .where(countryFilter)
       .groupBy(leads.priority),
-    db.select({ count: sql<number>`count(*)` }).from(leads),
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(leads)
+      .where(countryFilter),
   ]);
   return {
     statusCounts,
@@ -862,9 +898,18 @@ export async function getContactMoments(leadId: number) {
   return rows;
 }
 
-export async function getRecentContactMoments(limit = 20) {
+export async function getRecentContactMoments(
+  limit = 20,
+  allowedCountries?: string[] | null
+) {
   const db = await getDb();
   if (!db) return [];
+  const conditions: any[] = [lte(contactMoments.occurredAt, new Date())];
+  if (Array.isArray(allowedCountries)) {
+    conditions.push(
+      or(eq(contactMoments.leadId, 0), inArray(leads.country, allowedCountries))
+    );
+  }
   return db
     .select({
       moment: contactMoments,
@@ -878,7 +923,7 @@ export async function getRecentContactMoments(limit = 20) {
     .from(contactMoments)
     .leftJoin(leads, eq(contactMoments.leadId, leads.id))
     .leftJoin(persons, eq(contactMoments.personId, persons.id))
-    .where(lte(contactMoments.occurredAt, new Date()))
+    .where(and(...conditions))
     .orderBy(desc(contactMoments.occurredAt))
     .limit(limit);
 }
@@ -1048,25 +1093,76 @@ export async function getRecentContactMomentsWithLeads(opts: {
     .limit(opts.limit ?? 50);
 }
 
-export async function getContactMomentStats() {
+export async function getContactMomentStats(
+  allowedCountries?: string[] | null
+) {
   const db = await getDb();
   if (!db) return null;
+  const needsFilter = Array.isArray(allowedCountries);
+  const countryCondition = needsFilter
+    ? or(
+        eq(contactMoments.leadId, 0),
+        inArray(leads.country, allowedCountries!)
+      )
+    : undefined;
+
   const [typeCounts, outcomeCounts, recentActivity] = await Promise.all([
-    db
-      .select({ type: contactMoments.type, count: sql<number>`count(*)` })
-      .from(contactMoments)
-      .groupBy(contactMoments.type),
-    db
-      .select({ outcome: contactMoments.outcome, count: sql<number>`count(*)` })
-      .from(contactMoments)
-      .groupBy(contactMoments.outcome),
-    db
-      .select({
-        date: sql<string>`DATE(${contactMoments.occurredAt})`,
-        count: sql<number>`count(*)`,
-      })
-      .from(contactMoments)
-      .where(sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '30 days'`)
+    (needsFilter
+      ? db
+          .select({
+            type: contactMoments.type,
+            count: sql<number>`count(*)`,
+          })
+          .from(contactMoments)
+          .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+          .where(countryCondition)
+      : db
+          .select({
+            type: contactMoments.type,
+            count: sql<number>`count(*)`,
+          })
+          .from(contactMoments)
+    ).groupBy(contactMoments.type),
+    (needsFilter
+      ? db
+          .select({
+            outcome: contactMoments.outcome,
+            count: sql<number>`count(*)`,
+          })
+          .from(contactMoments)
+          .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+          .where(countryCondition)
+      : db
+          .select({
+            outcome: contactMoments.outcome,
+            count: sql<number>`count(*)`,
+          })
+          .from(contactMoments)
+    ).groupBy(contactMoments.outcome),
+    (needsFilter
+      ? db
+          .select({
+            date: sql<string>`DATE(${contactMoments.occurredAt})`,
+            count: sql<number>`count(*)`,
+          })
+          .from(contactMoments)
+          .leftJoin(leads, eq(contactMoments.leadId, leads.id))
+          .where(
+            and(
+              sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '30 days'`,
+              countryCondition
+            )
+          )
+      : db
+          .select({
+            date: sql<string>`DATE(${contactMoments.occurredAt})`,
+            count: sql<number>`count(*)`,
+          })
+          .from(contactMoments)
+          .where(
+            sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '30 days'`
+          )
+    )
       .groupBy(sql`DATE(${contactMoments.occurredAt})`)
       .orderBy(sql`DATE(${contactMoments.occurredAt})`),
   ]);

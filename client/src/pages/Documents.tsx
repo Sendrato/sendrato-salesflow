@@ -128,7 +128,9 @@ export default function DocumentsPage() {
   const [savingAccess, setSavingAccess] = useState(false);
 
   // Share dialog state
-  const [viewDetailsShareId, setViewDetailsShareId] = useState<number | null>(null);
+  const [viewDetailsShareId, setViewDetailsShareId] = useState<number | null>(
+    null
+  );
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
   const [shareTitle, setShareTitle] = useState("");
   const [shareSlug, setShareSlug] = useState("");
@@ -197,15 +199,16 @@ export default function DocumentsPage() {
     }
   );
 
-  const updateShareSlugMutation =
-    trpc.crmDocuments.updateShareSlug.useMutation({
+  const updateShareSlugMutation = trpc.crmDocuments.updateShareSlug.useMutation(
+    {
       onSuccess: () => {
         refetchShares();
         setEditSlugId(null);
         toast.success("Share URL updated");
       },
-      onError: (err) => toast.error(err.message),
-    });
+      onError: err => toast.error(err.message),
+    }
+  );
 
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -266,9 +269,7 @@ export default function DocumentsPage() {
         body: JSON.stringify({
           documentId: shareDialogDoc.id,
           title: shareTitle || shareDialogDoc.fileName,
-          slug:
-            shareSlug ||
-            slugify(shareTitle || shareDialogDoc.fileName),
+          slug: shareSlug || slugify(shareTitle || shareDialogDoc.fileName),
           userId: user?.id,
         }),
       });
@@ -614,8 +615,8 @@ export default function DocumentsPage() {
                               className="text-xs text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors cursor-pointer underline-offset-2 hover:underline"
                               onClick={() => setViewDetailsShareId(share.id)}
                             >
-                              <Eye className="h-3 w-3" />{" "}
-                              {share.viewCount ?? 0} views
+                              <Eye className="h-3 w-3" /> {share.viewCount ?? 0}{" "}
+                              views
                             </button>
                             <span className="text-xs text-muted-foreground">
                               {share.fileName}
@@ -1011,9 +1012,7 @@ export default function DocumentsPage() {
                   value={shareSlug}
                   onChange={e =>
                     setShareSlug(
-                      e.target.value
-                        .toLowerCase()
-                        .replace(/[^a-z0-9_-]/g, "-")
+                      e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, "-")
                     )
                   }
                   placeholder={slugify(shareDialogDoc?.fileName ?? "")}
@@ -1021,8 +1020,7 @@ export default function DocumentsPage() {
                 <p className="text-[11px] text-muted-foreground">
                   {window.location.origin}/share/
                   <span className="font-medium">
-                    {shareSlug ||
-                      slugify(shareDialogDoc?.fileName ?? "")}
+                    {shareSlug || slugify(shareDialogDoc?.fileName ?? "")}
                   </span>
                 </p>
               </div>
@@ -1116,14 +1114,10 @@ export default function DocumentsPage() {
                     ? String.fromCodePoint(
                         ...cc
                           .split("")
-                          .map(
-                            (c: string) => 0x1f1e6 + c.charCodeAt(0) - 65
-                          )
+                          .map((c: string) => 0x1f1e6 + c.charCodeAt(0) - 65)
                       )
                     : "";
-                  const location = [flag, v.city, cc]
-                    .filter(Boolean)
-                    .join(" ");
+                  const location = [flag, v.city, cc].filter(Boolean).join(" ");
                   const browser = parseBrowser(v.userAgent);
                   return (
                     <div key={v.id} className="py-2.5">
@@ -1131,11 +1125,17 @@ export default function DocumentsPage() {
                         <span className="whitespace-nowrap text-muted-foreground">
                           {new Date(v.viewedAt).toLocaleString()}
                         </span>
-                        <span className="whitespace-nowrap">{location || "—"}</span>
-                        <span className="font-mono text-xs">{v.ipAddress ?? "—"}</span>
+                        <span className="whitespace-nowrap">
+                          {location || "—"}
+                        </span>
+                        <span className="font-mono text-xs">
+                          {v.ipAddress ?? "—"}
+                        </span>
                         <span className="font-medium text-xs">{browser}</span>
                         {v.referrer && (
-                          <span className="text-xs text-muted-foreground truncate">{v.referrer}</span>
+                          <span className="text-xs text-muted-foreground truncate">
+                            {v.referrer}
+                          </span>
                         )}
                       </div>
                       {v.userAgent && (

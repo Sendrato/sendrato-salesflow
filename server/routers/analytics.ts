@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { getUserAllowedCountries } from "../_core/authorization";
 import {
   getLeadStats,
   getContactMomentStats,
@@ -11,20 +12,25 @@ import {
 } from "../db";
 import { getDb } from "../db";
 import { leads, contactMoments, persons } from "../../drizzle/schema";
-import { sql, desc, eq, and, lt, gte, lte } from "drizzle-orm";
+import { sql, desc, eq, and, lt, gte, lte, inArray, or } from "drizzle-orm";
 
 export const analyticsRouter = router({
-  overview: publicProcedure.query(async () => {
+  overview: publicProcedure.query(async ({ ctx }) => {
+    const allowedCountries = getUserAllowedCountries(ctx.user);
     const [leadStats, momentStats] = await Promise.all([
-      getLeadStats(),
-      getContactMomentStats(),
+      getLeadStats(allowedCountries),
+      getContactMomentStats(allowedCountries),
     ]);
     return { leadStats, momentStats };
   }),
 
-  pipeline: publicProcedure.query(async () => {
+  pipeline: publicProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];
+    const allowedCountries = getUserAllowedCountries(ctx.user);
+    const countryFilter = Array.isArray(allowedCountries)
+      ? inArray(leads.country, allowedCountries)
+      : undefined;
     return db
       .select({
         status: leads.status,
@@ -32,33 +38,53 @@ export const analyticsRouter = router({
         totalValue: sql<number>`COALESCE(SUM(${leads.estimatedValue}), 0)`,
       })
       .from(leads)
+      .where(countryFilter)
       .groupBy(leads.status)
       .orderBy(leads.status);
   }),
 
   contactFrequency: publicProcedure
     .input(z.object({ days: z.number().optional().default(30) }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
-      return db
+      const allowedCountries = getUserAllowedCountries(ctx.user);
+      const needsFilter = Array.isArray(allowedCountries);
+      const conditions: any[] = [
+        sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '1 day' * ${input.days}`,
+      ];
+      if (needsFilter) {
+        conditions.push(
+          or(
+            eq(contactMoments.leadId, 0),
+            inArray(leads.country, allowedCountries!)
+          )
+        );
+      }
+      const base = db
         .select({
           date: sql<string>`DATE(${contactMoments.occurredAt})`,
           count: sql<number>`count(*)`,
         })
-        .from(contactMoments)
-        .where(
-          sql`${contactMoments.occurredAt} >= NOW() - INTERVAL '1 day' * ${input.days}`
-        )
+        .from(contactMoments);
+      const query = needsFilter
+        ? base.leftJoin(leads, eq(contactMoments.leadId, leads.id))
+        : base;
+      return (query as typeof base)
+        .where(and(...conditions))
         .groupBy(sql`DATE(${contactMoments.occurredAt})`)
         .orderBy(sql`DATE(${contactMoments.occurredAt})`);
     }),
 
   topLeads: publicProcedure
     .input(z.object({ limit: z.number().optional().default(10) }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
+      const allowedCountries = getUserAllowedCountries(ctx.user);
+      const countryFilter = Array.isArray(allowedCountries)
+        ? inArray(leads.country, allowedCountries)
+        : undefined;
       return db
         .select({
           id: leads.id,
@@ -71,20 +97,31 @@ export const analyticsRouter = router({
           contactCount: sql<number>`(SELECT count(*) FROM contact_moments WHERE "leadId" = ${leads.id})`,
         })
         .from(leads)
+        .where(countryFilter)
         .orderBy(desc(leads.updatedAt))
         .limit(input.limit);
     }),
 
   recentActivity: publicProcedure
     .input(z.object({ limit: z.number().optional().default(15) }))
-    .query(async ({ input }) => {
-      return getRecentContactMoments(input.limit);
+    .query(async ({ input, ctx }) => {
+      const allowedCountries = getUserAllowedCountries(ctx.user);
+      return getRecentContactMoments(input.limit, allowedCountries);
     }),
 
-  followUps: publicProcedure.query(async () => {
+  followUps: publicProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db)
       return { overdue: [], upcoming: [], overdueCount: 0, upcomingCount: 0 };
+
+    const allowedCountries = getUserAllowedCountries(ctx.user);
+    const needsFilter = Array.isArray(allowedCountries);
+    const countryCondition = needsFilter
+      ? or(
+          eq(contactMoments.leadId, 0),
+          inArray(leads.country, allowedCountries!)
+        )
+      : undefined;
 
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -111,7 +148,8 @@ export const analyticsRouter = router({
         and(
           sql`${contactMoments.followUpAt} IS NOT NULL`,
           lt(contactMoments.followUpAt, now),
-          notDone
+          notDone,
+          countryCondition
         )
       )
       .orderBy(contactMoments.followUpAt)
@@ -127,34 +165,48 @@ export const analyticsRouter = router({
           sql`${contactMoments.followUpAt} IS NOT NULL`,
           gte(contactMoments.followUpAt, now),
           lte(contactMoments.followUpAt, sevenDaysFromNow),
-          notDone
+          notDone,
+          countryCondition
         )
       )
       .orderBy(contactMoments.followUpAt)
       .limit(20);
 
-    const [overdueCount] = await db
+    // Count queries: need to join leads when country filtering is active
+    const overdueCountBase = db
       .select({ count: sql<number>`count(*)` })
-      .from(contactMoments)
-      .where(
-        and(
-          sql`${contactMoments.followUpAt} IS NOT NULL`,
-          lt(contactMoments.followUpAt, now),
-          notDone
-        )
-      );
+      .from(contactMoments);
+    const overdueCountQuery = needsFilter
+      ? overdueCountBase.leftJoin(leads, eq(contactMoments.leadId, leads.id))
+      : overdueCountBase;
+    const [overdueCount] = await (
+      overdueCountQuery as typeof overdueCountBase
+    ).where(
+      and(
+        sql`${contactMoments.followUpAt} IS NOT NULL`,
+        lt(contactMoments.followUpAt, now),
+        notDone,
+        countryCondition
+      )
+    );
 
-    const [upcomingCount] = await db
+    const upcomingCountBase = db
       .select({ count: sql<number>`count(*)` })
-      .from(contactMoments)
-      .where(
-        and(
-          sql`${contactMoments.followUpAt} IS NOT NULL`,
-          gte(contactMoments.followUpAt, now),
-          lte(contactMoments.followUpAt, sevenDaysFromNow),
-          notDone
-        )
-      );
+      .from(contactMoments);
+    const upcomingCountQuery = needsFilter
+      ? upcomingCountBase.leftJoin(leads, eq(contactMoments.leadId, leads.id))
+      : upcomingCountBase;
+    const [upcomingCount] = await (
+      upcomingCountQuery as typeof upcomingCountBase
+    ).where(
+      and(
+        sql`${contactMoments.followUpAt} IS NOT NULL`,
+        gte(contactMoments.followUpAt, now),
+        lte(contactMoments.followUpAt, sevenDaysFromNow),
+        notDone,
+        countryCondition
+      )
+    );
 
     // Upcoming meetings: type="meeting" with occurredAt in the future (within 21 days)
     const twentyOneDaysFromNow = new Date(
@@ -179,22 +231,29 @@ export const analyticsRouter = router({
         and(
           eq(contactMoments.type, "meeting"),
           gte(contactMoments.occurredAt, now),
-          lte(contactMoments.occurredAt, twentyOneDaysFromNow)
+          lte(contactMoments.occurredAt, twentyOneDaysFromNow),
+          countryCondition
         )
       )
       .orderBy(contactMoments.occurredAt)
       .limit(20);
 
-    const [upcomingMeetingsCount] = await db
+    const meetingsCountBase = db
       .select({ count: sql<number>`count(*)` })
-      .from(contactMoments)
-      .where(
-        and(
-          eq(contactMoments.type, "meeting"),
-          gte(contactMoments.occurredAt, now),
-          lte(contactMoments.occurredAt, twentyOneDaysFromNow)
-        )
-      );
+      .from(contactMoments);
+    const meetingsCountQuery = needsFilter
+      ? meetingsCountBase.leftJoin(leads, eq(contactMoments.leadId, leads.id))
+      : meetingsCountBase;
+    const [upcomingMeetingsCount] = await (
+      meetingsCountQuery as typeof meetingsCountBase
+    ).where(
+      and(
+        eq(contactMoments.type, "meeting"),
+        gte(contactMoments.occurredAt, now),
+        lte(contactMoments.occurredAt, twentyOneDaysFromNow),
+        countryCondition
+      )
+    );
 
     return {
       overdue,
@@ -237,9 +296,17 @@ export const analyticsRouter = router({
 
   recentShareViews: publicProcedure
     .input(z.object({ limit: z.number().optional().default(10) }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const pool = await getRawPool();
       if (!pool) return [];
+      const allowedCountries = getUserAllowedCountries(ctx.user);
+      let whereClause = "";
+      const params: any[] = [input.limit];
+      if (Array.isArray(allowedCountries)) {
+        const placeholders = allowedCountries.map((_, i) => `$${i + 2}`);
+        whereClause = `WHERE (l.id IS NULL OR l.country IN (${placeholders.join(", ")}))`;
+        params.push(...allowedCountries);
+      }
       const { rows } = await pool.query(
         `SELECT pv.id, pv."viewedAt", pv."ipAddress", pv.country, pv.city, pv."userAgent",
                 sp.title AS "shareTitle", sp.token,
@@ -250,9 +317,10 @@ export const analyticsRouter = router({
          LEFT JOIN lead_documents ld ON ld.id = sp."documentId"
          LEFT JOIN leads l ON l.id = sp."leadId"
          LEFT JOIN crm_documents cd ON cd.id = sp."crmDocumentId"
+         ${whereClause}
          ORDER BY pv."viewedAt" DESC
          LIMIT $1`,
-        [input.limit]
+        params
       );
       return rows as {
         id: number;
