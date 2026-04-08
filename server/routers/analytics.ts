@@ -11,7 +11,7 @@ import {
   getRawPool,
 } from "../db";
 import { getDb } from "../db";
-import { leads, contactMoments, persons } from "../../drizzle/schema";
+import { leads, contactMoments, persons, users } from "../../drizzle/schema";
 import { sql, desc, eq, and, lt, gte, lte, inArray, or } from "drizzle-orm";
 
 export const analyticsRouter = router({
@@ -126,6 +126,11 @@ export const analyticsRouter = router({
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+    const assignedUser = db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .as("assignedUser");
+
     const baseSelect = {
       momentId: contactMoments.id,
       leadId: contactMoments.leadId,
@@ -135,6 +140,7 @@ export const analyticsRouter = router({
       subject: contactMoments.subject,
       type: contactMoments.type,
       followUpAt: contactMoments.followUpAt,
+      assignedToName: assignedUser.name,
     };
 
     const notDone = eq(contactMoments.followUpDone, false);
@@ -144,6 +150,7 @@ export const analyticsRouter = router({
       .from(contactMoments)
       .leftJoin(leads, eq(contactMoments.leadId, leads.id))
       .leftJoin(persons, eq(contactMoments.personId, persons.id))
+      .leftJoin(assignedUser, eq(leads.assignedTo, assignedUser.id))
       .where(
         and(
           sql`${contactMoments.followUpAt} IS NOT NULL`,
@@ -153,13 +160,14 @@ export const analyticsRouter = router({
         )
       )
       .orderBy(contactMoments.followUpAt)
-      .limit(20);
+      .limit(100);
 
     const upcoming = await db
       .select(baseSelect)
       .from(contactMoments)
       .leftJoin(leads, eq(contactMoments.leadId, leads.id))
       .leftJoin(persons, eq(contactMoments.personId, persons.id))
+      .leftJoin(assignedUser, eq(leads.assignedTo, assignedUser.id))
       .where(
         and(
           sql`${contactMoments.followUpAt} IS NOT NULL`,
@@ -170,7 +178,7 @@ export const analyticsRouter = router({
         )
       )
       .orderBy(contactMoments.followUpAt)
-      .limit(20);
+      .limit(100);
 
     // Count queries: need to join leads when country filtering is active
     const overdueCountBase = db

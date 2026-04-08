@@ -1,3 +1,4 @@
+import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,8 @@ import {
   Video,
   MailWarning,
   Eye,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -52,8 +55,13 @@ const PIPELINE_COLORS = [
   "#6b7280",
 ];
 
+const COLLAPSED_LIMIT = 5;
+
 export default function Dashboard() {
   const [, setLocation] = useLocation();
+  const [overdueExpanded, setOverdueExpanded] = useState(false);
+  const [upcomingExpanded, setUpcomingExpanded] = useState(false);
+  const [meetingsExpanded, setMeetingsExpanded] = useState(false);
   const { data: overview } = trpc.analytics.overview.useQuery();
   const { data: pipeline } = trpc.analytics.pipeline.useQuery();
   const { data: topLeads } = trpc.analytics.topLeads.useQuery({ limit: 8 });
@@ -148,32 +156,58 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-red-100 dark:divide-red-900/50">
-                    {(followUpData?.overdue ?? []).slice(0, 5).map(item => (
-                      <div
-                        key={item.momentId}
-                        className="flex items-center justify-between px-6 py-2.5 hover:bg-red-100/50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
-                        onClick={() =>
-                          setLocation(
-                            item.companyName && item.leadId
-                              ? `/leads/${item.leadId}`
-                              : `/persons/${item.personId}`
-                          )
-                        }
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {item.companyName || item.personName || "Unknown"}
+                    {(followUpData?.overdue ?? [])
+                      .slice(
+                        0,
+                        overdueExpanded
+                          ? undefined
+                          : COLLAPSED_LIMIT
+                      )
+                      .map(item => (
+                        <div
+                          key={item.momentId}
+                          className="flex items-center justify-between px-6 py-2.5 hover:bg-red-100/50 dark:hover:bg-red-950/30 cursor-pointer transition-colors"
+                          onClick={() =>
+                            setLocation(
+                              item.companyName && item.leadId
+                                ? `/leads/${item.leadId}`
+                                : `/persons/${item.personId}`
+                            )
+                          }
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {item.companyName || item.personName || "Unknown"}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[item.subject ?? item.type, item.assignedToName]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {item.subject ?? item.type}
-                          </div>
+                          <span className="text-xs text-red-600 dark:text-red-400 shrink-0 ml-2">
+                            {item.followUpAt ? formatDate(item.followUpAt) : ""}
+                          </span>
                         </div>
-                        <span className="text-xs text-red-600 dark:text-red-400 shrink-0 ml-2">
-                          {item.followUpAt ? formatDate(item.followUpAt) : ""}
-                        </span>
-                      </div>
-                    ))}
+                      ))}
                   </div>
+                  {(followUpData?.overdue ?? []).length > COLLAPSED_LIMIT && (
+                    <button
+                      className="w-full flex items-center justify-center gap-1 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-100/50 dark:hover:bg-red-950/30 transition-colors"
+                      onClick={() => setOverdueExpanded(prev => !prev)}
+                    >
+                      {overdueExpanded ? (
+                        <>
+                          Show less <ChevronUp className="h-3 w-3" />
+                        </>
+                      ) : (
+                        <>
+                          Show all ({followUpData!.overdueCount}){" "}
+                          <ChevronDown className="h-3 w-3" />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -195,32 +229,58 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-amber-100 dark:divide-amber-900/50">
-                    {(followUpData?.upcoming ?? []).slice(0, 5).map(item => (
-                      <div
-                        key={item.momentId}
-                        className="flex items-center justify-between px-6 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-950/30 cursor-pointer transition-colors"
-                        onClick={() =>
-                          setLocation(
-                            item.companyName && item.leadId
-                              ? `/leads/${item.leadId}`
-                              : `/persons/${item.personId}`
-                          )
-                        }
-                      >
-                        <div className="min-w-0">
-                          <div className="text-sm font-medium truncate">
-                            {item.companyName || item.personName || "Unknown"}
+                    {(followUpData?.upcoming ?? [])
+                      .slice(
+                        0,
+                        upcomingExpanded
+                          ? undefined
+                          : COLLAPSED_LIMIT
+                      )
+                      .map(item => (
+                        <div
+                          key={item.momentId}
+                          className="flex items-center justify-between px-6 py-2.5 hover:bg-amber-100/50 dark:hover:bg-amber-950/30 cursor-pointer transition-colors"
+                          onClick={() =>
+                            setLocation(
+                              item.companyName && item.leadId
+                                ? `/leads/${item.leadId}`
+                                : `/persons/${item.personId}`
+                            )
+                          }
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {item.companyName || item.personName || "Unknown"}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[item.subject ?? item.type, item.assignedToName]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground truncate">
-                            {item.subject ?? item.type}
-                          </div>
+                          <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 ml-2">
+                            {item.followUpAt ? formatDate(item.followUpAt) : ""}
+                          </span>
                         </div>
-                        <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 ml-2">
-                          {item.followUpAt ? formatDate(item.followUpAt) : ""}
-                        </span>
-                      </div>
-                    ))}
+                      ))}
                   </div>
+                  {(followUpData?.upcoming ?? []).length > COLLAPSED_LIMIT && (
+                    <button
+                      className="w-full flex items-center justify-center gap-1 py-2 text-xs text-amber-600 dark:text-amber-400 hover:bg-amber-100/50 dark:hover:bg-amber-950/30 transition-colors"
+                      onClick={() => setUpcomingExpanded(prev => !prev)}
+                    >
+                      {upcomingExpanded ? (
+                        <>
+                          Show less <ChevronUp className="h-3 w-3" />
+                        </>
+                      ) : (
+                        <>
+                          Show all ({followUpData!.upcomingCount}){" "}
+                          <ChevronDown className="h-3 w-3" />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -243,7 +303,12 @@ export default function Dashboard() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-blue-100 dark:divide-blue-900/50">
                     {(followUpData?.upcomingMeetings ?? [])
-                      .slice(0, 5)
+                      .slice(
+                        0,
+                        meetingsExpanded
+                          ? undefined
+                          : COLLAPSED_LIMIT
+                      )
                       .map(item => (
                         <div
                           key={item.momentId}
@@ -270,6 +335,24 @@ export default function Dashboard() {
                         </div>
                       ))}
                   </div>
+                  {(followUpData?.upcomingMeetings ?? []).length >
+                    COLLAPSED_LIMIT && (
+                    <button
+                      className="w-full flex items-center justify-center gap-1 py-2 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-100/50 dark:hover:bg-blue-950/30 transition-colors"
+                      onClick={() => setMeetingsExpanded(prev => !prev)}
+                    >
+                      {meetingsExpanded ? (
+                        <>
+                          Show less <ChevronUp className="h-3 w-3" />
+                        </>
+                      ) : (
+                        <>
+                          Show all ({followUpData!.upcomingMeetingsCount}){" "}
+                          <ChevronDown className="h-3 w-3" />
+                        </>
+                      )}
+                    </button>
+                  )}
                 </CardContent>
               </Card>
             )}
