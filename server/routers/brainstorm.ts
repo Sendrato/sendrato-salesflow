@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 import { generateText } from "ai";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import {
   getBrainstorms,
   getBrainstormsCount,
@@ -21,7 +21,7 @@ import {
 import { tavilySearch } from "../webSearch";
 
 export const brainstormRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -38,7 +38,7 @@ export const brainstormRouter = router({
       return { items, total };
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const item = await getBrainstormById(input.id);
@@ -86,7 +86,7 @@ export const brainstormRouter = router({
       return { success: true };
     }),
 
-  listDocuments: publicProcedure
+  listDocuments: protectedProcedure
     .input(z.object({ brainstormId: z.number() }))
     .query(async ({ input }) => {
       return getBrainstormDocuments(input.brainstormId);

@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import {
   getLeadDocuments,
   getAllLeadDocuments,
@@ -11,7 +11,7 @@ import { getDocumentAccessUsers, setDocumentAccess } from "../documentAccessDb";
 import { slugify } from "@shared/slugify";
 
 export const documentsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input, ctx }) => {
       const docs = await getLeadDocuments(input.leadId, {
@@ -41,7 +41,7 @@ export const documentsRouter = router({
       return enriched;
     }),
 
-  listAll: publicProcedure
+  listAll: protectedProcedure
     .input(
       z
         .object({
@@ -100,7 +100,7 @@ export const documentsRouter = router({
       return { success: true };
     }),
 
-  listShares: publicProcedure
+  listShares: protectedProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input }) => {
       const pool = await getRawPool();

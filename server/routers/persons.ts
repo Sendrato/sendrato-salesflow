@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
+import { router, protectedProcedure } from "../_core/trpc";
 import { getUserAllowedCountries } from "../_core/authorization";
 import {
   getPersons,
@@ -45,7 +45,7 @@ const personInputSchema = z.object({
 });
 
 export const personsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -64,7 +64,7 @@ export const personsRouter = router({
       return { persons: rows, total };
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const person = await getPersonById(input.id);
@@ -119,11 +119,11 @@ export const personsRouter = router({
 
   // ─── Lead links ───────────────────────────────────────────────────────────
 
-  getLeadLinks: publicProcedure
+  getLeadLinks: protectedProcedure
     .input(z.object({ personId: z.number() }))
     .query(async ({ input }) => getPersonLeadLinks(input.personId)),
 
-  getPersonsForLead: publicProcedure
+  getPersonsForLead: protectedProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input }) => getLeadPersonLinks(input.leadId)),
 
@@ -160,7 +160,7 @@ export const personsRouter = router({
 
   // ─── Contact moments for a person ─────────────────────────────────────────
 
-  getContactMoments: publicProcedure
+  getContactMoments: protectedProcedure
     .input(z.object({ personId: z.number() }))
     .query(async ({ input }) => getPersonContactMoments(input.personId)),
 

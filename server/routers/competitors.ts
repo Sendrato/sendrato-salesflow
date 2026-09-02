@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import {
   getCompetitors,
   getCompetitorsCount,
@@ -37,7 +37,7 @@ const competitorInputSchema = z.object({
 });
 
 export const competitorsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -54,7 +54,7 @@ export const competitorsRouter = router({
       return { competitors: rows, total };
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const competitor = await getCompetitorById(input.id);
@@ -85,19 +85,19 @@ export const competitorsRouter = router({
       return { success: true };
     }),
 
-  stats: publicProcedure.query(async () => {
+  stats: protectedProcedure.query(async () => {
     return getCompetitorStats();
   }),
 
   // ─── Lead links ───────────────────────────────────────────────────────────
 
-  getLeadLinks: publicProcedure
+  getLeadLinks: protectedProcedure
     .input(z.object({ competitorId: z.number() }))
     .query(async ({ input }) => {
       return getCompetitorLeadLinks(input.competitorId);
     }),
 
-  getCompetitorsForLead: publicProcedure
+  getCompetitorsForLead: protectedProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input }) => {
       return getLeadCompetitorLinks(input.leadId);
@@ -174,7 +174,7 @@ export const competitorsRouter = router({
 
   // ─── Documents ────────────────────────────────────────────────────────────
 
-  listDocuments: publicProcedure
+  listDocuments: protectedProcedure
     .input(z.object({ competitorId: z.number() }))
     .query(async ({ input, ctx }) => {
       const docs = await getCompetitorDocuments(input.competitorId, {

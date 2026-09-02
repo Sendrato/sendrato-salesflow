@@ -1,11 +1,11 @@
 import { z } from "zod/v4";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import { getCrmDocuments, deleteCrmDocument } from "../crmDocumentsDb";
 import { getRawPool } from "../db";
 import { slugify } from "@shared/slugify";
 
 export const crmDocumentsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(
       z
         .object({
@@ -38,7 +38,7 @@ export const crmDocumentsRouter = router({
       return { success: true };
     }),
 
-  listShares: publicProcedure.query(async () => {
+  listShares: protectedProcedure.query(async () => {
     const pool = await getRawPool();
     if (!pool) return [];
     const { rows } = await pool.query(

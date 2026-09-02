@@ -1,6 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod/v4";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import {
   getUserAllowedCountries,
   assertCountryAuthorized,
@@ -79,7 +79,7 @@ const leadInputSchema = z.object({
 });
 
 export const leadsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -101,7 +101,7 @@ export const leadsRouter = router({
       return getLeads({ ...input, allowedCountries });
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input, ctx }) => {
       const lead = await getLeadById(input.id);
@@ -307,7 +307,7 @@ export const leadsRouter = router({
       return { inserted: ids.length, ids };
     }),
 
-  stats: publicProcedure.query(async () => {
+  stats: protectedProcedure.query(async () => {
     return getLeadStats();
   }),
 });

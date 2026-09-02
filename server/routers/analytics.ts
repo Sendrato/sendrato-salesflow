@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import { getUserAllowedCountries } from "../_core/authorization";
 import {
   getLeadStats,
@@ -15,7 +15,7 @@ import { leads, contactMoments, persons, users } from "../../drizzle/schema";
 import { sql, desc, eq, and, lt, gte, lte, inArray, or } from "drizzle-orm";
 
 export const analyticsRouter = router({
-  overview: publicProcedure.query(async ({ ctx }) => {
+  overview: protectedProcedure.query(async ({ ctx }) => {
     const allowedCountries = getUserAllowedCountries(ctx.user);
     const [leadStats, momentStats] = await Promise.all([
       getLeadStats(allowedCountries),
@@ -24,7 +24,7 @@ export const analyticsRouter = router({
     return { leadStats, momentStats };
   }),
 
-  pipeline: publicProcedure.query(async ({ ctx }) => {
+  pipeline: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];
     const allowedCountries = getUserAllowedCountries(ctx.user);
@@ -43,7 +43,7 @@ export const analyticsRouter = router({
       .orderBy(leads.status);
   }),
 
-  contactFrequency: publicProcedure
+  contactFrequency: protectedProcedure
     .input(z.object({ days: z.number().optional().default(30) }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
@@ -76,7 +76,7 @@ export const analyticsRouter = router({
         .orderBy(sql`DATE(${contactMoments.occurredAt})`);
     }),
 
-  topLeads: publicProcedure
+  topLeads: protectedProcedure
     .input(z.object({ limit: z.number().optional().default(10) }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
@@ -102,14 +102,14 @@ export const analyticsRouter = router({
         .limit(input.limit);
     }),
 
-  recentActivity: publicProcedure
+  recentActivity: protectedProcedure
     .input(z.object({ limit: z.number().optional().default(15) }))
     .query(async ({ input, ctx }) => {
       const allowedCountries = getUserAllowedCountries(ctx.user);
       return getRecentContactMoments(input.limit, allowedCountries);
     }),
 
-  followUps: publicProcedure.query(async ({ ctx }) => {
+  followUps: protectedProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db)
       return { overdue: [], upcoming: [], overdueCount: 0, upcomingCount: 0 };
@@ -302,7 +302,7 @@ export const analyticsRouter = router({
       return { success: true };
     }),
 
-  recentShareViews: publicProcedure
+  recentShareViews: protectedProcedure
     .input(z.object({ limit: z.number().optional().default(10) }))
     .query(async ({ input, ctx }) => {
       const pool = await getRawPool();

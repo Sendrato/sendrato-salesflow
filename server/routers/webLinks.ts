@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import {
   getWebLinksByLead,
   getWebLinksByPerson,
@@ -22,15 +22,15 @@ const categoryEnum = z.enum([
 ]);
 
 export const webLinksRouter = router({
-  listByLead: publicProcedure
+  listByLead: protectedProcedure
     .input(z.object({ leadId: z.number() }))
     .query(({ input }) => getWebLinksByLead(input.leadId)),
 
-  listByPerson: publicProcedure
+  listByPerson: protectedProcedure
     .input(z.object({ personId: z.number() }))
     .query(({ input }) => getWebLinksByPerson(input.personId)),
 
-  listByCompetitor: publicProcedure
+  listByCompetitor: protectedProcedure
     .input(z.object({ competitorId: z.number() }))
     .query(({ input }) => getWebLinksByCompetitor(input.competitorId)),
 

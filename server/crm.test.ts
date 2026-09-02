@@ -135,7 +135,7 @@ describe("auth", () => {
 // ─── Leads Tests ──────────────────────────────────────────────────────────────
 describe("leads", () => {
   it("list returns leads array", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.leads.list({});
     expect(Array.isArray(result)).toBe(true);
     expect(result.length).toBeGreaterThan(0);
@@ -143,19 +143,19 @@ describe("leads", () => {
   });
 
   it("list accepts search parameter", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.leads.list({ search: "Arizona" });
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("list accepts status filter", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.leads.list({ status: "new" });
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("get returns a single lead", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.leads.get({ id: 1 });
     expect(result).not.toBeNull();
     expect(result?.companyName).toBe("Arizona State Fair");
@@ -187,7 +187,7 @@ describe("leads", () => {
   });
 
   it("stats returns lead statistics", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.leads.stats();
     expect(result).toBeDefined();
     expect(result?.total).toBe(29);
@@ -197,19 +197,19 @@ describe("leads", () => {
 // ─── Contact Moments Tests ────────────────────────────────────────────────────
 describe("contactMoments", () => {
   it("list returns moments for a lead", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.contactMoments.list({ leadId: 1 });
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("recent returns recent moments", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.contactMoments.recent({ limit: 10 });
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("listAll returns moments with lead info", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.contactMoments.listAll({});
     expect(Array.isArray(result)).toBe(true);
   });
@@ -240,7 +240,7 @@ describe("contactMoments", () => {
   });
 
   it("stats returns contact moment statistics", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.contactMoments.stats();
     expect(result).toBeDefined();
   });
@@ -249,7 +249,7 @@ describe("contactMoments", () => {
 // ─── Documents Tests ──────────────────────────────────────────────────────────
 describe("documents", () => {
   it("list returns documents for a lead", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.documents.list({ leadId: 1 });
     expect(Array.isArray(result)).toBe(true);
   });
@@ -317,15 +317,51 @@ describe("documentRag", () => {
 // ─── Analytics Tests ──────────────────────────────────────────────────────────
 describe("analytics", () => {
   it("recentActivity returns array", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.analytics.recentActivity({ limit: 10 });
     expect(Array.isArray(result)).toBe(true);
   });
 
   it("pipeline returns lead stats", async () => {
-    const caller = appRouter.createCaller(createPublicCtx());
+    const caller = appRouter.createCaller(createAuthCtx());
     const result = await caller.analytics.pipeline();
     expect(result).toBeDefined();
+  });
+});
+
+// ─── Security: reads require authentication ─────────────────────────────────
+// Regression guard for the Aug/Sep 2026 data-exfiltration incident: internal
+// CRM read endpoints (list/get/stats/analytics) must reject anonymous callers.
+// Only auth bootstrap (auth.me/hasUsers/logout) and system.health stay public.
+describe("security: unauthenticated reads are rejected", () => {
+  it("leads.list rejects anonymous access", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.leads.list({})).rejects.toThrow();
+  });
+
+  it("leads.get rejects anonymous access", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.leads.get({ id: 1 })).rejects.toThrow();
+  });
+
+  it("contactMoments.listAll rejects anonymous access", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.contactMoments.listAll({})).rejects.toThrow();
+  });
+
+  it("documents.list rejects anonymous access", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.documents.list({ leadId: 1 })).rejects.toThrow();
+  });
+
+  it("analytics.pipeline rejects anonymous access", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.analytics.pipeline()).rejects.toThrow();
+  });
+
+  it("auth.me stays public (returns null when anonymous)", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(caller.auth.me()).resolves.toBeNull();
   });
 });
 

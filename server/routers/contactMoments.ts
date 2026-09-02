@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import {
   getContactMoments,
   getRecentContactMoments,
@@ -27,13 +27,13 @@ const momentOutcomeEnum = z.enum([
 ]);
 
 export const contactMomentsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input }) => {
       return getContactMoments(input.leadId);
     }),
 
-  recent: publicProcedure
+  recent: protectedProcedure
     .input(z.object({ limit: z.number().optional().default(20) }))
     .query(async ({ input }) => {
       return getRecentContactMoments(input.limit);
@@ -108,7 +108,7 @@ export const contactMomentsRouter = router({
       return { success: true };
     }),
 
-  listAll: publicProcedure
+  listAll: protectedProcedure
     .input(
       z.object({
         search: z.string().optional(),
@@ -121,7 +121,7 @@ export const contactMomentsRouter = router({
       return getRecentContactMomentsWithLeads(input);
     }),
 
-  stats: publicProcedure.query(async () => {
+  stats: protectedProcedure.query(async () => {
     return getContactMomentStats();
   }),
 });

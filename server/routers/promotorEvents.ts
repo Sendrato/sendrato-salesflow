@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, router } from "../_core/trpc";
 import {
   getPromotorEvents,
   getPromotorEventById,
@@ -15,13 +15,13 @@ const eventDataSchema = z.object({
 });
 
 export const promotorEventsRouter = router({
-  list: publicProcedure
+  list: protectedProcedure
     .input(z.object({ leadId: z.number() }))
     .query(async ({ input }) => {
       return getPromotorEvents(input.leadId);
     }),
 
-  get: publicProcedure
+  get: protectedProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {
       const event = await getPromotorEventById(input.id);
