@@ -430,6 +430,7 @@ export default function LeadDetail() {
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
   const [shareTitle, setShareTitle] = useState("");
   const [shareSlug, setShareSlug] = useState("");
+  const [sharePassword, setSharePassword] = useState("");
   const [shareRecordMoment, setShareRecordMoment] = useState(true);
   const [shareNotes, setShareNotes] = useState("");
   const [sharing, setSharing] = useState(false);
@@ -703,6 +704,7 @@ export default function LeadDetail() {
           slug: shareSlug || slugify(shareTitle || shareDialogDoc.fileName),
           recordContactMoment: shareRecordMoment,
           notes: shareNotes,
+          password: sharePassword.trim() || undefined,
         }),
       });
       if (res.ok) {
@@ -2730,6 +2732,7 @@ export default function LeadDetail() {
                               setShareDialogDoc(doc);
                               setShareTitle(doc.fileName);
                               setShareSlug(slugify(doc.fileName));
+                              setSharePassword("");
                               setSharedUrl(null);
                               setShareNotes("");
                               setShareRecordMoment(true);
@@ -2998,6 +3001,7 @@ export default function LeadDetail() {
                 if (!o) {
                   setShareDialogDoc(null);
                   setSharedUrl(null);
+                  setSharePassword("");
                 }
               }}
             >
@@ -3084,6 +3088,20 @@ export default function LeadDetail() {
                         <span className="font-medium">
                           {shareSlug || slugify(shareDialogDoc?.fileName ?? "")}
                         </span>
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Password (optional)</Label>
+                      <Input
+                        type="password"
+                        value={sharePassword}
+                        onChange={e => setSharePassword(e.target.value)}
+                        placeholder="Leave empty for no password"
+                        autoComplete="new-password"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        If set, viewers must enter this password before the
+                        document is shown. Share it separately from the link.
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

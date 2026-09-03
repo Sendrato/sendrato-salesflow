@@ -134,6 +134,7 @@ export default function DocumentsPage() {
   const [shareDialogDoc, setShareDialogDoc] = useState<any>(null);
   const [shareTitle, setShareTitle] = useState("");
   const [shareSlug, setShareSlug] = useState("");
+  const [sharePassword, setSharePassword] = useState("");
   const [sharing, setSharing] = useState(false);
   const [sharedUrl, setSharedUrl] = useState<string | null>(null);
   const [editSlugId, setEditSlugId] = useState<number | null>(null);
@@ -271,6 +272,7 @@ export default function DocumentsPage() {
           title: shareTitle || shareDialogDoc.fileName,
           slug: shareSlug || slugify(shareTitle || shareDialogDoc.fileName),
           userId: user?.id,
+          password: sharePassword.trim() || undefined,
         }),
       });
       if (res.ok) {
@@ -535,6 +537,7 @@ export default function DocumentsPage() {
                                   setShareDialogDoc(doc);
                                   setShareTitle(doc.fileName);
                                   setShareSlug(slugify(doc.fileName));
+                                  setSharePassword("");
                                   setSharedUrl(null);
                                 }}
                               >
@@ -947,6 +950,7 @@ export default function DocumentsPage() {
           if (!o) {
             setShareDialogDoc(null);
             setSharedUrl(null);
+            setSharePassword("");
           }
         }}
       >
@@ -1022,6 +1026,20 @@ export default function DocumentsPage() {
                   <span className="font-medium">
                     {shareSlug || slugify(shareDialogDoc?.fileName ?? "")}
                   </span>
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Password (optional)</Label>
+                <Input
+                  type="password"
+                  value={sharePassword}
+                  onChange={e => setSharePassword(e.target.value)}
+                  placeholder="Leave empty for no password"
+                  autoComplete="new-password"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  If set, viewers must enter this password before the document is
+                  shown. Share it separately from the link.
                 </p>
               </div>
               <div className="flex gap-2">
