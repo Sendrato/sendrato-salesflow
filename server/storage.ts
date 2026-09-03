@@ -4,8 +4,10 @@
 import { ENV } from "./_core/env";
 import fs from "fs";
 import path from "path";
+import { Readable } from "stream";
 
 const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
+export { UPLOADS_DIR };
 
 function useForge(): boolean {
   return !!(ENV.forgeApiUrl && ENV.forgeApiKey);
@@ -126,4 +128,34 @@ export async function storageGet(
     return forgeGet(relKey);
   }
   return localGet(relKey);
+}
+
+// ─── Secure serving helpers ─────────────────────────────────────────────────
+
+/** Resolve a stored "/uploads/*" URL to an absolute on-disk path, guarding
+ *  against path traversal. Returns null for non-local URLs. */
+export function localUploadPath(fileUrl: string): string | null {
+  if (!fileUrl || !fileUrl.startsWith("/uploads/")) return null;
+  const rel = fileUrl.replace(/^\/uploads\//, "");
+  const abs = path.join(UPLOADS_DIR, rel);
+  if (abs !== UPLOADS_DIR && !abs.startsWith(UPLOADS_DIR + path.sep)) return null;
+  return abs;
+}
+
+/** Open a stored file as a readable stream, whether it lives on the local disk
+ *  ("/uploads/*") or behind the Forge storage proxy (absolute URL). Returns
+ *  null when the file cannot be found/opened. */
+export async function openStoredFile(fileUrl: string): Promise<Readable | null> {
+  const local = localUploadPath(fileUrl);
+  if (local) {
+    if (!fs.existsSync(local)) return null;
+    return fs.createReadStream(local);
+  }
+  try {
+    const res = await fetch(fileUrl);
+    if (!res.ok || !res.body) return null;
+    return Readable.fromWeb(res.body as unknown as any);
+  } catch {
+    return null;
+  }
 }

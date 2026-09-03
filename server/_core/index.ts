@@ -4,6 +4,9 @@ import { createServer } from "http";
 import net from "net";
 import path from "path";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
+import { parse as parseCookie } from "cookie";
+import { COOKIE_NAME } from "@shared/const";
+import { sdk } from "./sdk";
 import { registerAuthRoutes } from "./auth";
 import { registerChatRoutes } from "./chat";
 import { registerCrmChatRoutes } from "../crmChat";
@@ -46,14 +49,34 @@ async function startServer() {
   registerCrmChatRoutes(app);
   // Brainstorm AI Chat
   registerBrainstormChatRoutes(app);
-  // robots.txt — block crawlers from share links
+  // robots.txt — block crawlers from share links and raw uploads
   app.get("/robots.txt", (_req, res) => {
     res
       .type("text/plain")
-      .send("User-agent: *\nDisallow: /share/\nDisallow: /api/\n");
+      .send(
+        "User-agent: *\nDisallow: /share/\nDisallow: /api/\nDisallow: /uploads/\n"
+      );
   });
-  // Serve uploaded files from local storage
-  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+  // Serve uploaded files from local storage — STAFF ONLY.
+  // Raw /uploads/* is no longer public: external recipients view documents
+  // through the tokened /share/:token handler, which streams the file. This
+  // guard requires a valid staff session cookie, so anonymous clients and
+  // crawlers/archivers (e.g. Save-Page-Now) cannot fetch or archive raw files.
+  app.use(
+    "/uploads",
+    async (req, res, next) => {
+      const cookies = parseCookie(req.headers.cookie || "");
+      const session = await sdk.verifySession(cookies[COOKIE_NAME]);
+      if (!session) {
+        res.status(401).send("Authentication required");
+        return;
+      }
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      res.setHeader("Cache-Control", "private, no-store");
+      next();
+    },
+    express.static(path.resolve(process.cwd(), "uploads"))
+  );
   // Integration routes: email ingest, Slack, import
   registerIntegrationRoutes(app);
   // tRPC API

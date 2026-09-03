@@ -363,6 +363,13 @@ describe("security: unauthenticated reads are rejected", () => {
     const caller = appRouter.createCaller(createPublicCtx());
     await expect(caller.auth.me()).resolves.toBeNull();
   });
+
+  it("documents.setSharePassword rejects anonymous access", async () => {
+    const caller = appRouter.createCaller(createPublicCtx());
+    await expect(
+      caller.documents.setSharePassword({ token: "abc", password: "secret" })
+    ).rejects.toThrow();
+  });
 });
 
 // ─── Settings Tests ───────────────────────────────────────────────────────────

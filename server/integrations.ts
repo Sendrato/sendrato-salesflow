@@ -19,7 +19,7 @@ import {
 } from "./db";
 import { extractEmailAddresses, matchEmailAddresses } from "./emailMatcher";
 import { enrichLeadFromWeb } from "./enrichmentEngine";
-import { storagePut } from "./storage";
+import { storagePut, openStoredFile } from "./storage";
 import { indexLead } from "./crmChat";
 import {
   indexDocument,
@@ -33,6 +33,75 @@ import { getLLMProvider } from "./llmProvider";
 import { LEAD_TYPE_SCHEMAS } from "@shared/leadAttributeSchemas";
 import { extractIp, getGeoFromIp } from "./geoip";
 import { slugify } from "@shared/slugify";
+import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { parse as parseCookieHeader } from "cookie";
+import { ENV } from "./_core/env";
+
+const BCRYPT_ROUNDS = 12;
+const SHARE_ACCESS_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6h
+
+// ─── Tokened share helpers ───────────────────────────────────────────────────
+
+/** HMAC proving the correct share password was entered (stored in a cookie). */
+function signShareAccess(shareId: number | string): string {
+  return crypto
+    .createHmac("sha256", ENV.cookieSecret)
+    .update(`share-access:${shareId}`)
+    .digest("hex");
+}
+
+function hasShareAccess(req: Request, shareId: number | string): boolean {
+  const cookies = parseCookieHeader(req.headers.cookie || "");
+  return cookies[`sa_${shareId}`] === signShareAccess(shareId);
+}
+
+/** Resolve an active share (lead document OR crm document) by token or slug. */
+async function findActiveShare(pool: any, tokenOrSlug: string): Promise<any> {
+  const { rows } = await pool.query(
+    `SELECT sp.*, ld."fileUrl", ld."fileName", ld."mimeType", l."companyName"
+     FROM shareable_presentations sp
+     JOIN lead_documents ld ON ld.id = sp."documentId"
+     JOIN leads l ON l.id = sp."leadId"
+     WHERE (sp.token = $1 OR sp.slug = $1) AND sp."isActive" = TRUE`,
+    [tokenOrSlug]
+  );
+  if (rows[0]) return rows[0];
+  const { rows: crmRows } = await pool.query(
+    `SELECT sp.*, cd."fileUrl", cd."fileName", cd."mimeType", NULL as "companyName"
+     FROM shareable_presentations sp
+     JOIN crm_documents cd ON cd.id = sp."crmDocumentId"
+     WHERE (sp.token = $1 OR sp.slug = $1) AND sp."isActive" = TRUE`,
+    [tokenOrSlug]
+  );
+  return crmRows[0];
+}
+
+/** Password prompt shown when a share is password-protected. */
+function sharePasswordForm(tokenOrSlug: string, title: string, wrong: boolean): string {
+  const safeTitle = String(title).replace(/</g, "&lt;");
+  return `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
+<title>${safeTitle}</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#0f1117; color:#e2e8f0; min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .card { background:#1a1d27; border:1px solid #2d3148; border-radius:16px; padding:40px; max-width:400px; width:90%; text-align:center; }
+  h2 { margin:0 0 8px; font-size:1.3rem; } p { color:#94a3b8; margin:0 0 20px; }
+  input { width:100%; padding:12px; border-radius:10px; border:1px solid #2d3148; background:#0f1117; color:#e2e8f0; margin-bottom:12px; }
+  button { width:100%; padding:12px; border:0; border-radius:10px; background:#6366f1; color:#fff; font-weight:600; cursor:pointer; }
+  .err { color:#f87171; font-size:.85rem; margin-bottom:12px; }
+</style></head>
+<body><form class="card" method="POST" action="/share/${encodeURIComponent(tokenOrSlug)}">
+  <div style="font-size:2.5rem;margin-bottom:8px;">🔒</div>
+  <h2>Password required</h2>
+  <p>This document is protected. Enter the password to view it.</p>
+  ${wrong ? '<div class="err">Incorrect password. Please try again.</div>' : ""}
+  <input type="password" name="password" placeholder="Password" autofocus required />
+  <button type="submit">View document</button>
+</form></body></html>`;
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -727,6 +796,7 @@ export function registerIntegrationRoutes(app: Express) {
         recordContactMoment,
         userId,
         notes,
+        password,
       } = req.body;
       if (!documentId || !leadId) {
         res.status(400).json({ error: "documentId and leadId are required" });
@@ -765,10 +835,21 @@ export function registerIntegrationRoutes(app: Express) {
 
       // Generate unique token
       const token = nanoid(32);
+      const passwordHash = password
+        ? await bcrypt.hash(String(password), BCRYPT_ROUNDS)
+        : null;
       await pool.query(
-        `INSERT INTO shareable_presentations ("documentId", "leadId", token, slug, title, "createdBy", "createdAt", "isActive")
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), TRUE)`,
-        [documentId, leadId, token, slug, title ?? doc.fileName, userId ?? null]
+        `INSERT INTO shareable_presentations ("documentId", "leadId", token, slug, title, "createdBy", "createdAt", "isActive", "passwordHash")
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), TRUE, $7)`,
+        [
+          documentId,
+          leadId,
+          token,
+          slug,
+          title ?? doc.fileName,
+          userId ?? null,
+          passwordHash,
+        ]
       );
 
       const shareUrl = `${req.protocol}://${req.get("host")}/share/${slug ?? token}`;
@@ -849,6 +930,18 @@ export function registerIntegrationRoutes(app: Express) {
         return;
       }
 
+      // Password gate — if protected and no valid access cookie, prompt (and do
+      // not record a view until access is granted).
+      if (share.passwordHash && !hasShareAccess(req, share.id)) {
+        res.status(401);
+        res.setHeader("X-Robots-Tag", "noindex, nofollow");
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.send(
+          sharePasswordForm(tokenOrSlug, share.title ?? share.fileName, false)
+        );
+        return;
+      }
+
       // Update view count + record individual view
       await pool.query(
         `UPDATE shareable_presentations SET "viewCount" = "viewCount" + 1, "lastViewedAt" = NOW() WHERE id = $1`,
@@ -881,8 +974,11 @@ export function registerIntegrationRoutes(app: Express) {
         }
       })();
 
-      // Block search engine indexing of share pages
+      // Stream the file directly through the tokened handler. The raw
+      // "/uploads/*" path is never exposed to the recipient, so it cannot be
+      // shared onward, guessed, enumerated or archived independently.
       res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      res.setHeader("Cache-Control", "private, no-store");
 
       const mime = (share.mimeType ?? "").toLowerCase();
       const isHtml =
@@ -890,63 +986,75 @@ export function registerIntegrationRoutes(app: Express) {
         share.fileName.endsWith(".html") ||
         share.fileName.endsWith(".htm");
 
-      if (isHtml) {
-        try {
-          const htmlRes = await fetch(share.fileUrl);
-          const html = await htmlRes.text();
-          res.setHeader("Content-Type", "text/html; charset=utf-8");
-          res.send(html);
-        } catch {
-          res.redirect(share.fileUrl);
-        }
-      } else {
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        res.send(`<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="robots" content="noindex, nofollow" />
-  <title>${share.title ?? share.fileName}</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; }
-    header { background: #1a1d27; border-bottom: 1px solid #2d3148; padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
-    .logo { width: 32px; height: 32px; background: #6366f1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 14px; }
-    h1 { font-size: 1.1rem; font-weight: 600; }
-    .sub { font-size: 0.8rem; color: #94a3b8; }
-    main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; gap: 24px; }
-    .card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 16px; padding: 40px; text-align: center; max-width: 480px; width: 100%; }
-    .icon { font-size: 3rem; margin-bottom: 16px; }
-    h2 { font-size: 1.4rem; margin-bottom: 8px; }
-    p { color: #94a3b8; margin-bottom: 24px; }
-    a.btn { display: inline-block; background: #6366f1; color: white; text-decoration: none; padding: 12px 28px; border-radius: 10px; font-weight: 600; transition: opacity 0.2s; }
-    a.btn:hover { opacity: 0.9; }
-    .meta { font-size: 0.8rem; color: #64748b; margin-top: 16px; }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="logo">SF</div>
-    <div>
-      <h1>${share.title ?? share.fileName}</h1>
-      <div class="sub">Shared by ${share.companyName ?? "SalesFlow CRM"}</div>
-    </div>
-  </header>
-  <main>
-    <div class="card">
-      <div class="icon">📄</div>
-      <h2>${share.fileName}</h2>
-      <p>Click the button below to view or download this document.</p>
-      <a class="btn" href="${share.fileUrl}" target="_blank" rel="noopener">Open Document</a>
-      <div class="meta">Viewed ${share.viewCount} time${share.viewCount !== 1 ? "s" : ""}</div>
-    </div>
-  </main>
-</body>
-</html>`);
+      const stream = await openStoredFile(share.fileUrl);
+      if (!stream) {
+        res.status(404).send("<h1>File not found.</h1>");
+        return;
       }
+      res.setHeader(
+        "Content-Type",
+        isHtml
+          ? "text/html; charset=utf-8"
+          : share.mimeType || "application/octet-stream"
+      );
+      // Inline so PDFs/HTML render in the browser; Office files download.
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${String(share.fileName).replace(/["\r\n]/g, "")}"`
+      );
+      stream.on("error", () => {
+        if (!res.headersSent) res.status(500).end();
+        else res.end();
+      });
+      stream.pipe(res);
     } catch (error) {
       console.error("[/share/:token] Error:", error);
+      res.status(500).send("<h1>An error occurred.</h1>");
+    }
+  });
+
+  /**
+   * POST /share/:token — verify a share password and grant access via cookie.
+   */
+  app.post("/share/:token", async (req: Request, res: Response) => {
+    try {
+      const tokenOrSlug = req.params.token.replace(/\.html?$/i, "");
+      const pool = await getRawPool();
+      if (!pool) {
+        res.status(503).send("Service unavailable");
+        return;
+      }
+      const share = await findActiveShare(pool, tokenOrSlug);
+      if (!share) {
+        res.status(404).send("<h1>Presentation not found or link has expired.</h1>");
+        return;
+      }
+      // No password set → nothing to verify, send them to the document.
+      if (!share.passwordHash) {
+        res.redirect(303, `/share/${share.slug ?? tokenOrSlug}`);
+        return;
+      }
+      const supplied = String(req.body?.password ?? "");
+      const ok = await bcrypt.compare(supplied, share.passwordHash);
+      if (!ok) {
+        res.status(401);
+        res.setHeader("X-Robots-Tag", "noindex, nofollow");
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.send(
+          sharePasswordForm(tokenOrSlug, share.title ?? share.fileName, true)
+        );
+        return;
+      }
+      res.cookie(`sa_${share.id}`, signShareAccess(share.id), {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: req.protocol === "https",
+        maxAge: SHARE_ACCESS_MAX_AGE_MS,
+        path: "/share",
+      });
+      res.redirect(303, `/share/${share.slug ?? tokenOrSlug}`);
+    } catch (error) {
+      console.error("[POST /share/:token] Error:", error);
       res.status(500).send("<h1>An error occurred.</h1>");
     }
   });
@@ -956,7 +1064,7 @@ export function registerIntegrationRoutes(app: Express) {
    */
   app.post("/api/share-crm-document", async (req: Request, res: Response) => {
     try {
-      const { documentId, title, slug: rawSlug, userId } = req.body;
+      const { documentId, title, slug: rawSlug, userId, password } = req.body;
       if (!documentId) {
         res.status(400).json({ error: "documentId is required" });
         return;
@@ -992,10 +1100,13 @@ export function registerIntegrationRoutes(app: Express) {
       }
 
       const token = nanoid(32);
+      const passwordHash = password
+        ? await bcrypt.hash(String(password), BCRYPT_ROUNDS)
+        : null;
       await pool.query(
-        `INSERT INTO shareable_presentations ("crmDocumentId", token, slug, title, "createdBy", "createdAt", "isActive")
-         VALUES ($1, $2, $3, $4, $5, NOW(), TRUE)`,
-        [documentId, token, slug, title ?? doc.fileName, userId ?? null]
+        `INSERT INTO shareable_presentations ("crmDocumentId", token, slug, title, "createdBy", "createdAt", "isActive", "passwordHash")
+         VALUES ($1, $2, $3, $4, $5, NOW(), TRUE, $6)`,
+        [documentId, token, slug, title ?? doc.fileName, userId ?? null, passwordHash]
       );
 
       const shareUrl = `${req.protocol}://${req.get("host")}/share/${slug ?? token}`;

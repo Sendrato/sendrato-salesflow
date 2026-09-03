@@ -1,4 +1,5 @@
 import { z } from "zod/v4";
+import bcrypt from "bcryptjs";
 import { protectedProcedure, router } from "../_core/trpc";
 import {
   getLeadDocuments,
@@ -147,6 +148,27 @@ export const documentsRouter = router({
         [clean, input.id]
       );
       return { success: true, slug: clean };
+    }),
+
+  setSharePassword: protectedProcedure
+    .input(
+      z.object({
+        token: z.string(),
+        password: z.string().min(1).nullable(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const pool = await getRawPool();
+      if (!pool) throw new Error("No DB connection");
+      const hash = input.password
+        ? await bcrypt.hash(input.password, 12)
+        : null;
+      const { rowCount } = await pool.query(
+        `UPDATE shareable_presentations SET "passwordHash" = $1 WHERE token = $2 OR slug = $2`,
+        [hash, input.token]
+      );
+      if (!rowCount) throw new Error("Share not found");
+      return { success: true, protected: hash !== null };
     }),
 
   listShareViews: protectedProcedure
