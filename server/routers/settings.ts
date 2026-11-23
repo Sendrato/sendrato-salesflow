@@ -1,12 +1,18 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
+import { adminProcedure, protectedProcedure, router } from "../_core/trpc";
 import {
   getAllLLMSettings,
   getAllImapSettings,
+  getAllSmtpSettings,
+  getWebsiteApiSettings,
   getSetting,
   setSetting,
   SETTING_KEYS,
+  DEFAULT_WEBSITE_NOTIFY_EMAIL,
 } from "../settingsDb";
+import { resetTransport, sendMail, verifySmtp } from "../mailer";
+import { listWebsiteRequests } from "../websiteRequestsDb";
+import { nanoid } from "nanoid";
 import { ImapFlow } from "imapflow";
 import { restartImapPolling, pollOnce } from "../imapPoller";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -264,4 +270,119 @@ export const settingsRouter = router({
         return { success: false, error: msg };
       }
     }),
+
+  // ── Outgoing mail (SMTP) ────────────────────────────────────────────────────
+
+  getSmtpConfig: protectedProcedure.query(async () => {
+    const settings = await getAllSmtpSettings();
+    return {
+      host: settings.host,
+      port: settings.port,
+      secure: settings.secure,
+      user: settings.user,
+      hasPassword: settings.password.length > 0,
+      from: settings.from,
+    };
+  }),
+
+  updateSmtpConfig: protectedProcedure
+    .input(
+      z.object({
+        host: z.string().optional(),
+        port: z.number().int().min(1).max(65535).optional(),
+        secure: z.boolean().optional(),
+        user: z.string().optional(),
+        password: z.string().optional(),
+        from: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const updates: Promise<void>[] = [];
+      if (input.host !== undefined)
+        updates.push(setSetting(SETTING_KEYS.SMTP_HOST, input.host.trim()));
+      if (input.port !== undefined)
+        updates.push(setSetting(SETTING_KEYS.SMTP_PORT, String(input.port)));
+      if (input.secure !== undefined)
+        updates.push(
+          setSetting(SETTING_KEYS.SMTP_SECURE, String(input.secure))
+        );
+      if (input.user !== undefined)
+        updates.push(setSetting(SETTING_KEYS.SMTP_USER, input.user.trim()));
+      if (input.password !== undefined && input.password.length > 0)
+        updates.push(setSetting(SETTING_KEYS.SMTP_PASSWORD, input.password));
+      if (input.from !== undefined)
+        updates.push(setSetting(SETTING_KEYS.SMTP_FROM, input.from.trim()));
+      await Promise.all(updates);
+      // Credentials changed — drop the cached transport.
+      resetTransport();
+      return { success: true };
+    }),
+
+  testSmtpConnection: protectedProcedure
+    .input(z.object({ sendTestTo: z.email().optional() }))
+    .mutation(async ({ input }) => {
+      try {
+        await verifySmtp();
+        if (input.sendTestTo) {
+          await sendMail({
+            to: input.sendTestTo,
+            subject: "SalesFlow SMTP test",
+            text: "This is a test message from SalesFlow. Outgoing mail works.",
+          });
+          return { success: true, sent: true } as const;
+        }
+        return { success: true, sent: false } as const;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return { success: false, sent: false, error: msg } as const;
+      }
+    }),
+
+  // ── Website request endpoint ────────────────────────────────────────────────
+
+  getWebsiteApiConfig: protectedProcedure.query(async () => {
+    const settings = await getWebsiteApiSettings();
+    return {
+      hasToken: settings.apiToken.length > 0,
+      // Enough to recognise which token is live, without exposing it.
+      tokenHint: settings.apiToken ? settings.apiToken.slice(-6) : "",
+      notifyEmail: settings.notifyEmail,
+      defaultNotifyEmail: DEFAULT_WEBSITE_NOTIFY_EMAIL,
+      endpoint: "/api/website-request",
+    };
+  }),
+
+  updateWebsiteApiConfig: protectedProcedure
+    .input(z.object({ notifyEmail: z.email().optional() }))
+    .mutation(async ({ input }) => {
+      if (input.notifyEmail !== undefined) {
+        await setSetting(
+          SETTING_KEYS.WEBSITE_NOTIFY_EMAIL,
+          input.notifyEmail.trim().toLowerCase()
+        );
+      }
+      return { success: true };
+    }),
+
+  /** Generate (or rotate) the bearer token. Returned once, in full. */
+  rotateWebsiteApiToken: adminProcedure.mutation(async () => {
+    const token = `srq_${nanoid(40)}`;
+    await setSetting(SETTING_KEYS.WEBSITE_API_TOKEN, token);
+    return { token };
+  }),
+
+  revokeWebsiteApiToken: adminProcedure.mutation(async () => {
+    await setSetting(SETTING_KEYS.WEBSITE_API_TOKEN, "");
+    return { success: true };
+  }),
+
+  listWebsiteRequests: protectedProcedure
+    .input(
+      z.object({
+        limit: z.number().int().min(1).max(100).optional().default(25),
+        offset: z.number().int().min(0).optional().default(0),
+        includeSpam: z.boolean().optional().default(false),
+      })
+    )
+    .query(async ({ input }) => listWebsiteRequests(input)),
 });

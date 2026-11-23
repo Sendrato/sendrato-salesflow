@@ -12,6 +12,7 @@ import { registerChatRoutes } from "./chat";
 import { registerCrmChatRoutes } from "../crmChat";
 import { registerBrainstormChatRoutes } from "../brainstormChat";
 import { registerIntegrationRoutes } from "../integrations";
+import { registerWebsiteRequestRoutes } from "../websiteRequests";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
@@ -79,6 +80,8 @@ async function startServer() {
   );
   // Integration routes: email ingest, Slack, import
   registerIntegrationRoutes(app);
+  // Website request intake (bearer-token protected)
+  registerWebsiteRequestRoutes(app);
   // tRPC API
   app.use(
     "/api/trpc",

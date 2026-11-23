@@ -207,6 +207,59 @@ export async function getDb() {
           } catch (e) {
             console.warn("[DB] presentation_views table check:", e);
           }
+          // Ensure website_requests table exists (inbound sendrato.com forms)
+          try {
+            const enumCheck = await _pool.query(
+              `SELECT 1 FROM pg_type WHERE typname = 'website_request_status'`
+            );
+            if (enumCheck.rows.length === 0) {
+              await _pool.query(
+                `CREATE TYPE "website_request_status" AS ENUM ('new', 'spam', 'error')`
+              );
+              console.log("[DB] Created 'website_request_status' enum");
+            }
+            const tableCheck = await _pool.query(
+              `SELECT 1 FROM information_schema.tables WHERE table_name = 'website_requests'`
+            );
+            if (tableCheck.rows.length === 0) {
+              await _pool.query(`
+                CREATE TABLE website_requests (
+                  id SERIAL PRIMARY KEY,
+                  "externalId" VARCHAR(128) UNIQUE,
+                  name VARCHAR(255),
+                  email VARCHAR(320),
+                  company VARCHAR(255),
+                  "eventType" VARCHAR(128),
+                  "requestType" VARCHAR(128),
+                  message TEXT,
+                  status website_request_status NOT NULL DEFAULT 'new',
+                  "personId" INTEGER,
+                  "contactMomentId" INTEGER,
+                  "rawPayload" TEXT,
+                  "notifiedAt" TIMESTAMP,
+                  "notifyError" TEXT,
+                  "processError" TEXT,
+                  "submittedAt" TIMESTAMP,
+                  "createdAt" TIMESTAMP DEFAULT NOW() NOT NULL
+                )
+              `);
+              console.log("[DB] Created 'website_requests' table");
+            }
+            await _pool.query(
+              `ALTER TABLE website_requests ADD COLUMN IF NOT EXISTS "processError" TEXT`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_website_requests_created_at ON website_requests ("createdAt")`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_website_requests_email ON website_requests (email)`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_website_requests_person_id ON website_requests ("personId")`
+            );
+          } catch (e) {
+            console.warn("[DB] website_requests table check:", e);
+          }
           // Ensure shareable_presentations.slug column exists
           try {
             const slugCheck = await _pool.query(
@@ -300,6 +353,9 @@ export async function getDb() {
             );
             await _pool.query(
               `CREATE INDEX IF NOT EXISTS idx_person_lead_links_lead_id ON person_lead_links ("leadId")`
+            );
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_persons_email_lower ON persons (LOWER(email))`
             );
           } catch (e) {
             console.warn("[DB] Index creation failed:", e);

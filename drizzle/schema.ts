@@ -556,3 +556,40 @@ export const brainstormDocuments = pgTable("brainstorm_documents", {
 
 export type BrainstormDocument = typeof brainstormDocuments.$inferSelect;
 export type InsertBrainstormDocument = typeof brainstormDocuments.$inferInsert;
+
+// ─── Website Requests ─────────────────────────────────────────────────────────
+// Inbound contact/demo requests posted by sendrato.com to /api/website-request.
+// Each row is the immutable audit record of a submission; the CRM-visible
+// result lives on the linked person (and its contact moment).
+export const websiteRequestStatusEnum = pgEnum("website_request_status", [
+  "new", // stored, person linked
+  "spam", // honeypot was filled — no person created
+  "error", // processing failed after the payload was stored
+]);
+
+export const websiteRequests = pgTable("website_requests", {
+  id: serial("id").primaryKey(),
+  // The website's own submission id — used for idempotent re-delivery
+  externalId: varchar("externalId", { length: 128 }).unique(),
+  name: varchar("name", { length: 255 }),
+  email: varchar("email", { length: 320 }),
+  company: varchar("company", { length: 255 }),
+  eventType: varchar("eventType", { length: 128 }),
+  requestType: varchar("requestType", { length: 128 }),
+  message: text("message"),
+  status: websiteRequestStatusEnum("status").default("new").notNull(),
+  personId: integer("personId"),
+  contactMomentId: integer("contactMomentId"),
+  rawPayload: text("rawPayload"),
+  // When the notification email to info@sendrato.com went out
+  notifiedAt: timestamp("notifiedAt"),
+  notifyError: text("notifyError"),
+  // Why the CRM write (person / contact moment) failed, if it did
+  processError: text("processError"),
+  // created_at as reported by the website (falls back to receipt time)
+  submittedAt: timestamp("submittedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type WebsiteRequest = typeof websiteRequests.$inferSelect;
+export type InsertWebsiteRequest = typeof websiteRequests.$inferInsert;
