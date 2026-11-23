@@ -586,6 +586,11 @@ export const websiteRequests = pgTable("website_requests", {
   notifyError: text("notifyError"),
   // Why the CRM write (person / contact moment) failed, if it did
   processError: text("processError"),
+  // Triage: set when someone has dealt with this enquiry, which takes it off
+  // the dashboard queue. Tracked per request, not per person, because one
+  // person can submit several enquiries that each need picking up.
+  handledAt: timestamp("handledAt"),
+  handledBy: integer("handledBy"),
   // created_at as reported by the website (falls back to receipt time)
   submittedAt: timestamp("submittedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

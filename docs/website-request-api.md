@@ -130,3 +130,19 @@ retrying the good ones.
 
 Honeypot hits return `200` so bots cannot distinguish them from real
 submissions.
+
+## Picking requests up
+
+New enquiries appear on the **Dashboard** as _New Website Requests_, beside
+_Unmatched Emails_. It is a work queue: a row shows the person, company,
+request type and how long ago it came in, links through to the person, and has
+a check button that marks it handled.
+
+The triage state lives on the request (`handledAt` / `handledBy`), not on the
+person, so the same person submitting three enquiries gets three items to pick
+up. Marking one handled also completes the follow-up the intake created, so a
+dealt-with enquiry stops showing in _Overdue Follow-ups_ as well. Persons have
+no status field — `personType` is a category, and lead status belongs to leads.
+
+`websiteRequests.markUnhandled` puts a request back on the queue if it was
+cleared by mistake.

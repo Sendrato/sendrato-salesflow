@@ -249,6 +249,16 @@ export async function getDb() {
               `ALTER TABLE website_requests ADD COLUMN IF NOT EXISTS "processError" TEXT`
             );
             await _pool.query(
+              `ALTER TABLE website_requests ADD COLUMN IF NOT EXISTS "handledAt" TIMESTAMP`
+            );
+            await _pool.query(
+              `ALTER TABLE website_requests ADD COLUMN IF NOT EXISTS "handledBy" INTEGER`
+            );
+            // Partial index for the dashboard triage queue.
+            await _pool.query(
+              `CREATE INDEX IF NOT EXISTS idx_website_requests_pending ON website_requests ("createdAt") WHERE "handledAt" IS NULL AND status = 'new'`
+            );
+            await _pool.query(
               `CREATE INDEX IF NOT EXISTS idx_website_requests_created_at ON website_requests ("createdAt")`
             );
             await _pool.query(

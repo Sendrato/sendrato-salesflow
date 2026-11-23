@@ -22,6 +22,7 @@ import { crmDocumentsRouter } from "./routers/crmDocuments";
 import { promotorEventsRouter } from "./routers/promotorEvents";
 import { settingsRouter } from "./routers/settings";
 import { brainstormRouter } from "./routers/brainstorm";
+import { websiteRequestsRouter } from "./routers/websiteRequests";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -183,6 +184,7 @@ export const appRouter = router({
   crmDocuments: crmDocumentsRouter,
   promotorEvents: promotorEventsRouter,
   brainstorm: brainstormRouter,
+  websiteRequests: websiteRequestsRouter,
 
   // File upload for documents
   upload: router({

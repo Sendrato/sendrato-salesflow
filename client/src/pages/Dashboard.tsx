@@ -19,6 +19,8 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
+  Globe,
+  Check,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import {
@@ -62,6 +64,7 @@ export default function Dashboard() {
   const [overdueExpanded, setOverdueExpanded] = useState(false);
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
   const [meetingsExpanded, setMeetingsExpanded] = useState(false);
+  const [websiteExpanded, setWebsiteExpanded] = useState(false);
   const { data: overview } = trpc.analytics.overview.useQuery();
   const { data: pipeline } = trpc.analytics.pipeline.useQuery();
   const { data: topLeads } = trpc.analytics.topLeads.useQuery({ limit: 8 });
@@ -74,6 +77,19 @@ export default function Dashboard() {
   const { data: followUpData } = trpc.analytics.followUps.useQuery(undefined, {
     refetchInterval: 60_000,
   });
+  const utils = trpc.useUtils();
+  const { data: websiteRequestData } = trpc.websiteRequests.pending.useQuery(
+    { limit: 20 },
+    { refetchInterval: 60_000 }
+  );
+  const markHandledMutation = trpc.websiteRequests.markHandled.useMutation({
+    onSuccess: () => {
+      // The follow-up is completed too, so both queues need refreshing.
+      utils.websiteRequests.pending.invalidate();
+      utils.analytics.followUps.invalidate();
+    },
+  });
+
   const { data: unmatchedData } = trpc.analytics.unmatchedEmails.useQuery(
     undefined,
     {
@@ -136,7 +152,8 @@ export default function Dashboard() {
         {((followUpData?.overdueCount ?? 0) > 0 ||
           (followUpData?.upcomingCount ?? 0) > 0 ||
           (followUpData?.upcomingMeetingsCount ?? 0) > 0 ||
-          (unmatchedData?.count ?? 0) > 0) && (
+          (unmatchedData?.count ?? 0) > 0 ||
+          (websiteRequestData?.count ?? 0) > 0) && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {(followUpData?.overdueCount ?? 0) > 0 && (
               <Card className="border border-red-200 dark:border-red-900 shadow-sm bg-red-50/50 dark:bg-red-950/20">
@@ -157,12 +174,7 @@ export default function Dashboard() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-red-100 dark:divide-red-900/50">
                     {(followUpData?.overdue ?? [])
-                      .slice(
-                        0,
-                        overdueExpanded
-                          ? undefined
-                          : COLLAPSED_LIMIT
-                      )
+                      .slice(0, overdueExpanded ? undefined : COLLAPSED_LIMIT)
                       .map(item => (
                         <div
                           key={item.momentId}
@@ -230,12 +242,7 @@ export default function Dashboard() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-amber-100 dark:divide-amber-900/50">
                     {(followUpData?.upcoming ?? [])
-                      .slice(
-                        0,
-                        upcomingExpanded
-                          ? undefined
-                          : COLLAPSED_LIMIT
-                      )
+                      .slice(0, upcomingExpanded ? undefined : COLLAPSED_LIMIT)
                       .map(item => (
                         <div
                           key={item.momentId}
@@ -303,12 +310,7 @@ export default function Dashboard() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-blue-100 dark:divide-blue-900/50">
                     {(followUpData?.upcomingMeetings ?? [])
-                      .slice(
-                        0,
-                        meetingsExpanded
-                          ? undefined
-                          : COLLAPSED_LIMIT
-                      )
+                      .slice(0, meetingsExpanded ? undefined : COLLAPSED_LIMIT)
                       .map(item => (
                         <div
                           key={item.momentId}
@@ -348,6 +350,102 @@ export default function Dashboard() {
                       ) : (
                         <>
                           Show all ({followUpData!.upcomingMeetingsCount}){" "}
+                          <ChevronDown className="h-3 w-3" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+            {(websiteRequestData?.count ?? 0) > 0 && (
+              <Card className="border border-emerald-200 dark:border-emerald-900 shadow-sm bg-emerald-50/50 dark:bg-emerald-950/20">
+                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                    <Globe className="h-4 w-4" />
+                    New Website Requests ({websiteRequestData!.count})
+                  </CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLocation("/persons")}
+                    className="gap-1 text-xs text-emerald-600"
+                  >
+                    People <ArrowRight className="h-3 w-3" />
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="divide-y divide-emerald-100 dark:divide-emerald-900/50">
+                    {(websiteRequestData?.requests ?? [])
+                      .slice(0, websiteExpanded ? undefined : COLLAPSED_LIMIT)
+                      .map(item => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between gap-2 px-6 py-2.5 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/30 cursor-pointer transition-colors"
+                          onClick={() =>
+                            item.personId
+                              ? setLocation(`/persons/${item.personId}`)
+                              : undefined
+                          }
+                        >
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {item.personName || item.name || "Unknown"}
+                              {item.company ? (
+                                <span className="font-normal text-muted-foreground">
+                                  {" "}
+                                  · {item.company}
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {[
+                                item.requestType
+                                  ? `${item.requestType} request`
+                                  : "contact request",
+                                item.eventType,
+                                item.email,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-xs text-emerald-600 dark:text-emerald-400">
+                              {formatRelativeTime(
+                                item.submittedAt ?? item.createdAt
+                              )}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-emerald-700 dark:text-emerald-400"
+                              title="Mark as handled — also completes its follow-up"
+                              disabled={markHandledMutation.isPending}
+                              onClick={e => {
+                                e.stopPropagation();
+                                markHandledMutation.mutate({ id: item.id });
+                              }}
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                  {(websiteRequestData?.requests ?? []).length >
+                    COLLAPSED_LIMIT && (
+                    <button
+                      className="w-full flex items-center justify-center gap-1 py-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100/50 dark:hover:bg-emerald-950/30 transition-colors"
+                      onClick={() => setWebsiteExpanded(prev => !prev)}
+                    >
+                      {websiteExpanded ? (
+                        <>
+                          Show less <ChevronUp className="h-3 w-3" />
+                        </>
+                      ) : (
+                        <>
+                          Show all ({websiteRequestData!.count}){" "}
                           <ChevronDown className="h-3 w-3" />
                         </>
                       )}

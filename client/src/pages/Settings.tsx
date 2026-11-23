@@ -1817,7 +1817,7 @@ function WebsiteRequestApiCard() {
     isLoading,
     refetch,
   } = trpc.settings.getWebsiteApiConfig.useQuery();
-  const { data: requests } = trpc.settings.listWebsiteRequests.useQuery({
+  const { data: requests } = trpc.websiteRequests.list.useQuery({
     limit: 5,
     offset: 0,
     includeSpam: false,

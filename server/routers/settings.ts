@@ -11,7 +11,6 @@ import {
   DEFAULT_WEBSITE_NOTIFY_EMAIL,
 } from "../settingsDb";
 import { resetTransport, sendMail, verifySmtp } from "../mailer";
-import { listWebsiteRequests } from "../websiteRequestsDb";
 import { nanoid } from "nanoid";
 import { ImapFlow } from "imapflow";
 import { restartImapPolling, pollOnce } from "../imapPoller";
@@ -384,14 +383,4 @@ export const settingsRouter = router({
     await setSetting(SETTING_KEYS.WEBSITE_API_TOKEN, "");
     return { success: true };
   }),
-
-  listWebsiteRequests: protectedProcedure
-    .input(
-      z.object({
-        limit: z.number().int().min(1).max(100).optional().default(25),
-        offset: z.number().int().min(0).optional().default(0),
-        includeSpam: z.boolean().optional().default(false),
-      })
-    )
-    .query(async ({ input }) => listWebsiteRequests(input)),
 });
