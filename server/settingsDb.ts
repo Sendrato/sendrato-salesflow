@@ -29,6 +29,7 @@ export const SETTING_KEYS = {
   SMTP_USER: "smtp.user",
   SMTP_PASSWORD: "smtp.password", // obfuscated
   SMTP_FROM: "smtp.from",
+  SMTP_ALLOW_INVALID_CERT: "smtp.allowInvalidCert",
   // Website request endpoint
   WEBSITE_API_TOKEN: "website.apiToken", // obfuscated
   WEBSITE_NOTIFY_EMAIL: "website.notifyEmail",
@@ -148,6 +149,8 @@ export type SmtpSettings = {
   user: string;
   password: string;
   from: string;
+  /** Accept a self-signed/mismatched server certificate (opt-in). */
+  allowInvalidCert: boolean;
 };
 
 /**
@@ -155,14 +158,16 @@ export type SmtpSettings = {
  * so a fresh deployment can send mail before anyone opens the settings page.
  */
 export async function getAllSmtpSettings(): Promise<SmtpSettings> {
-  const [host, port, secure, user, password, from] = await Promise.all([
-    getSetting(SETTING_KEYS.SMTP_HOST),
-    getSetting(SETTING_KEYS.SMTP_PORT),
-    getSetting(SETTING_KEYS.SMTP_SECURE),
-    getSetting(SETTING_KEYS.SMTP_USER),
-    getSetting(SETTING_KEYS.SMTP_PASSWORD),
-    getSetting(SETTING_KEYS.SMTP_FROM),
-  ]);
+  const [host, port, secure, user, password, from, allowInvalidCert] =
+    await Promise.all([
+      getSetting(SETTING_KEYS.SMTP_HOST),
+      getSetting(SETTING_KEYS.SMTP_PORT),
+      getSetting(SETTING_KEYS.SMTP_SECURE),
+      getSetting(SETTING_KEYS.SMTP_USER),
+      getSetting(SETTING_KEYS.SMTP_PASSWORD),
+      getSetting(SETTING_KEYS.SMTP_FROM),
+      getSetting(SETTING_KEYS.SMTP_ALLOW_INVALID_CERT),
+    ]);
   const resolvedHost = host || process.env.SMTP_HOST || "";
   const resolvedPort = parseInt(port || process.env.SMTP_PORT || "587", 10);
   const resolvedSecure =
@@ -179,6 +184,10 @@ export async function getAllSmtpSettings(): Promise<SmtpSettings> {
     user: resolvedUser,
     password: password || process.env.SMTP_PASSWORD || "",
     from: from || process.env.SMTP_FROM || resolvedUser,
+    allowInvalidCert:
+      allowInvalidCert != null && allowInvalidCert !== ""
+        ? allowInvalidCert === "true"
+        : process.env.SMTP_ALLOW_INVALID_CERT === "true",
   };
 }
 

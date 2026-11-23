@@ -282,6 +282,7 @@ export const settingsRouter = router({
       user: settings.user,
       hasPassword: settings.password.length > 0,
       from: settings.from,
+      allowInvalidCert: settings.allowInvalidCert,
     };
   }),
 
@@ -294,6 +295,7 @@ export const settingsRouter = router({
         user: z.string().optional(),
         password: z.string().optional(),
         from: z.string().optional(),
+        allowInvalidCert: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -312,6 +314,13 @@ export const settingsRouter = router({
         updates.push(setSetting(SETTING_KEYS.SMTP_PASSWORD, input.password));
       if (input.from !== undefined)
         updates.push(setSetting(SETTING_KEYS.SMTP_FROM, input.from.trim()));
+      if (input.allowInvalidCert !== undefined)
+        updates.push(
+          setSetting(
+            SETTING_KEYS.SMTP_ALLOW_INVALID_CERT,
+            String(input.allowInvalidCert)
+          )
+        );
       await Promise.all(updates);
       // Credentials changed — drop the cached transport.
       resetTransport();

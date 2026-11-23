@@ -1553,6 +1553,7 @@ function SmtpSettingsCard() {
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
   const [from, setFrom] = useState("");
+  const [allowInvalidCert, setAllowInvalidCert] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [testTo, setTestTo] = useState("");
@@ -1569,6 +1570,7 @@ function SmtpSettingsCard() {
     setSecure(smtpConfig.secure);
     setUser(smtpConfig.user);
     setFrom(smtpConfig.from);
+    setAllowInvalidCert(smtpConfig.allowInvalidCert);
     setSmtpInitialised(true);
   }
 
@@ -1586,6 +1588,7 @@ function SmtpSettingsCard() {
         user,
         ...(password.length > 0 ? { password } : {}),
         from,
+        allowInvalidCert,
       });
       setPassword("");
       setHasChanges(false);
@@ -1666,6 +1669,27 @@ function SmtpSettingsCard() {
           <Label htmlFor="smtpSecure">
             Implicit TLS (port 465) — leave off for STARTTLS on 587
           </Label>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="smtpAllowInvalidCert"
+              checked={allowInvalidCert}
+              onCheckedChange={v => {
+                setAllowInvalidCert(v);
+                markSmtpChanged();
+              }}
+            />
+            <Label htmlFor="smtpAllowInvalidCert">
+              Allow self-signed certificate
+            </Label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Needed for mail servers that serve an untrusted certificate. The
+            connection stays encrypted, but the server is no longer
+            authenticated — only enable this for a mail host you control.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
