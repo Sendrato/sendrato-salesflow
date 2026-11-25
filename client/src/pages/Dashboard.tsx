@@ -21,8 +21,20 @@ import {
   ChevronUp,
   Globe,
   Check,
+  CheckCheck,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useLocation } from "wouter";
+import { toast } from "sonner";
 import {
   BarChart,
   Bar,
@@ -65,6 +77,7 @@ export default function Dashboard() {
   const [upcomingExpanded, setUpcomingExpanded] = useState(false);
   const [meetingsExpanded, setMeetingsExpanded] = useState(false);
   const [websiteExpanded, setWebsiteExpanded] = useState(false);
+  const [clearOverdueOpen, setClearOverdueOpen] = useState(false);
   const { data: overview } = trpc.analytics.overview.useQuery();
   const { data: pipeline } = trpc.analytics.pipeline.useQuery();
   const { data: topLeads } = trpc.analytics.topLeads.useQuery({ limit: 8 });
@@ -89,6 +102,20 @@ export default function Dashboard() {
       utils.analytics.followUps.invalidate();
     },
   });
+
+  const clearOverdueMutation = trpc.analytics.clearOverdueFollowUps.useMutation(
+    {
+      onSuccess: ({ cleared }) => {
+        utils.analytics.followUps.invalidate();
+        setClearOverdueOpen(false);
+        toast.success(
+          cleared === 1
+            ? "1 overdue follow-up marked as done"
+            : `${cleared} overdue follow-ups marked as done`
+        );
+      },
+    }
+  );
 
   const { data: unmatchedData } = trpc.analytics.unmatchedEmails.useQuery(
     undefined,
@@ -162,14 +189,24 @@ export default function Dashboard() {
                     <AlertCircle className="h-4 w-4" />
                     Overdue Follow-ups ({followUpData!.overdueCount})
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setLocation("/calendar")}
-                    className="gap-1 text-xs text-red-600"
-                  >
-                    Calendar <ArrowRight className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setClearOverdueOpen(true)}
+                      className="gap-1 text-xs text-red-600"
+                    >
+                      <CheckCheck className="h-3 w-3" /> Clear all
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLocation("/calendar")}
+                      className="gap-1 text-xs text-red-600"
+                    >
+                      Calendar <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="divide-y divide-red-100 dark:divide-red-900/50">
@@ -856,6 +893,37 @@ export default function Dashboard() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={clearOverdueOpen} onOpenChange={setClearOverdueOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Clear {followUpData?.overdueCount ?? 0} overdue follow-up
+              {(followUpData?.overdueCount ?? 0) === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Every overdue follow-up is marked as done and disappears from this
+              queue and the calendar. The follow-up dates stay on the contact
+              moments, so you can still re-open them one by one from a lead or
+              person.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearOverdueMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={e => {
+                e.preventDefault();
+                clearOverdueMutation.mutate();
+              }}
+              disabled={clearOverdueMutation.isPending}
+            >
+              {clearOverdueMutation.isPending ? "Clearing…" : "Clear all"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 }

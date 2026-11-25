@@ -273,6 +273,46 @@ export const analyticsRouter = router({
     };
   }),
 
+  /**
+   * Mark every overdue, still-pending follow-up as done. Matches the exact set
+   * returned as `overdue` by the followUps query above (including the country
+   * restriction), so the dashboard's "Clear all" clears what it shows.
+   */
+  clearOverdueFollowUps: protectedProcedure.mutation(async ({ ctx }) => {
+    const db = await getDb();
+    if (!db) return { cleared: 0 };
+
+    const allowedCountries = getUserAllowedCountries(ctx.user);
+    // No join available on UPDATE, so scope by leadId subquery instead.
+    const countryCondition = Array.isArray(allowedCountries)
+      ? or(
+          eq(contactMoments.leadId, 0),
+          inArray(
+            contactMoments.leadId,
+            db
+              .select({ id: leads.id })
+              .from(leads)
+              .where(inArray(leads.country, allowedCountries))
+          )
+        )
+      : undefined;
+
+    const cleared = await db
+      .update(contactMoments)
+      .set({ followUpDone: true, updatedAt: new Date() })
+      .where(
+        and(
+          sql`${contactMoments.followUpAt} IS NOT NULL`,
+          lt(contactMoments.followUpAt, new Date()),
+          eq(contactMoments.followUpDone, false),
+          countryCondition
+        )
+      )
+      .returning({ id: contactMoments.id });
+
+    return { cleared: cleared.length };
+  }),
+
   // ─── Unmatched Emails ─────────────────────────────────────────────────────
 
   unmatchedEmails: protectedProcedure.query(async () => {

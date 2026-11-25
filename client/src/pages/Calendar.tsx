@@ -9,6 +9,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import DashboardLayout from "@/components/DashboardLayout";
 import {
   ChevronLeft,
@@ -24,6 +34,7 @@ import {
   Loader2,
   Bell,
   CheckCircle2,
+  CheckCheck,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
@@ -94,6 +105,7 @@ export default function CalendarPage() {
   );
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
   const [view, setView] = useState<"month" | "week">("month");
+  const [clearOverdueOpen, setClearOverdueOpen] = useState(false);
 
   const utils = trpc.useUtils();
   const markDoneMutation = trpc.contactMoments.update.useMutation({
@@ -103,6 +115,21 @@ export default function CalendarPage() {
       toast.success("Follow-up marked as done");
     },
   });
+
+  const clearOverdueMutation = trpc.analytics.clearOverdueFollowUps.useMutation(
+    {
+      onSuccess: ({ cleared }) => {
+        utils.contactMoments.listAll.invalidate();
+        utils.analytics.followUps.invalidate();
+        setClearOverdueOpen(false);
+        toast.success(
+          cleared === 1
+            ? "1 overdue follow-up marked as done"
+            : `${cleared} overdue follow-ups marked as done`
+        );
+      },
+    }
+  );
 
   // Fetch all contact moments with follow-up dates
   const { data: allMoments, isLoading } = trpc.contactMoments.listAll.useQuery({
@@ -255,11 +282,21 @@ export default function CalendarPage() {
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <AlertCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold text-red-700 dark:text-red-400 text-sm">
-                        {overdueFollowUps.length} Overdue Follow-up
-                        {overdueFollowUps.length !== 1 ? "s" : ""}
-                      </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-semibold text-red-700 dark:text-red-400 text-sm">
+                          {overdueFollowUps.length} Overdue Follow-up
+                          {overdueFollowUps.length !== 1 ? "s" : ""}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setClearOverdueOpen(true)}
+                          className="gap-1 text-xs text-red-600 h-6 px-2 shrink-0"
+                        >
+                          <CheckCheck className="h-3 w-3" /> Clear all
+                        </Button>
+                      </div>
                       <div className="mt-1 space-y-1">
                         {overdueFollowUps.slice(0, 3).map(e => (
                           <p
@@ -614,6 +651,37 @@ export default function CalendarPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        <AlertDialog open={clearOverdueOpen} onOpenChange={setClearOverdueOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                Clear {overdueFollowUps.length} overdue follow-up
+                {overdueFollowUps.length === 1 ? "" : "s"}?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Every overdue follow-up is marked as done and disappears from
+                the calendar and the dashboard queue. The follow-up dates stay
+                on the contact moments, so you can still re-open them one by one
+                from a lead or person.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={clearOverdueMutation.isPending}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={e => {
+                  e.preventDefault();
+                  clearOverdueMutation.mutate();
+                }}
+                disabled={clearOverdueMutation.isPending}
+              >
+                {clearOverdueMutation.isPending ? "Clearing…" : "Clear all"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );
